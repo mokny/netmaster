@@ -2,7 +2,11 @@ services:
   netmaster:
     build: .
     ports:
-      - "3000:3000"
+      # HOST_BIND defaults to 0.0.0.0 (publicly reachable). install.sh sets it
+      # to 127.0.0.1 when a Caddy proxy is used, since Caddy reaches this
+      # container directly over the internal Docker network regardless of
+      # this host-port mapping.
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -16,5 +20,21 @@ services:
       - netmaster-data:/app/data
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["proxy"]
+    depends_on:
+      - netmaster
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
 volumes:
   netmaster-data:
+  caddy-data:
+  caddy-config:

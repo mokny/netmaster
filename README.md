@@ -10,6 +10,31 @@ Selbst-gehostetes Netzwerkadministratorpanel: Live-Monitoring deiner Server (CPU
 - SSH-Monitoring über `ssh2`, verschlüsselte Credentials (AES-256-GCM)
 - Recharts für Live-Graphen, `react-grid-layout` für das Drag-&-Drop-Dashboard
 
+## Installation (Linux-Server, empfohlen)
+
+Ein einzelner Befehl installiert Docker (falls nötig), lädt das neueste Release,
+führt dich durch ein kurzes Setup (Admin-Account, Port, optional HTTPS via
+Caddy + Let's Encrypt) und startet NetMaster:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mokny/netmaster/main/install.sh | bash
+```
+
+Danach steht der `netmaster`-Befehl zur Verfügung:
+
+```bash
+netmaster status              # Status & URL anzeigen
+netmaster logs                # Live-Logs
+netmaster restart             # Container neu starten
+netmaster update               # auf neuestes Release aktualisieren (mit DB-Backup)
+netmaster update --nightly     # auf neuesten main-Commit aktualisieren
+netmaster uninstall            # interaktiv entfernen
+```
+
+Der Einzeiler ist auch für Updates/Reparatur sicher erneut ausführbar: eine
+bestehende Installation wird automatisch erkannt und stattdessen aktualisiert
+(Secrets/`.env` bleiben unangetastet).
+
 ## Lokale Entwicklung
 
 ```bash
@@ -24,7 +49,9 @@ npm run dev
 
 Das Panel läuft dann unter http://localhost:3000. Login mit den `SEED_ADMIN_*`-Zugangsdaten aus der `.env`.
 
-## Produktion mit Docker Compose
+## Manuelle Docker-Compose-Installation
+
+Für alle, die `install.sh` nicht nutzen wollen (z.B. bestehender Docker-Host):
 
 ```bash
 cp .env.example .env
@@ -33,7 +60,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`).
+Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`). Optional: `HOST_PORT` in `.env` setzt den Host-Port (Standard `3000`). Für HTTPS via Caddy + Let's Encrypt: `COMPOSE_PROFILES=proxy` und `HOST_BIND=127.0.0.1` in `.env` setzen sowie ein `Caddyfile` anlegen (siehe `install.sh` für ein Beispiel) – Caddy erreicht `netmaster` dann direkt über das interne Docker-Netzwerk.
 
 ## Wichtige Umgebungsvariablen
 
