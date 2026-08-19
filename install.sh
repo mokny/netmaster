@@ -265,6 +265,7 @@ EOF
   # over the internal Docker network and is the only public entrypoint (80/443)
   printf 'HOST_BIND="127.0.0.1"\n' >> "$INSTALL_DIR/.env"
   printf 'COMPOSE_PROFILES=proxy\n' >> "$INSTALL_DIR/.env"
+  printf 'COOKIE_SECURE=true\n' >> "$INSTALL_DIR/.env"
 fi
 
 chmod 600 "$INSTALL_DIR/.env"

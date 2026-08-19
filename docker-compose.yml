@@ -13,6 +13,7 @@ services:
       DATABASE_URL: "file:/app/data/netmaster.db"
       MASTER_SECRET: ${MASTER_SECRET}
       AUTH_SECRET: ${AUTH_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@netmaster.local}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-change-me-now}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}
