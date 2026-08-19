@@ -1,5 +1,5 @@
 FROM node:22-bookworm-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recursive-tags \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
