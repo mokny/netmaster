@@ -44,7 +44,7 @@ export function VmCombinedChartWidget({
   }));
 
   return (
-    <div className="h-full min-h-0">
+    <div className="h-full min-h-0 min-w-0">
       <CombinedMetricChart
         data={data}
         diskLines={[{ key: DISK_KEY, label: "Disk" }]}

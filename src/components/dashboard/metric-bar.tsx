@@ -14,10 +14,15 @@ export function MetricBar({
 }) {
   const level = thresholdLevel(value, warn, crit);
   return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className={cn("text-sm font-semibold tabular-nums", LEVEL_TEXT_CLASS[level])}>
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <span className="truncate text-xs text-muted-foreground">{label}</span>
+        <span
+          className={cn(
+            "shrink-0 text-sm font-semibold tabular-nums",
+            LEVEL_TEXT_CLASS[level]
+          )}
+        >
           {value != null ? `${value.toFixed(1)}%` : "–"}
         </span>
       </div>

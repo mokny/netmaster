@@ -42,7 +42,7 @@ export function VmCombinedCompactWidget({
   }
 
   return (
-    <div className="flex h-full flex-col justify-center gap-3">
+    <div className="flex h-full min-w-0 flex-col justify-center gap-3">
       <MetricBar label="CPU" value={vm.cpuPercent} warn={VM_GENERIC_WARN} crit={VM_GENERIC_CRIT} />
       <MetricBar
         label="RAM"

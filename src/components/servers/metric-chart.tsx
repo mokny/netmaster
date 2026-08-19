@@ -32,7 +32,7 @@ export function MetricChart({
   color?: keyof typeof COLORS;
   unit?: string;
   height?: number | `${number}%`;
-  domain?: [number, number];
+  domain?: [number | "auto", number | "auto"];
 }) {
   const stroke = COLORS[color] ?? COLORS.cpu;
   const gradientId = `grad-${color}`;

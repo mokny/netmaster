@@ -91,19 +91,19 @@ export function ProxmoxHostWidget({
   );
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex h-full min-w-0 flex-col gap-3">
       <div className="grid grid-cols-2 gap-2 text-center text-xs">
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">
             {qemu.filter((v) => RUNNING_STATES.has(v.status)).length}/{qemu.length}
           </p>
-          <p className="text-muted-foreground">VMs laufend</p>
+          <p className="truncate text-muted-foreground">VMs laufend</p>
         </div>
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">
             {lxc.filter((v) => RUNNING_STATES.has(v.status)).length}/{lxc.length}
           </p>
-          <p className="text-muted-foreground">LXC laufend</p>
+          <p className="truncate text-muted-foreground">LXC laufend</p>
         </div>
       </div>
 
@@ -114,9 +114,9 @@ export function ProxmoxHostWidget({
       </div>
 
       {showProblematic && (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {problematic.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               Alle {vms.length} VMs/LXC laufen unauffällig.
             </p>
           ) : (
@@ -124,10 +124,13 @@ export function ProxmoxHostWidget({
               {problematic.map((v) => (
                 <li
                   key={v.id}
-                  className="flex items-center justify-between rounded-md px-2 py-1 text-sm"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1 text-sm"
                 >
-                  <span className="truncate">{v.name}</span>
-                  <Badge variant={RUNNING_STATES.has(v.status) ? "default" : "secondary"} className="capitalize">
+                  <span className="min-w-0 truncate">{v.name}</span>
+                  <Badge
+                    variant={RUNNING_STATES.has(v.status) ? "default" : "secondary"}
+                    className="shrink-0 capitalize"
+                  >
                     {v.status}
                   </Badge>
                 </li>
@@ -138,7 +141,7 @@ export function ProxmoxHostWidget({
       )}
 
       {stopped.length > 0 && !showProblematic && (
-        <p className="text-xs text-muted-foreground">{stopped.length} gestoppt</p>
+        <p className="truncate text-xs text-muted-foreground">{stopped.length} gestoppt</p>
       )}
     </div>
   );

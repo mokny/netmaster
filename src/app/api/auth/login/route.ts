@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword, setSessionCookie } from "@/lib/auth";
+import { verifyPassword, createUserSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -24,12 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ungültige Anmeldedaten" }, { status: 401 });
   }
 
-  await setSessionCookie({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  await createUserSession(user, req.headers.get("user-agent") ?? "");
 
   return NextResponse.json({
     user: { id: user.id, email: user.email, name: user.name, role: user.role },

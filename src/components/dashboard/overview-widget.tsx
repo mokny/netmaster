@@ -37,18 +37,18 @@ export function OverviewWidget() {
   const problematic = servers.filter((s) => s.lastStatus !== "OK");
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="grid grid-cols-4 gap-2 text-center">
+    <div className="flex h-full min-w-0 flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2 text-center @xs:grid-cols-4">
         {(["OK", "WARNING", "CRITICAL", "UNKNOWN"] as const).map((key) => (
-          <div key={key} className="rounded-md border p-2">
-            <p className="text-lg font-semibold">{counts[key]}</p>
-            <StatusBadge status={key} className="mt-1" />
+          <div key={key} className="min-w-0 overflow-hidden rounded-md border p-2">
+            <p className="truncate text-lg font-semibold">{counts[key]}</p>
+            <StatusBadge status={key} className="mt-1 max-w-full" />
           </div>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {problematic.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="truncate text-sm text-muted-foreground">
             Alle {servers.length} Server sind OK.
           </p>
         ) : (
@@ -57,10 +57,10 @@ export function OverviewWidget() {
               <li key={s.id}>
                 <Link
                   href={`/servers/${s.id}`}
-                  className="flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
                 >
-                  <span className="truncate">{s.name}</span>
-                  <StatusBadge status={s.lastStatus} />
+                  <span className="min-w-0 truncate">{s.name}</span>
+                  <StatusBadge status={s.lastStatus} className="shrink-0" />
                 </Link>
               </li>
             ))}

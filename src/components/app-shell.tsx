@@ -12,11 +12,14 @@ import {
   Moon,
   LogOut,
   Boxes,
+  Container,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -31,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "VIEWER" },
   { href: "/servers", label: "Server", icon: Server, minRole: "VIEWER" },
   { href: "/vms", label: "VMs", icon: Boxes, minRole: "VIEWER" },
+  { href: "/docker", label: "Docker", icon: Container, minRole: "VIEWER" },
   { href: "/admin/users", label: "Nutzer", icon: Users, minRole: "ADMIN" },
 ] as const;
 
@@ -129,13 +133,19 @@ export function AppShell({
                 }
               />
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>
-                  {session.name}
-                  <div className="text-xs font-normal text-muted-foreground">
-                    {session.email}
-                  </div>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    {session.name}
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {session.email}
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push("/account")}>
+                  <UserCog className="size-4" />
+                  Konto
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={logout} variant="destructive">
                   <LogOut className="size-4" />
                   Abmelden

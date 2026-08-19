@@ -71,6 +71,14 @@ export interface ContainerSnapshotDTO {
   state: string;
   cpuPercent: number | null;
   memUsageMb: number | null;
+  netRxMb: number | null;
+  netTxMb: number | null;
+}
+
+export interface ContainerWithServerDTO extends ContainerSnapshotDTO {
+  serverId: string;
+  serverName: string;
+  timestamp: string;
 }
 
 export interface ProxmoxVmDTO {
@@ -105,4 +113,12 @@ export interface UserDTO {
   name: string;
   role: "ADMIN" | "EDITOR" | "VIEWER";
   createdAt: string;
+}
+
+export interface SessionDTO {
+  id: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  isCurrent: boolean;
 }

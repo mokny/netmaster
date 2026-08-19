@@ -147,6 +147,8 @@ export interface ParsedContainer {
   state: string;
   cpuPercent: number | null;
   memUsageMb: number | null;
+  netRxMb: number | null;
+  netTxMb: number | null;
 }
 
 function parseMemUsage(usage: string): number | null {
@@ -163,6 +165,28 @@ function parseMemUsage(usage: string): number | null {
   return value;
 }
 
+// docker stats NetIO nutzt Dezimal-Einheiten (B/kB/MB/GB), im Gegensatz zu
+// MemUsage (binär, MiB/GiB) – daher ein eigener Parser.
+function parseNetIoValue(value: string): number | null {
+  const match = value.trim().match(/([\d.]+)\s*([a-zA-Z]+)/);
+  if (!match) return null;
+  const num = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (unit.startsWith("g")) return num * 1000;
+  if (unit.startsWith("m")) return num;
+  if (unit.startsWith("k")) return num / 1000;
+  return num / 1_000_000; // Bytes -> MB
+}
+
+function parseNetIo(netIo: string): { netRxMb: number | null; netTxMb: number | null } {
+  // e.g. "648B / 846B" oder "1.2MB / 3.4MB"
+  const [rx, tx] = netIo.split("/");
+  return {
+    netRxMb: rx ? parseNetIoValue(rx) : null,
+    netTxMb: tx ? parseNetIoValue(tx) : null,
+  };
+}
+
 export function parseDockerOutput(raw: string): ParsedContainer[] {
   const [statsPart, statePart] = raw.split("__STATE__");
   const containers = new Map<string, ParsedContainer>();
@@ -170,8 +194,9 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
   for (const line of (statsPart ?? "").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const [id, name, cpuPerc, memUsage] = trimmed.split("|");
+    const [id, name, cpuPerc, memUsage, netIo] = trimmed.split("|");
     if (!id) continue;
+    const { netRxMb, netTxMb } = netIo ? parseNetIo(netIo) : { netRxMb: null, netTxMb: null };
     containers.set(id, {
       containerId: id,
       name: name ?? id,
@@ -179,6 +204,8 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
       state: "running",
       cpuPercent: cpuPerc ? Number(cpuPerc.replace("%", "")) : null,
       memUsageMb: memUsage ? parseMemUsage(memUsage) : null,
+      netRxMb,
+      netTxMb,
     });
   }
 
@@ -199,6 +226,8 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
         state: state ?? "unknown",
         cpuPercent: null,
         memUsageMb: null,
+        netRxMb: null,
+        netTxMb: null,
       });
     }
   }

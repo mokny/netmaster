@@ -109,6 +109,8 @@ export async function collectDockerContainers(server: ServerModel) {
           state: c.state,
           cpuPercent: c.cpuPercent,
           memUsageMb: c.memUsageMb,
+          netRxMb: c.netRxMb,
+          netTxMb: c.netTxMb,
         })),
       });
     }

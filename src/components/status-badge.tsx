@@ -34,13 +34,13 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
+        "inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
         STATUS_STYLES[value],
         className
       )}
     >
-      <span className={cn("size-1.5 rounded-full", STATUS_DOT[value])} />
-      {STATUS_LABELS[value]}
+      <span className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[value])} />
+      <span className="truncate">{STATUS_LABELS[value]}</span>
     </span>
   );
 }

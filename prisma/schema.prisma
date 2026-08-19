@@ -42,6 +42,23 @@ model User {
   createdAt    DateTime @default(now())
 
   dashboardLayout DashboardLayout?
+  sessions        Session[]
+}
+
+// Datenbankgestützte Login-Sessions. Das Cookie enthält nur ein signiertes
+// JWT mit der Session-ID (siehe session-token.ts) – die eigentliche
+// Gültigkeitsprüfung (Widerruf einzelner Sessions) läuft gegen diese Tabelle.
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String    @default("")
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
 }
 
 model Server {
@@ -162,6 +179,8 @@ model DockerContainerSnapshot {
   state       String
   cpuPercent  Float?
   memUsageMb  Float?
+  netRxMb     Float?
+  netTxMb     Float?
 
   @@index([serverId, timestamp])
 }

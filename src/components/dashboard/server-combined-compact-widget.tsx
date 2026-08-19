@@ -32,7 +32,7 @@ export function ServerCombinedCompactWidget({ serverId }: { serverId: string }) 
   }
 
   return (
-    <div className="flex h-full flex-col justify-center gap-3">
+    <div className="flex h-full min-w-0 flex-col justify-center gap-3">
       <MetricBar
         label="CPU"
         value={latest?.cpuPercent ?? null}

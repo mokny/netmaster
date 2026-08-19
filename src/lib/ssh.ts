@@ -231,7 +231,21 @@ export function buildPowerCommand(
 }
 
 export const DOCKER_COMMAND =
-  "docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}' 2>/dev/null && echo '__STATE__' && docker ps -a --format '{{.ID}}|{{.State}}|{{.Image}}' 2>/dev/null";
+  "docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null && echo '__STATE__' && docker ps -a --format '{{.ID}}|{{.State}}|{{.Image}}' 2>/dev/null";
+
+export type DockerPowerAction = "start" | "stop" | "restart";
+
+// Läuft ohne sudo/root, analog zu DOCKER_COMMAND – setzt voraus, dass der
+// SSH-User Mitglied der 'docker'-Gruppe ist (oder root).
+export function buildDockerPowerCommand(
+  containerId: string,
+  action: DockerPowerAction
+): string {
+  if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
+    throw new Error("Ungültige Container-ID");
+  }
+  return `docker ${action} ${containerId}`;
+}
 
 // Liefert alle VMs/LXCs des (lokalen) Proxmox-Knotens als JSON-Array
 // (leer/Fehler, falls kein Proxmox installiert ist -> vom Aufrufer als

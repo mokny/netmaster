@@ -46,11 +46,11 @@ export function ServerMetricWidget({
   const latest = points.at(-1)?.value;
 
   return (
-    <div className="flex h-full flex-col">
-      <p className="mb-1 text-2xl font-semibold">
+    <div className="flex h-full min-w-0 flex-col">
+      <p className="mb-1 truncate text-2xl font-semibold">
         {latest != null ? `${latest.toFixed(1)}%` : "–"}
       </p>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 min-w-0 flex-1">
         <MetricChart data={points} color={meta.color} height="100%" />
       </div>
     </div>

@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
+// Bewusst nur eine optimistische JWT-Prüfung (kein DB-Zugriff auf die
+// Session-Tabelle) – Proxy läuft auf jedem Request/Prefetch, DB-Checks
+// gehören hier nicht hin. Die maßgebliche Prüfung inkl. Widerruf einzelner
+// Sessions läuft in getSession() (lib/auth.ts), das jede Route/jeder Layout
+// als Data-Access-Layer aufruft.
 const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (

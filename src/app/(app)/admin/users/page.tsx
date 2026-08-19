@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserFormDialog } from "@/components/admin/user-form-dialog";
+import { UserSessionsDialog } from "@/components/admin/user-sessions-dialog";
 import { useSession } from "@/hooks/use-session";
 import { Pencil, Trash2 } from "lucide-react";
 import type { UserDTO } from "@/lib/types";
@@ -86,6 +87,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
+                      <UserSessionsDialog user={u} />
                       <UserFormDialog
                         user={u}
                         onSaved={load}

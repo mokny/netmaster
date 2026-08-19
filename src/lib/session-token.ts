@@ -8,11 +8,17 @@ export const SESSION_COOKIE = "netmaster_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 Tage
 
 export interface SessionPayload {
+  sessionId: string;
   userId: string;
   email: string;
   name: string;
   role: Role;
 }
+
+// Nur die für optimistische Checks (Proxy/Middleware, WebSocket-Handshake)
+// nötigen Claims aus dem JWT – enthält absichtlich kein Widerrufs-Flag,
+// da das JWT selbst nie gegen die DB geprüft wird. Die maßgebliche Prüfung
+// (inkl. Widerruf einzelner Sessions) läuft in getSession() (lib/auth.ts).
 
 function getAuthSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET;

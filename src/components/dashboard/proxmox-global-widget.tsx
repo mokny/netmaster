@@ -49,29 +49,29 @@ export function ProxmoxGlobalWidget() {
   const lxc = vms.filter((v) => v.type === "LXC").length;
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="grid grid-cols-4 gap-2 text-center text-xs">
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">{running}</p>
-          <p className="text-muted-foreground">Laufend</p>
+    <div className="flex h-full min-w-0 flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2 text-center text-xs @xs:grid-cols-4">
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">{running}</p>
+          <p className="truncate text-muted-foreground">Laufend</p>
         </div>
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">{stopped}</p>
-          <p className="text-muted-foreground">Gestoppt</p>
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">{stopped}</p>
+          <p className="truncate text-muted-foreground">Gestoppt</p>
         </div>
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">{qemu}</p>
-          <p className="text-muted-foreground">VMs</p>
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">{qemu}</p>
+          <p className="truncate text-muted-foreground">VMs</p>
         </div>
-        <div className="rounded-md border p-2">
-          <p className="text-lg font-semibold">{lxc}</p>
-          <p className="text-muted-foreground">LXC</p>
+        <div className="min-w-0 overflow-hidden rounded-md border p-2">
+          <p className="truncate text-lg font-semibold">{lxc}</p>
+          <p className="truncate text-muted-foreground">LXC</p>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {byHost.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Keine Proxmox-Hosts gefunden.</p>
+          <p className="truncate text-sm text-muted-foreground">Keine Proxmox-Hosts gefunden.</p>
         ) : (
           <ul className="space-y-1">
             {byHost.map((host) => {
@@ -80,9 +80,9 @@ export function ProxmoxGlobalWidget() {
                 <li key={host.serverId}>
                   <Link
                     href={`/servers/${host.serverId}`}
-                    className="flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent"
+                    className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
                   >
-                    <span className="truncate">{host.serverName}</span>
+                    <span className="min-w-0 truncate">{host.serverName}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {hostRunning}/{host.vms.length} laufend
                     </span>

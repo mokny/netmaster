@@ -365,9 +365,10 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             ) : (
               <div className="space-y-2">
                 {containers.map((c) => (
-                  <div
+                  <Link
                     key={c.containerId}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    href={`/docker/${serverId}/${c.containerId}`}
+                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-accent"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{c.name}</p>
@@ -382,7 +383,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                         {c.state}
                       </Badge>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
