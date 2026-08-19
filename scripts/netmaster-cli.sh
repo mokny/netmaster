@@ -109,7 +109,34 @@ cmd_update() {
   # keep the installed CLI in sync with whatever shipped in this ref
   install -m 755 "$INSTALL_DIR/scripts/netmaster-cli.sh" "$BIN_PATH"
 
+  cmd_cleanup
+
   log "Update abgeschlossen (Backup: $backup_file)."
+}
+
+cmd_cleanup() {
+  log "Räume nicht mehr benötigte Dateien auf..."
+
+  local project
+  project=$(basename "$INSTALL_DIR")
+
+  log "Entferne verwaiste Docker-Images..."
+  docker image prune -f --filter "label=com.docker.compose.project=${project}" >/dev/null || true
+
+  log "Entferne alten Docker-Build-Cache (>7 Tage)..."
+  docker builder prune -f --filter "until=168h" >/dev/null || true
+
+  local backup_dir="$INSTALL_DIR/backups" keep=3
+  if [ -d "$backup_dir" ]; then
+    local old_backups
+    old_backups=$(find "$backup_dir" -maxdepth 1 -type f -name 'netmaster-*.db' | sort -r | tail -n +"$((keep + 1))")
+    if [ -n "$old_backups" ]; then
+      log "Entferne alte Backups (behalte die letzten ${keep})..."
+      echo "$old_backups" | xargs -r rm -f
+    fi
+  fi
+
+  log "Cleanup abgeschlossen."
 }
 
 cmd_uninstall() {
@@ -166,6 +193,7 @@ Befehle:
   logs                 Live-Logs ansehen (Strg+C zum Beenden)
   restart              Container neu starten
   update [--nightly]   Auf neuestes Release aktualisieren (mit --nightly: neuester main-Commit)
+  cleanup              Verwaiste Docker-Images/Build-Cache und alte Backups entfernen
   uninstall            NetMaster interaktiv entfernen
 EOF
 }
@@ -175,6 +203,7 @@ case "${1:-}" in
   logs)      cmd_logs ;;
   restart)   cmd_restart ;;
   update)    shift; cmd_update "$@" ;;
+  cleanup)   cmd_cleanup ;;
   uninstall) cmd_uninstall ;;
   *)         usage; exit 1 ;;
 esac

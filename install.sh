@@ -82,6 +82,16 @@ pkg_update_index() {
   esac
 }
 
+pkg_clean_cache() {
+  case "$PKG_MANAGER" in
+    apt)    apt-get clean && rm -rf /var/lib/apt/lists/* ;;
+    dnf)    dnf clean all ;;
+    yum)    yum clean all ;;
+    pacman) pacman -Scc --noconfirm ;;
+    zypper) zypper clean --all ;;
+  esac
+}
+
 log "Paketmanager erkannt: $PKG_MANAGER"
 pkg_update_index
 
@@ -304,6 +314,15 @@ docker compose -f "$INSTALL_DIR/docker-compose.yml" up -d --build
 # ---------------------------------------------------------------------------
 log "Installiere netmaster-Befehl nach $BIN_PATH..."
 install -m 755 "$INSTALL_DIR/scripts/netmaster-cli.sh" "$BIN_PATH"
+
+# ---------------------------------------------------------------------------
+# cleanup: drop build cache / images / host package cache left behind by
+# the install so the disk doesn't fill up over time
+# ---------------------------------------------------------------------------
+"$BIN_PATH" cleanup || warn "Cleanup fehlgeschlagen, fahre trotzdem fort."
+
+log "Bereinige Paketmanager-Cache..."
+pkg_clean_cache || true
 
 # ---------------------------------------------------------------------------
 # summary
