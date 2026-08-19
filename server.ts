@@ -1,0 +1,144 @@
+import { createServer } from "node:http";
+import { parse } from "node:url";
+import next from "next";
+import { WebSocketServer, WebSocket } from "ws";
+import {
+  verifySessionToken,
+  SESSION_COOKIE,
+  type SessionPayload,
+} from "./src/lib/session-token";
+import { monitorEvents, type MonitorEvent } from "./src/lib/monitor/events";
+import { startMonitorScheduler } from "./src/lib/monitor/scheduler";
+import { handleTerminalSocket } from "./src/lib/ws/terminal-handler";
+import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
+import { handleProcessesSocket } from "./src/lib/ws/processes-handler";
+import { handleFilesSocket } from "./src/lib/ws/files-handler";
+
+const roleRank: Record<SessionPayload["role"], number> = {
+  VIEWER: 0,
+  EDITOR: 1,
+  ADMIN: 2,
+};
+
+const dev = process.env.NODE_ENV !== "production";
+const port = Number(process.env.PORT ?? 3000);
+const app = next({ dev });
+const handle = app.getRequestHandler();
+
+function readCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  const match = header
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  if (!match) return null;
+  return decodeURIComponent(match.slice(name.length + 1));
+}
+
+app.prepare().then(() => {
+  const httpServer = createServer((req, res) => {
+    const parsedUrl = parse(req.url ?? "/", true);
+    handle(req, res, parsedUrl);
+  });
+
+  const wss = new WebSocketServer({ noServer: true });
+  const terminalWss = new WebSocketServer({ noServer: true });
+  const vmTerminalWss = new WebSocketServer({ noServer: true });
+  const processesWss = new WebSocketServer({ noServer: true });
+  const filesWss = new WebSocketServer({ noServer: true });
+  const clients = new Set<WebSocket>();
+
+  const nextUpgradeHandler = app.getUpgradeHandler();
+
+  httpServer.on("upgrade", async (req, socket, head) => {
+    const { pathname, query } = parse(req.url ?? "/", true);
+
+    if (
+      pathname !== "/api/ws" &&
+      pathname !== "/api/ws/terminal" &&
+      pathname !== "/api/ws/vm-terminal" &&
+      pathname !== "/api/ws/processes" &&
+      pathname !== "/api/ws/files"
+    ) {
+      nextUpgradeHandler(req, socket, head);
+      return;
+    }
+
+    const token = readCookie(req.headers.cookie, SESSION_COOKIE);
+    const session = token ? await verifySessionToken(token) : null;
+    if (!session) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    if (pathname === "/api/ws") {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        clients.add(ws);
+        ws.on("close", () => clients.delete(ws));
+      });
+      return;
+    }
+
+    // Terminal-Zugriff, Prozessmanager und Dateimanager sind sicherheitskritisch
+    // (voller Shell-/Dateisystemzugriff bzw. Kill-Rechte) und daher auf Editor+
+    // beschränkt.
+    if (roleRank[session.role] < roleRank.EDITOR) {
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    const serverId = typeof query.serverId === "string" ? query.serverId : null;
+    if (!serverId) {
+      socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    if (pathname === "/api/ws/terminal") {
+      terminalWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleTerminalSocket(ws, serverId, session);
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/vm-terminal") {
+      const vmid = Number(query.vmid);
+      if (!Number.isInteger(vmid)) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      vmTerminalWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleVmTerminalSocket(ws, serverId, vmid, session);
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/processes") {
+      processesWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleProcessesSocket(ws, serverId);
+      });
+      return;
+    }
+
+    filesWss.handleUpgrade(req, socket, head, (ws) => {
+      void handleFilesSocket(ws, serverId, session);
+    });
+  });
+
+  const onEvent = (event: MonitorEvent) => {
+    const payload = JSON.stringify(event);
+    for (const client of clients) {
+      if (client.readyState === WebSocket.OPEN) client.send(payload);
+    }
+  };
+  monitorEvents.on("event", onEvent);
+
+  startMonitorScheduler();
+
+  httpServer.listen(port, () => {
+    console.log(`> NetMaster läuft auf http://localhost:${port}`);
+  });
+});

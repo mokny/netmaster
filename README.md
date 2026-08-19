@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NetMaster
 
-## Getting Started
+Selbst-gehostetes Netzwerkadministratorpanel: Live-Monitoring deiner Server (CPU/RAM/Disk/Load/Netzwerk via SSH), HTTP-Health-Checks, Docker-Container-Übersicht und ein frei anordenbares Dashboard – hinter einem Multi-User-Login mit Rollen (Admin/Editor/Viewer).
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + TypeScript, Tailwind CSS + shadcn/ui
+- Custom Node-Server (`server.ts`) für WebSocket-Live-Updates neben Next.js
+- SQLite via Prisma (`@prisma/adapter-better-sqlite3`)
+- SSH-Monitoring über `ssh2`, verschlüsselte Credentials (AES-256-GCM)
+- Recharts für Live-Graphen, `react-grid-layout` für das Drag-&-Drop-Dashboard
+
+## Lokale Entwicklung
 
 ```bash
+npm install
+cp .env.example .env
+# MASTER_SECRET und AUTH_SECRET setzen: openssl rand -hex 32 (jeweils einmal ausführen)
+
+npx prisma migrate dev
+npm run seed        # legt den ersten Admin-Account an (SEED_ADMIN_* aus .env)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Das Panel läuft dann unter http://localhost:3000. Login mit den `SEED_ADMIN_*`-Zugangsdaten aus der `.env`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Produktion mit Docker Compose
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env
+# MASTER_SECRET, AUTH_SECRET und SEED_ADMIN_PASSWORD in .env setzen
 
-## Learn More
+docker compose up --build -d
+```
 
-To learn more about Next.js, take a look at the following resources:
+Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Wichtige Umgebungsvariablen
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Zweck |
+| --- | --- |
+| `MASTER_SECRET` | AES-256-Schlüssel zur Verschlüsselung der SSH-Zugangsdaten in der DB (64 Hex-Zeichen) |
+| `AUTH_SECRET` | Signaturschlüssel für Login-Session-JWTs (64 Hex-Zeichen) |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | Nur beim ersten Start verwendet, um den initialen Admin-Account anzulegen |
+| `DATABASE_URL` | SQLite-Pfad, z.B. `file:./prisma/dev.db` |
 
-## Deploy on Vercel
+## Architekturnotizen
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Monitoring läuft als In-Process-Scheduler in `server.ts` (`src/lib/monitor/scheduler.ts`), der Server/Health-Checks per Intervall pollt und Ergebnisse per SQLite + WebSocket-Broadcast verteilt.
+- Rollen: **Viewer** sieht nur, **Editor** verwaltet Server/Checks/Dashboard, **Admin** zusätzlich Nutzerverwaltung.
+- Docker-Container-Metriken werden per SSH (`docker stats`/`docker ps`) auf dem Zielserver abgefragt – kein separater Agent nötig.

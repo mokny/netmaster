@@ -1,0 +1,231 @@
+// NetMaster – Netzwerkadministratorpanel
+// Prisma schema (SQLite)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum AuthType {
+  PASSWORD
+  PRIVATE_KEY
+}
+
+enum Status {
+  UNKNOWN
+  OK
+  WARNING
+  CRITICAL
+}
+
+enum VmType {
+  QEMU
+  LXC
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now())
+
+  dashboardLayout DashboardLayout?
+}
+
+model Server {
+  id          String   @id @default(cuid())
+  name        String
+  hostname    String
+  sshPort     Int      @default(22)
+  sshUsername String
+  authType    AuthType @default(PASSWORD)
+
+  // AES-256-GCM verschlüsselt (iv:authTag:ciphertext, base64)
+  encryptedSecret String
+  // Optionale Passphrase für PRIVATE_KEY, ebenfalls AES-256-GCM verschlüsselt
+  encryptedPassphrase String?
+  // Optionales Sudo-Passwort für privilegierte Befehle (z.B. reboot/shutdown
+  // als Nicht-root-User), ebenfalls AES-256-GCM verschlüsselt
+  encryptedSudoPassword String?
+
+  pollIntervalSec Int @default(30)
+  retentionDays   Int @default(30)
+
+  cpuWarn  Float @default(70)
+  cpuCrit  Float @default(90)
+  memWarn  Float @default(75)
+  memCrit  Float @default(90)
+  diskWarn Float @default(80)
+  diskCrit Float @default(95)
+
+  description String @default("")
+  tags        String @default("") // comma-separated
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lastStatus    Status   @default(UNKNOWN)
+  lastError     String?
+  lastCheckedAt DateTime?
+
+  metricSamples MetricSample[]
+  diskSamples   DiskSample[]
+  serviceChecks ServiceCheck[]
+  containerSnapshots DockerContainerSnapshot[]
+  proxmoxVms    ProxmoxVm[]
+  auditLogs     AuditLog[]
+}
+
+model MetricSample {
+  id        String   @id @default(cuid())
+  serverId  String
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  timestamp DateTime @default(now())
+
+  cpuPercent  Float?
+  memPercent  Float?
+  diskPercent Float?
+  loadAvg1    Float?
+  netRxBytes  Float?
+  netTxBytes  Float?
+
+  @@index([serverId, timestamp])
+}
+
+model DiskSample {
+  id         String   @id @default(cuid())
+  serverId   String
+  server     Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  timestamp  DateTime @default(now())
+
+  mountpoint String
+  device     String
+  totalKb    Float?
+  usedKb     Float?
+  percent    Float?
+
+  @@index([serverId, mountpoint, timestamp])
+}
+
+model ServiceCheck {
+  id             String   @id @default(cuid())
+  serverId       String
+  server         Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  name           String
+  url            String
+  expectedStatus Int      @default(200)
+  intervalSec    Int      @default(30)
+  timeoutMs      Int      @default(5000)
+
+  lastStatus    Status    @default(UNKNOWN)
+  lastLatencyMs Float?
+  lastCheckedAt DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+
+  results ServiceCheckResult[]
+}
+
+model ServiceCheckResult {
+  id             String       @id @default(cuid())
+  serviceCheckId String
+  serviceCheck   ServiceCheck @relation(fields: [serviceCheckId], references: [id], onDelete: Cascade)
+  timestamp      DateTime     @default(now())
+  success        Boolean
+  statusCode     Int?
+  latencyMs      Float?
+
+  @@index([serviceCheckId, timestamp])
+}
+
+model DockerContainerSnapshot {
+  id          String   @id @default(cuid())
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  timestamp   DateTime @default(now())
+  containerId String
+  name        String
+  image       String
+  state       String
+  cpuPercent  Float?
+  memUsageMb  Float?
+
+  @@index([serverId, timestamp])
+}
+
+// Ein Proxmox-Host wird per SSH auf 'pvesh get /cluster/resources' abgefragt;
+// jede gefundene VM/LXC bekommt genau eine Zeile, die bei jedem Poll
+// aktualisiert wird (aktueller Zustand).
+model ProxmoxVm {
+  id       String @id @default(cuid())
+  serverId String
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  vmid   Int
+  type   VmType
+  name   String
+  status String // running, stopped, paused, ...
+
+  cpuPercent  Float?
+  memUsedMb   Float?
+  memTotalMb  Float?
+  diskUsedGb  Float?
+  diskTotalGb Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  samples ProxmoxVmSample[]
+
+  @@unique([serverId, vmid])
+}
+
+model ProxmoxVmSample {
+  id        String    @id @default(cuid())
+  vmId      String
+  vm        ProxmoxVm @relation(fields: [vmId], references: [id], onDelete: Cascade)
+  timestamp DateTime  @default(now())
+
+  cpuPercent  Float?
+  memPercent  Float?
+  diskPercent Float?
+
+  @@index([vmId, timestamp])
+}
+
+// Audit-Log für sicherheitskritische Aktionen (Terminal-Zugriff, Prozess-Kill).
+// Es werden nur Metadaten protokolliert, keine Ein-/Ausgabe der Sessions.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userEmail String
+  serverId  String?
+  server    Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  action    String
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([serverId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model DashboardLayout {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layoutJson String  @default("[]")
+  updatedAt DateTime @updatedAt
+}

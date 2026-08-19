@@ -1,0 +1,108 @@
+export interface ServerDTO {
+  id: string;
+  name: string;
+  hostname: string;
+  sshPort: number;
+  sshUsername: string;
+  authType: "PASSWORD" | "PRIVATE_KEY";
+  pollIntervalSec: number;
+  retentionDays: number;
+  cpuWarn: number;
+  cpuCrit: number;
+  memWarn: number;
+  memCrit: number;
+  diskWarn: number;
+  diskCrit: number;
+  description: string;
+  tags: string;
+  lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastError: string | null;
+  lastCheckedAt: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MetricSampleDTO {
+  id: string;
+  timestamp: string;
+  cpuPercent: number | null;
+  memPercent: number | null;
+  diskPercent: number | null;
+  loadAvg1: number | null;
+  netRxBytes: number | null;
+  netTxBytes: number | null;
+}
+
+export interface DiskSampleDTO {
+  timestamp: string;
+  mountpoint: string;
+  device: string;
+  totalKb: number | null;
+  usedKb: number | null;
+  percent: number | null;
+}
+
+export interface DiskInfoDTO {
+  mountpoint: string;
+  device: string;
+  totalKb: number | null;
+  percent: number | null;
+}
+
+export interface ServiceCheckDTO {
+  id: string;
+  serverId: string;
+  name: string;
+  url: string;
+  expectedStatus: number;
+  intervalSec: number;
+  timeoutMs: number;
+  lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastLatencyMs: number | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+}
+
+export interface ContainerSnapshotDTO {
+  id: string;
+  containerId: string;
+  name: string;
+  image: string;
+  state: string;
+  cpuPercent: number | null;
+  memUsageMb: number | null;
+}
+
+export interface ProxmoxVmDTO {
+  id: string;
+  serverId: string;
+  vmid: number;
+  type: "QEMU" | "LXC";
+  name: string;
+  status: string;
+  cpuPercent: number | null;
+  memUsedMb: number | null;
+  memTotalMb: number | null;
+  diskUsedGb: number | null;
+  diskTotalGb: number | null;
+  sample?: ProxmoxVmSampleDTO;
+}
+
+export interface ProxmoxVmWithServerDTO extends ProxmoxVmDTO {
+  serverName: string;
+}
+
+export interface ProxmoxVmSampleDTO {
+  timestamp: string;
+  cpuPercent: number | null;
+  memPercent: number | null;
+  diskPercent: number | null;
+}
+
+export interface UserDTO {
+  id: string;
+  email: string;
+  name: string;
+  role: "ADMIN" | "EDITOR" | "VIEWER";
+  createdAt: string;
+}
