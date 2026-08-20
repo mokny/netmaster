@@ -22,12 +22,21 @@ async function loadOrGenerateVapidKeys(): Promise<VapidKeySet> {
     };
   }
 
-  const existing = await prisma.vapidKeys.findFirst();
+  const existing = await prisma.vapidKeys.findUnique({ where: { id: "singleton" } });
   if (existing) return existing;
 
+  // Race bei gleichzeitigem Erststart mehrerer Prozesse: upsert auf die feste
+  // Singleton-ID sorgt dafür, dass am Ende alle Prozesse dasselbe Schlüssel-
+  // paar verwenden, statt dass jeder Prozess sein eigenes anlegt (was dazu
+  // führen würde, dass auf einzelnen Geräten registrierte Subscriptions mit
+  // dem "falschen" Key signiert werden und Zustellungen dort dauerhaft und
+  // unbemerkt fehlschlagen).
   const generated = webPush.generateVAPIDKeys();
-  return prisma.vapidKeys.create({
-    data: {
+  return prisma.vapidKeys.upsert({
+    where: { id: "singleton" },
+    update: {},
+    create: {
+      id: "singleton",
       publicKey: generated.publicKey,
       privateKey: generated.privateKey,
       subject: process.env.VAPID_SUBJECT || "mailto:admin@localhost",
@@ -79,6 +88,8 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
         const statusCode = (err as { statusCode?: number }).statusCode;
         if (statusCode === 404 || statusCode === 410) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+        } else {
+          console.error(`push notification failed for subscription ${sub.id} (status ${statusCode}):`, err);
         }
       }
     })

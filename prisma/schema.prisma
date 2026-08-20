@@ -70,8 +70,11 @@ model User {
 // Web-Push (siehe src/lib/push.ts). Es gibt zur Laufzeit höchstens eine
 // Zeile - wird beim Serverstart erzeugt, falls noch keine existiert, damit
 // kein manueller Setup-Schritt nötig ist.
+// Singleton (id ist immer "singleton") - verhindert per Unique-Constraint,
+// dass bei gleichzeitigem Erststart mehrerer Prozesse zwei Schlüsselpaare
+// entstehen und Geräte dadurch mit unterschiedlichen Keys signiert werden.
 model VapidKeys {
-  id         String   @id @default(cuid())
+  id         String   @id @default("singleton")
   publicKey  String
   privateKey String
   subject    String
