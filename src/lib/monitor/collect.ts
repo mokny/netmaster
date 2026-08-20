@@ -14,6 +14,7 @@ import {
 } from "./parse";
 import { computeServerStatus } from "./status";
 import { publish } from "./events";
+import { notifyServerEvent } from "@/lib/push";
 import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/client";
 
 export async function collectServerMetrics(server: ServerModel) {
@@ -94,6 +95,7 @@ export async function collectServerMetrics(server: ServerModel) {
       })),
     });
     publish({ type: "server-status", serverId: server.id, status });
+    void notifyStatusTransition(server.id, server.name, server.lastStatus, server.lastError, status);
 
     const cutoff = new Date(
       Date.now() - server.retentionDays * 24 * 60 * 60 * 1000
@@ -121,6 +123,54 @@ export async function collectServerMetrics(server: ServerModel) {
       status: "CRITICAL",
       error: message,
     });
+    if (!server.lastError) {
+      void notifyServerEvent(server.id, "offlineEnabled", {
+        title: `${server.name}: nicht erreichbar`,
+        body: message,
+        url: `/servers/${server.id}`,
+      });
+    }
+  }
+}
+
+// Löst Push-Benachrichtigungen bei Statuswechseln aus (Flanken-getriggert,
+// nicht bei jedem Poll) - sowohl beim Verschlechtern als auch beim Erholen.
+async function notifyStatusTransition(
+  serverId: string,
+  serverName: string,
+  oldStatus: string,
+  oldError: string | null,
+  newStatus: string
+) {
+  // Server war zuvor per SSH nicht erreichbar und ist jetzt wieder da.
+  if (oldError) {
+    void notifyServerEvent(serverId, "offlineEnabled", {
+      title: `${serverName}: wieder erreichbar`,
+      body: "Server antwortet wieder auf SSH-Anfragen.",
+      url: `/servers/${serverId}`,
+    });
+    return;
+  }
+
+  if (newStatus === "CRITICAL" && oldStatus !== "CRITICAL") {
+    void notifyServerEvent(serverId, "criticalEnabled", {
+      title: `${serverName}: kritischer Zustand`,
+      body: "Ein Ressourcen-Schwellwert (CPU/RAM/Disk) im kritischen Bereich wurde überschritten.",
+      url: `/servers/${serverId}`,
+    });
+  } else if (newStatus === "WARNING" && oldStatus !== "WARNING" && oldStatus !== "CRITICAL") {
+    void notifyServerEvent(serverId, "warningEnabled", {
+      title: `${serverName}: Warnung`,
+      body: "Ein Ressourcen-Schwellwert (CPU/RAM/Disk) im Warnbereich wurde überschritten.",
+      url: `/servers/${serverId}`,
+    });
+  } else if (newStatus === "OK" && (oldStatus === "WARNING" || oldStatus === "CRITICAL")) {
+    const event = oldStatus === "CRITICAL" ? "criticalEnabled" : "warningEnabled";
+    void notifyServerEvent(serverId, event, {
+      title: `${serverName}: wieder normal`,
+      body: "Alle Ressourcenwerte sind wieder im Normalbereich.",
+      url: `/servers/${serverId}`,
+    });
   }
 }
 
@@ -129,6 +179,8 @@ export async function collectDockerContainers(server: ServerModel) {
   try {
     const { stdout } = await execPooled(server, DOCKER_COMMAND);
     const containers = parseDockerOutput(stdout);
+
+    const previousStates = await lastKnownContainerStates(server.id);
 
     if (containers.length > 0) {
       await prisma.dockerContainerSnapshot.createMany({
@@ -148,6 +200,18 @@ export async function collectDockerContainers(server: ServerModel) {
 
     publish({ type: "docker", serverId: server.id, containers });
 
+    for (const c of containers) {
+      const wasRunning = previousStates.get(c.containerId);
+      const isRunning = c.state.toLowerCase() === "running";
+      if (wasRunning === true && !isRunning) {
+        void notifyServerEvent(server.id, "dockerStoppedEnabled", {
+          title: `${server.name}: Container gestoppt`,
+          body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
+          url: `/servers/${server.id}`,
+        });
+      }
+    }
+
     // Nur die letzte Momentaufnahme pro Server behalten, um die DB schlank zu halten.
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await prisma.dockerContainerSnapshot.deleteMany({
@@ -156,6 +220,23 @@ export async function collectDockerContainers(server: ServerModel) {
   } catch {
     // Server hat evtl. kein Docker installiert – kein harter Fehler.
   }
+}
+
+// Liest den Zustand (läuft/läuft nicht) jedes Containers aus der jeweils
+// letzten Momentaufnahme vor diesem Poll, um Stopp-Übergänge zu erkennen.
+async function lastKnownContainerStates(serverId: string): Promise<Map<string, boolean>> {
+  const latest = await prisma.dockerContainerSnapshot.findFirst({
+    where: { serverId },
+    orderBy: { timestamp: "desc" },
+    select: { timestamp: true },
+  });
+  if (!latest) return new Map();
+
+  const rows = await prisma.dockerContainerSnapshot.findMany({
+    where: { serverId, timestamp: latest.timestamp },
+    select: { containerId: true, state: true },
+  });
+  return new Map(rows.map((r) => [r.containerId, r.state.toLowerCase() === "running"]));
 }
 
 export async function collectDockerImages(server: ServerModel) {

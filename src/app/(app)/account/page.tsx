@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SessionsList } from "@/components/account/sessions-list";
 import { TotpSetupCard } from "@/components/account/totp-setup-card";
 import { PasskeyCard } from "@/components/account/passkey-card";
+import { PushNotificationsCard } from "@/components/account/push-notifications-card";
 import { useSession } from "@/hooks/use-session";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2 } from "lucide-react";
@@ -164,6 +165,8 @@ export default function AccountPage() {
       )}
 
       <PasskeyCard passkeys={passkeys} onChanged={loadSecurity} />
+
+      <PushNotificationsCard />
 
       <TotpSetupCard
         enabled={totpEnabled}

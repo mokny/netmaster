@@ -56,6 +56,41 @@ model User {
   sessions           Session[]
   webauthnCredentials WebAuthnCredential[]
   backupCodes        BackupCode[]
+  pushSubscriptions       PushSubscription[]
+  notificationPreferences NotificationPreference[]
+}
+
+// Ein Web-Push-Endpunkt (i.d.R. ein installiertes/geöffnetes Browser- bzw.
+// PWA-Fenster). Ein User kann mehrere haben (mehrere Geräte/Browser).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Pro User+Server einstellbar, welche Ereignisse eine Push-Benachrichtigung
+// auslösen. Fehlt ein Eintrag für ein User/Server-Paar, gelten die Defaults
+// unten (Offline/Kritisch an, Warnung/Docker-gestoppt aus).
+model NotificationPreference {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId             String
+  server               Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  offlineEnabled       Boolean  @default(true)
+  warningEnabled       Boolean  @default(false)
+  criticalEnabled      Boolean  @default(true)
+  dockerStoppedEnabled Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId, serverId])
 }
 
 // Passkeys (WebAuthn, discoverable credentials). Sobald ein User hier
@@ -163,6 +198,7 @@ model Server {
   imageSnapshots     DockerImageSnapshot[]
   proxmoxVms    ProxmoxVm[]
   auditLogs     AuditLog[]
+  notificationPreferences NotificationPreference[]
 }
 
 model MetricSample {

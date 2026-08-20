@@ -59,6 +59,22 @@ export interface DiskInfoDTO {
   percent: number | null;
 }
 
+export interface PushSubscriptionDTO {
+  id: string;
+  endpoint: string;
+  userAgent: string;
+  createdAt: string;
+}
+
+export interface NotificationPreferenceDTO {
+  serverId: string;
+  serverName: string;
+  offlineEnabled: boolean;
+  warningEnabled: boolean;
+  criticalEnabled: boolean;
+  dockerStoppedEnabled: boolean;
+}
+
 export interface ServiceCheckDTO {
   id: string;
   serverId: string;

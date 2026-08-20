@@ -20,6 +20,7 @@ import { DockerHostWidget } from "@/components/dashboard/docker-host-widget";
 import { DockerGlobalWidget } from "@/components/dashboard/docker-global-widget";
 import { AddWidgetDialog, type WidgetSpec } from "@/components/dashboard/add-widget-dialog";
 import { resolveWidgetTitle, type NameLookups } from "@/lib/widget-titles";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import type { ProxmoxVmWithServerDTO, ContainerWithServerDTO, ServerDTO } from "@/lib/types";
 import { LayoutGrid, Pencil, Check } from "lucide-react";
 
@@ -54,9 +55,55 @@ const DEFAULT_LAYOUT: WidgetItem[] = [
   { i: "overview", x: 0, y: 0, w: 4, h: 4, title: "Übersicht", spec: { type: "overview" } },
 ];
 
+function renderWidgetContent(spec: WidgetSpec) {
+  switch (spec.type) {
+    case "overview":
+      return <OverviewWidget />;
+    case "server-metric":
+      return <ServerMetricWidget serverId={spec.serverId} metric={spec.metric} />;
+    case "server-combined-compact":
+      return <ServerCombinedCompactWidget serverId={spec.serverId} />;
+    case "server-combined-chart":
+      return <ServerCombinedChartWidget serverId={spec.serverId} />;
+    case "vm-combined-compact":
+      return <VmCombinedCompactWidget serverId={spec.serverId} vmid={spec.vmid} />;
+    case "vm-combined-chart":
+      return <VmCombinedChartWidget serverId={spec.serverId} vmid={spec.vmid} />;
+    case "proxmox-host":
+      return (
+        <ProxmoxHostWidget
+          serverId={spec.serverId}
+          aggregation={spec.aggregation}
+          showProblematic={spec.showProblematic}
+        />
+      );
+    case "proxmox-global":
+      return <ProxmoxGlobalWidget />;
+    case "docker-container-compact":
+      return (
+        <DockerContainerCompactWidget serverId={spec.serverId} containerId={spec.containerId} />
+      );
+    case "docker-container-chart":
+      return (
+        <DockerContainerChartWidget serverId={spec.serverId} containerId={spec.containerId} />
+      );
+    case "docker-host":
+      return (
+        <DockerHostWidget
+          serverId={spec.serverId}
+          aggregation={spec.aggregation}
+          showProblematic={spec.showProblematic}
+        />
+      );
+    default:
+      return <DockerGlobalWidget />;
+  }
+}
+
 export function DashboardGrid() {
   const [widgets, setWidgets] = useState<WidgetItem[] | null>(null);
   const [editing, setEditing] = useState(false);
+  const isMobile = useIsMobile();
   const [lookups, setLookups] = useState<NameLookups | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -185,6 +232,24 @@ export function DashboardGrid() {
           <p className="text-muted-foreground">Noch keine Widgets auf dem Dashboard.</p>
           <AddWidgetDialog onAdd={addWidget} />
         </div>
+      ) : isMobile ? (
+        // Auf schmalen Screens ist das freie 12-Spalten-Grid unbrauchbar
+        // (Widgets würden auf Bruchteile ihrer Breite gequetscht) - daher
+        // gestapelte Einzelspalte ohne Drag/Resize, gleiche Widgets/Reihenfolge.
+        <div className="space-y-4">
+          {[...widgets]
+            .sort((a, b) => a.y - b.y || a.x - b.x)
+            .map((w) => (
+              <WidgetCard
+                key={w.i}
+                title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
+                editing={editing}
+                onRemove={() => removeWidget(w.i)}
+              >
+                {renderWidgetContent(w.spec)}
+              </WidgetCard>
+            ))}
+        </div>
       ) : (
         <GridLayoutWithWidth
           className="layout"
@@ -204,45 +269,7 @@ export function DashboardGrid() {
                 editing={editing}
                 onRemove={() => removeWidget(w.i)}
               >
-                {w.spec.type === "overview" ? (
-                  <OverviewWidget />
-                ) : w.spec.type === "server-metric" ? (
-                  <ServerMetricWidget serverId={w.spec.serverId} metric={w.spec.metric} />
-                ) : w.spec.type === "server-combined-compact" ? (
-                  <ServerCombinedCompactWidget serverId={w.spec.serverId} />
-                ) : w.spec.type === "server-combined-chart" ? (
-                  <ServerCombinedChartWidget serverId={w.spec.serverId} />
-                ) : w.spec.type === "vm-combined-compact" ? (
-                  <VmCombinedCompactWidget serverId={w.spec.serverId} vmid={w.spec.vmid} />
-                ) : w.spec.type === "vm-combined-chart" ? (
-                  <VmCombinedChartWidget serverId={w.spec.serverId} vmid={w.spec.vmid} />
-                ) : w.spec.type === "proxmox-host" ? (
-                  <ProxmoxHostWidget
-                    serverId={w.spec.serverId}
-                    aggregation={w.spec.aggregation}
-                    showProblematic={w.spec.showProblematic}
-                  />
-                ) : w.spec.type === "proxmox-global" ? (
-                  <ProxmoxGlobalWidget />
-                ) : w.spec.type === "docker-container-compact" ? (
-                  <DockerContainerCompactWidget
-                    serverId={w.spec.serverId}
-                    containerId={w.spec.containerId}
-                  />
-                ) : w.spec.type === "docker-container-chart" ? (
-                  <DockerContainerChartWidget
-                    serverId={w.spec.serverId}
-                    containerId={w.spec.containerId}
-                  />
-                ) : w.spec.type === "docker-host" ? (
-                  <DockerHostWidget
-                    serverId={w.spec.serverId}
-                    aggregation={w.spec.aggregation}
-                    showProblematic={w.spec.showProblematic}
-                  />
-                ) : (
-                  <DockerGlobalWidget />
-                )}
+                {renderWidgetContent(w.spec)}
               </WidgetCard>
             </div>
           ))}

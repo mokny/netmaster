@@ -12,7 +12,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { buttonVariants } from "@/components/ui/button";
-import { MetricChart, type ChartPoint } from "@/components/servers/metric-chart";
+import { NetworkChart, type NetworkChartPoint } from "@/components/network/network-chart";
+import { formatBitRate, formatBytesGB } from "@/lib/format";
 import type { MetricSampleDTO } from "@/lib/types";
 
 interface TopologyNode {
@@ -114,14 +115,30 @@ export function TopologyGraph() {
     [edges, maxCount]
   );
 
-  const rxPoints: ChartPoint[] = samples.map((s) => ({
+  const cumulativePoints: NetworkChartPoint[] = samples.map((s) => ({
     timestamp: s.timestamp,
-    value: s.netRxBytes,
+    rx: s.netRxBytes,
+    tx: s.netTxBytes,
   }));
-  const txPoints: ChartPoint[] = samples.map((s) => ({
-    timestamp: s.timestamp,
-    value: s.netTxBytes,
-  }));
+
+  // Rate = Delta der kumulativen Zähler / Delta der Zeit zwischen zwei Samples.
+  // Ein negatives Delta bedeutet, der Zähler wurde zurückgesetzt (z.B. Reboot) –
+  // in dem Fall wird kein Rate-Punkt berechnet, statt einen falschen Ausreißer zu zeigen.
+  const ratePoints: NetworkChartPoint[] = samples.slice(1).map((s, i) => {
+    const prev = samples[i];
+    const deltaSec = (new Date(s.timestamp).getTime() - new Date(prev.timestamp).getTime()) / 1000;
+    const rateFor = (curr: number | null, prevVal: number | null) => {
+      if (curr === null || prevVal === null || deltaSec <= 0) return null;
+      const delta = curr - prevVal;
+      if (delta < 0) return null;
+      return delta / deltaSec;
+    };
+    return {
+      timestamp: s.timestamp,
+      rx: rateFor(s.netRxBytes, prev.netRxBytes),
+      tx: rateFor(s.netTxBytes, prev.netTxBytes),
+    };
+  });
 
   return (
     <div className="space-y-2">
@@ -167,12 +184,16 @@ export function TopologyGraph() {
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Empfangen (RX)</p>
-              <MetricChart data={rxPoints} color="cpu" unit="" domain={["auto", "auto"]} height={140} />
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Durchsatz-Rate
+              </p>
+              <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
             </div>
             <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Gesendet (TX)</p>
-              <MetricChart data={txPoints} color="mem" unit="" domain={["auto", "auto"]} height={140} />
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Kumulatives Volumen
+              </p>
+              <NetworkChart data={cumulativePoints} formatValue={formatBytesGB} height={140} />
             </div>
             {selected && (
               <Link
