@@ -94,6 +94,67 @@ export function execOnServer(
   });
 }
 
+// Öffnet eine bloße SSH-Verbindung (ohne Shell/Exec), die der Aufrufer für
+// mehrere aufeinanderfolgende `execOnConnection`-Aufrufe offen halten kann.
+// Vermeidet wiederholten Handshake+Auth-Overhead bei häufigem Polling (z. B.
+// Live-Prozessliste). Der Aufrufer ist dafür verantwortlich, `conn.end()`
+// beim Schließen aufzurufen.
+export function connectSsh(server: ServerModel): Promise<Client> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let settled = false;
+
+    conn
+      .on("ready", () => {
+        settled = true;
+        resolve(conn);
+      })
+      .on("error", (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      })
+      .connect(buildConnectConfig(server));
+    attachKeyboardInteractive(conn, server);
+  });
+}
+
+// Führt einen Befehl auf einer bereits verbundenen SSH-Session aus, ohne die
+// Verbindung danach zu schließen (im Gegensatz zu `execOnServer`).
+export function execOnConnection(
+  conn: Client,
+  command: string,
+  timeoutMs = 15_000
+): Promise<SshExecResult> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("SSH-Befehl hat Timeout überschritten"));
+    }, timeoutMs);
+
+    conn.exec(command, (err, stream) => {
+      if (err) {
+        clearTimeout(timer);
+        reject(err);
+        return;
+      }
+      let stdout = "";
+      let stderr = "";
+      stream
+        .on("close", (code: number | null) => {
+          clearTimeout(timer);
+          resolve({ stdout, stderr, code });
+        })
+        .on("data", (data: Buffer) => {
+          stdout += data.toString("utf8");
+        })
+        .stderr.on("data", (data: Buffer) => {
+          stderr += data.toString("utf8");
+        });
+    });
+  });
+}
+
 export interface ShellSession {
   conn: Client;
   stream: ClientChannel;
