@@ -21,6 +21,7 @@ import {
   Radar,
   ChevronsLeft,
   ChevronsRight,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -67,6 +75,11 @@ export function AppShell({
   const { theme, setTheme } = useTheme();
   const [version, setVersion] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => roleRank[session.role] >= roleRank[item.minRole]
+  );
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -110,9 +123,7 @@ export function AppShell({
           {!collapsed && <span className="font-semibold">NetMaster</span>}
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {NAV_ITEMS.filter(
-            (item) => roleRank[session.role] >= roleRank[item.minRole]
-          ).map((item) => {
+          {visibleNavItems.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(item.href + "/");
             const link = (
@@ -163,7 +174,48 @@ export function AppShell({
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b px-4">
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-1 md:hidden">
+            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+              <SheetTrigger
+                render={
+                  <Button variant="ghost" size="icon" aria-label="Menü öffnen">
+                    <Menu className="size-5" />
+                  </Button>
+                }
+              />
+              <SheetContent side="left" className="w-3/4 max-w-xs p-0">
+                <SheetHeader className="border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                      <Network className="size-4" />
+                    </div>
+                    NetMaster
+                  </SheetTitle>
+                </SheetHeader>
+                <nav className="flex-1 space-y-1 p-3">
+                  {visibleNavItems.map((item) => {
+                    const active =
+                      pathname === item.href || pathname.startsWith(item.href + "/");
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileNavOpen(false)}
+                        className={cn(
+                          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
+                      >
+                        <item.icon className="size-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </SheetContent>
+            </Sheet>
             <Network className="size-5" />
             <span className="font-semibold">NetMaster</span>
           </div>
@@ -211,26 +263,6 @@ export function AppShell({
             </DropdownMenu>
           </div>
         </header>
-
-        <nav className="flex flex-wrap items-center gap-1 border-b px-2 py-1.5 md:hidden">
-          {NAV_ITEMS.filter(
-            (item) => roleRank[session.role] >= roleRank[item.minRole]
-          ).map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
-                pathname.startsWith(item.href)
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground"
-              )}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
 
         <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>
       </div>
