@@ -6,6 +6,7 @@ import {
   collectProxmoxVms,
   runServiceCheck,
 } from "./collect";
+import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
@@ -116,6 +117,7 @@ async function reconcile() {
       if (proxmoxTimer) clearInterval(proxmoxTimer);
       proxmoxTimers.delete(id);
       serverConfigs.delete(id);
+      invalidatePooledConnection(id);
     }
   }
 
@@ -161,4 +163,5 @@ export function stopMonitorScheduler() {
   proxmoxTimers.clear();
   checkTimers.clear();
   serverConfigs.clear();
+  closeAllPooledConnections();
 }

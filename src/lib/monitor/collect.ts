@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import {
-  execOnServer,
   METRICS_COMMAND,
   DOCKER_COMMAND,
   DOCKER_IMAGES_COMMAND,
   PROXMOX_COMMAND,
 } from "@/lib/ssh";
+import { execPooled, invalidatePooledConnection } from "@/lib/ssh-pool";
 import {
   parseMetricsOutput,
   parseDockerOutput,
@@ -18,7 +18,7 @@ import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/cli
 
 export async function collectServerMetrics(server: ServerModel) {
   try {
-    const { stdout } = await execOnServer(server, METRICS_COMMAND);
+    const { stdout } = await execPooled(server, METRICS_COMMAND);
     const metrics = parseMetricsOutput(stdout);
     const status = computeServerStatus(server, metrics);
 
@@ -87,6 +87,7 @@ export async function collectServerMetrics(server: ServerModel) {
       where: { serverId: server.id, timestamp: { lt: cutoff } },
     });
   } catch (err) {
+    invalidatePooledConnection(server.id);
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
     await prisma.server.update({
       where: { id: server.id },
@@ -108,7 +109,7 @@ export async function collectServerMetrics(server: ServerModel) {
 export async function collectDockerContainers(server: ServerModel) {
   if (!server.dockerEnabled) return;
   try {
-    const { stdout } = await execOnServer(server, DOCKER_COMMAND);
+    const { stdout } = await execPooled(server, DOCKER_COMMAND);
     const containers = parseDockerOutput(stdout);
 
     if (containers.length > 0) {
@@ -142,7 +143,7 @@ export async function collectDockerContainers(server: ServerModel) {
 export async function collectDockerImages(server: ServerModel) {
   if (!server.dockerEnabled) return;
   try {
-    const { stdout } = await execOnServer(server, DOCKER_IMAGES_COMMAND);
+    const { stdout } = await execPooled(server, DOCKER_IMAGES_COMMAND);
     const images = parseDockerImagesOutput(stdout);
 
     if (images.length > 0) {
@@ -173,7 +174,7 @@ export async function collectDockerImages(server: ServerModel) {
 export async function collectProxmoxVms(server: ServerModel) {
   if (!server.proxmoxEnabled) return;
   try {
-    const { stdout } = await execOnServer(server, PROXMOX_COMMAND);
+    const { stdout } = await execPooled(server, PROXMOX_COMMAND);
     const vms = parseProxmoxOutput(stdout);
 
     const cutoff = new Date(

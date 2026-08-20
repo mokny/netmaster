@@ -125,7 +125,8 @@ export function connectSsh(server: ServerModel): Promise<Client> {
 export function execOnConnection(
   conn: Client,
   command: string,
-  timeoutMs = 15_000
+  timeoutMs = 15_000,
+  stdin?: string
 ): Promise<SshExecResult> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -151,6 +152,9 @@ export function execOnConnection(
         .stderr.on("data", (data: Buffer) => {
           stderr += data.toString("utf8");
         });
+      if (stdin !== undefined) {
+        stream.end(stdin);
+      }
     });
   });
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireNetworkToolsEnabled, handleApiError } from "@/lib/api-helpers";
-import { execOnServer, buildRootScriptCommand } from "@/lib/ssh";
+import { buildRootScriptCommand } from "@/lib/ssh";
+import { execPooled } from "@/lib/ssh-pool";
 import { PORTS_COMMAND, parsePortsOutput } from "@/lib/ports";
 
 export async function GET(
@@ -15,7 +16,7 @@ export async function GET(
     requireNetworkToolsEnabled(server);
 
     const { command, stdin } = buildRootScriptCommand(server, PORTS_COMMAND);
-    const res = await execOnServer(server, command, 15_000, stdin);
+    const res = await execPooled(server, command, 15_000, stdin);
     const snapshot = parsePortsOutput(res.stdout);
 
     return NextResponse.json(snapshot);

@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
 import { requireRole, requireSession, handleApiError } from "@/lib/api-helpers";
+import { invalidatePooledConnection } from "@/lib/ssh-pool";
+
+const CONNECTION_FIELDS = [
+  "hostname",
+  "sshPort",
+  "sshUsername",
+  "authType",
+  "encryptedSecret",
+  "encryptedPassphrase",
+];
 
 const SERVER_SELECT = {
   id: true,
@@ -98,6 +108,13 @@ export async function PATCH(
       select: SERVER_SELECT,
     });
 
+    // Verbindungsrelevante Felder geändert: gepoolte Verbindung verwirft
+    // sich sonst erst beim nächsten Auth-Fehler statt sofort mit den neuen
+    // Zugangsdaten neu zu verbinden.
+    if (CONNECTION_FIELDS.some((f) => f in data)) {
+      invalidatePooledConnection(id);
+    }
+
     return NextResponse.json({ server });
   } catch (err) {
     return handleApiError(err);
@@ -112,6 +129,7 @@ export async function DELETE(
     await requireRole("ADMIN");
     const { id } = await params;
     await prisma.server.delete({ where: { id } });
+    invalidatePooledConnection(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return handleApiError(err);
