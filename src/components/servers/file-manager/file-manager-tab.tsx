@@ -6,10 +6,12 @@ import { FilePanel } from "./file-panel";
 import { EditorArea, type EditorTab } from "./editor-area";
 import type { FileNodeDTO } from "@/lib/file-manager-types";
 import type { FileManagerConnection } from "@/hooks/use-file-manager-connection";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Dateimanager im MC-Stil: zwei unabhängige Panels auf demselben Server,
 // darunter ein Editor-Bereich mit Tabs für geöffnete Textdateien.
 export function FileManagerTab({ serverId }: { serverId: string }) {
+  const confirm = useConfirm();
   const [tabs, setTabs] = useState<EditorTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -48,22 +50,29 @@ export function FileManagerTab({ serverId }: { serverId: string }) {
     [tabs]
   );
 
-  const closeTab = useCallback((id: string) => {
-    setTabs((prev) => {
-      const tab = prev.find((t) => t.id === id);
+  const closeTab = useCallback(
+    async (id: string) => {
+      const tab = tabs.find((t) => t.id === id);
       if (tab && tab.content !== tab.savedContent) {
-        if (!window.confirm(`"${tab.name}" hat ungespeicherte Änderungen. Trotzdem schließen?`)) {
-          return prev;
-        }
+        const ok = await confirm({
+          title: "Ungespeicherte Änderungen",
+          description: `"${tab.name}" hat ungespeicherte Änderungen. Trotzdem schließen?`,
+          confirmText: "Schließen",
+          variant: "destructive",
+        });
+        if (!ok) return;
       }
-      const next = prev.filter((t) => t.id !== id);
-      setActiveId((current) => {
-        if (current !== id) return current;
-        return next.length > 0 ? next[next.length - 1].id : null;
+      setTabs((prev) => {
+        const next = prev.filter((t) => t.id !== id);
+        setActiveId((current) => {
+          if (current !== id) return current;
+          return next.length > 0 ? next[next.length - 1].id : null;
+        });
+        return next;
       });
-      return next;
-    });
-  }, []);
+    },
+    [tabs, confirm]
+  );
 
   const changeTab = useCallback((id: string, content: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)));

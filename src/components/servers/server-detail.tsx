@@ -30,6 +30,7 @@ import { VmRow } from "@/components/vms/vm-row";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ArrowLeft, Trash2, Pencil, Container, TerminalSquare, RotateCw, Power, Cpu, Boxes } from "lucide-react";
 import type {
   ServerDTO,
@@ -44,6 +45,7 @@ import type {
 export function ServerDetail({ serverId }: { serverId: string }) {
   const router = useRouter();
   const session = useSession();
+  const confirm = useConfirm();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
   const canDelete = session?.role === "ADMIN";
   const { openTerminal } = useTerminalManager();
@@ -170,7 +172,15 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   }
 
   async function deleteServer() {
-    if (!confirm("Diesen Server wirklich löschen?")) return;
+    if (
+      !(await confirm({
+        title: "Server löschen",
+        description: "Diesen Server wirklich löschen?",
+        confirmText: "Löschen",
+        variant: "destructive",
+      }))
+    )
+      return;
     const res = await fetch(`/api/servers/${serverId}`, { method: "DELETE" });
     if (res.ok) {
       router.push("/servers");

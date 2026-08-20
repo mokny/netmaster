@@ -16,11 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UserFormDialog } from "@/components/admin/user-form-dialog";
 import { UserSessionsDialog } from "@/components/admin/user-sessions-dialog";
 import { useSession } from "@/hooks/use-session";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import type { UserDTO } from "@/lib/types";
 
 export default function UsersPage() {
   const session = useSession();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<UserDTO[] | null>(null);
 
   const load = useCallback(async () => {
@@ -41,7 +43,15 @@ export default function UsersPage() {
   }, []);
 
   async function deleteUser(id: string) {
-    if (!confirm("Diesen Nutzer wirklich löschen?")) return;
+    if (
+      !(await confirm({
+        title: "Nutzer löschen",
+        description: "Diesen Nutzer wirklich löschen?",
+        confirmText: "Löschen",
+        variant: "destructive",
+      }))
+    )
+      return;
     const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Nutzer gelöscht");

@@ -6,6 +6,7 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasskeyList } from "@/components/account/passkey-list";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Fingerprint } from "lucide-react";
 import type { PasskeyDTO } from "@/lib/types";
 
@@ -24,6 +25,7 @@ export function PasskeyCard({
   passkeys: PasskeyDTO[];
   onChanged: () => void;
 }) {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const ipHost = isIpHost();
 
@@ -85,7 +87,15 @@ export function PasskeyCard({
       passkeys.length === 1
         ? "Letzten Passkey wirklich entfernen? Danach ist wieder Passwort-Login für diesen Account möglich."
         : "Passkey wirklich entfernen? Andere aktive Sessions werden beendet.";
-    if (!confirm(message)) return;
+    if (
+      !(await confirm({
+        title: "Passkey entfernen",
+        description: message,
+        confirmText: "Entfernen",
+        variant: "destructive",
+      }))
+    )
+      return;
     const res = await fetch(`/api/account/webauthn/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Entfernen fehlgeschlagen");

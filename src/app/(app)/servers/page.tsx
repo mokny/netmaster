@@ -9,11 +9,13 @@ import { ServerCard } from "@/components/servers/server-card";
 import { Server as ServerIcon } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { ServerDTO } from "@/lib/types";
 
 export default function ServersPage() {
   const [servers, setServers] = useState<ServerDTO[] | null>(null);
   const session = useSession();
+  const confirm = useConfirm();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
   const canDelete = session?.role === "ADMIN";
 
@@ -52,7 +54,14 @@ export default function ServersPage() {
   });
 
   async function deleteServer(id: string) {
-    if (!confirm("Diesen Server wirklich löschen? Alle Metrikdaten gehen verloren.")) {
+    if (
+      !(await confirm({
+        title: "Server löschen",
+        description: "Diesen Server wirklich löschen? Alle Metrikdaten gehen verloren.",
+        confirmText: "Löschen",
+        variant: "destructive",
+      }))
+    ) {
       return;
     }
     const res = await fetch(`/api/servers/${id}`, { method: "DELETE" });

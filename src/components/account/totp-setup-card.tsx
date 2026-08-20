@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 type SetupState = { secret: string; qrCodeDataUrl: string } | null;
@@ -28,6 +29,7 @@ export function TotpSetupCard({
   hasPasskeys: boolean;
   onChanged: () => void;
 }) {
+  const confirm = useConfirm();
   const [setup, setSetup] = useState<SetupState>(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,15 @@ export function TotpSetupCard({
   }
 
   async function disable() {
-    if (!confirm("2FA wirklich deaktivieren? Andere aktive Sessions werden beendet.")) return;
+    if (
+      !(await confirm({
+        title: "2FA deaktivieren",
+        description: "2FA wirklich deaktivieren? Andere aktive Sessions werden beendet.",
+        confirmText: "Deaktivieren",
+        variant: "destructive",
+      }))
+    )
+      return;
     setLoading(true);
     try {
       const res = await fetch("/api/account/totp/disable", { method: "POST" });

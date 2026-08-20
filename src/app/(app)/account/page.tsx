@@ -11,11 +11,13 @@ import { SessionsList } from "@/components/account/sessions-list";
 import { TotpSetupCard } from "@/components/account/totp-setup-card";
 import { PasskeyCard } from "@/components/account/passkey-card";
 import { useSession } from "@/hooks/use-session";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2 } from "lucide-react";
 import type { SessionDTO, PasskeyDTO } from "@/lib/types";
 
 export default function AccountPage() {
   const session = useSession();
+  const confirm = useConfirm();
   const [sessions, setSessions] = useState<SessionDTO[] | null>(null);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -53,9 +55,13 @@ export default function AccountPage() {
       return;
     }
 
-    const revokeOtherSessions = confirm(
-      "Passwort wurde geändert. Sollen alle anderen aktiven Sessions (andere Geräte/Browser) jetzt beendet werden?"
-    );
+    const revokeOtherSessions = await confirm({
+      title: "Passwort geändert",
+      description:
+        "Sollen alle anderen aktiven Sessions (andere Geräte/Browser) jetzt beendet werden?",
+      confirmText: "Beenden",
+      cancelText: "Nicht beenden",
+    });
 
     setSaving(true);
     try {
@@ -94,7 +100,15 @@ export default function AccountPage() {
   }
 
   async function revokeOtherSessions() {
-    if (!confirm("Alle anderen Sessions wirklich beenden?")) return;
+    if (
+      !(await confirm({
+        title: "Sessions beenden",
+        description: "Alle anderen Sessions wirklich beenden?",
+        confirmText: "Beenden",
+        variant: "destructive",
+      }))
+    )
+      return;
     const res = await fetch("/api/account/sessions", { method: "DELETE" });
     if (res.ok) {
       toast.success("Andere Sessions beendet");

@@ -13,10 +13,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { SessionsList } from "@/components/account/sessions-list";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ShieldCheck } from "lucide-react";
 import type { SessionDTO, UserDTO } from "@/lib/types";
 
 export function UserSessionsDialog({ user }: { user: UserDTO }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionDTO[] | null>(null);
 
@@ -38,7 +40,15 @@ export function UserSessionsDialog({ user }: { user: UserDTO }) {
   }
 
   async function revokeAll() {
-    if (!confirm(`Alle Sessions von ${user.name} wirklich beenden?`)) return;
+    if (
+      !(await confirm({
+        title: "Sessions beenden",
+        description: `Alle Sessions von ${user.name} wirklich beenden?`,
+        confirmText: "Beenden",
+        variant: "destructive",
+      }))
+    )
+      return;
     const res = await fetch(`/api/users/${user.id}/sessions`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Alle Sessions beendet");
