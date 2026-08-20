@@ -31,7 +31,14 @@ export function getRelyingParty(
   const hostname = host.split(":")[0];
   if (isIpHost(hostname) && hostname !== "localhost") return null;
 
-  const secure = process.env.COOKIE_SECURE === "true";
+  // Hinter einem TLS-terminierenden Reverse-Proxy sieht Node nur http,
+  // der Browser meldet sich aber über https – X-Forwarded-Proto verrät
+  // das tatsächliche Schema. COOKIE_SECURE bleibt als Fallback für
+  // Deployments ohne Proxy.
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const secure = forwardedProto
+    ? forwardedProto === "https"
+    : process.env.COOKIE_SECURE === "true";
   const origin = `${secure ? "https" : "http"}://${host}`;
   return { rpID: hostname, origin, rpName: "NetMaster" };
 }
