@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { X, Minus, Maximize2, Minimize2, TerminalSquare, MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTerminalManager, type TerminalSession } from "@/hooks/use-terminal-manager";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { XtermTab } from "@/components/terminal/xterm-tab";
 import { VncTab } from "@/components/terminal/vnc-tab";
 
@@ -27,6 +28,7 @@ export function TerminalPanel() {
     toggleMaximize,
     setGeometry,
   } = useTerminalManager();
+  const isMobile = useIsMobile();
 
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(
     null
@@ -38,7 +40,7 @@ export function TerminalPanel() {
   if (sessions.length === 0) return null;
 
   function onDragStart(e: React.MouseEvent) {
-    if (maximized) return;
+    if (maximized || isMobile) return;
     const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
     dragState.current = {
       startX: e.clientX,
@@ -66,7 +68,7 @@ export function TerminalPanel() {
   }
 
   function onResizeStart(e: React.MouseEvent) {
-    if (maximized) return;
+    if (maximized || isMobile) return;
     e.stopPropagation();
     resizeState.current = {
       startX: e.clientX,
@@ -94,9 +96,13 @@ export function TerminalPanel() {
   }
 
   const style: React.CSSProperties = minimized
-    ? { right: BASE_OFFSET, bottom: BASE_OFFSET, width: 280, height: 40 }
-    : maximized
-      ? { left: 16, top: 16, right: 16, bottom: 16, width: "auto", height: "auto" }
+    ? isMobile
+      ? { left: 8, right: 8, bottom: BASE_OFFSET, width: "auto", height: 40 }
+      : { right: BASE_OFFSET, bottom: BASE_OFFSET, width: 280, height: 40 }
+    : maximized || isMobile
+      ? isMobile
+        ? { left: 0, top: 0, right: 0, bottom: 0, width: "auto", height: "auto" }
+        : { left: 16, top: 16, right: 16, bottom: 16, width: "auto", height: "auto" }
       : {
           left: geometry.x ?? undefined,
           top: geometry.y ?? undefined,
@@ -119,7 +125,7 @@ export function TerminalPanel() {
           onMouseDown={onDragStart}
           className={cn(
             "flex h-9 shrink-0 items-center gap-1 border-b bg-muted/50 pr-1 select-none",
-            !maximized && "cursor-move"
+            !maximized && !isMobile && "cursor-move"
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
@@ -160,13 +166,15 @@ export function TerminalPanel() {
             >
               <Minus className="size-3.5" />
             </button>
-            <button
-              onClick={toggleMaximize}
-              className="rounded p-1 hover:bg-accent"
-              aria-label={maximized ? "Verkleinern" : "Maximieren"}
-            >
-              {maximized ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-            </button>
+            {!isMobile && (
+              <button
+                onClick={toggleMaximize}
+                className="rounded p-1 hover:bg-accent"
+                aria-label={maximized ? "Verkleinern" : "Maximieren"}
+              >
+                {maximized ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+              </button>
+            )}
           </div>
         </div>
 
@@ -188,7 +196,7 @@ export function TerminalPanel() {
           </div>
         )}
 
-        {!minimized && !maximized && (
+        {!minimized && !maximized && !isMobile && (
           <div
             onMouseDown={onResizeStart}
             className="absolute right-0 bottom-0 size-3 cursor-nwse-resize"

@@ -143,7 +143,7 @@ export function DockerDetail({
           </div>
         </div>
         {canControl && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {running && (
               <Button
                 variant="outline"

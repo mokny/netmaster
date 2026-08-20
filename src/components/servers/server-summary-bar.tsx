@@ -60,13 +60,13 @@ function Tile({
   );
 
   if (!tooltip) {
-    return <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5">{inner}</div>;
+    return <div className="flex min-w-32 flex-1 items-center gap-2.5 px-3 py-2.5">{inner}</div>;
   }
 
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5" />}
+        render={<div className="flex min-w-32 flex-1 items-center gap-2.5 px-3 py-2.5" />}
       >
         {inner}
       </TooltipTrigger>
