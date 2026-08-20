@@ -428,6 +428,46 @@ model DashboardLayout {
   updatedAt DateTime @updatedAt
 }
 
+// Ein per Netzwerk-Scan (Explore, nmap) gefundenes Gerät. Eine Zeile pro
+// MAC-Adresse, bei jedem Scan aktualisiert (Upsert). Geräte, die bei einem
+// Scan nicht mehr gefunden werden, bleiben erhalten (lastSeenOnline=false)
+// statt gelöscht zu werden, damit die Historie sichtbar bleibt.
+model DiscoveredHost {
+  id       String  @id @default(cuid())
+  ip       String
+  mac      String  @unique
+  hostname String?
+  vendor   String?
+
+  // JSON-Array offener Ports ({port, service, version}[])
+  openPortsJson String  @default("[]")
+  osGuess       String?
+
+  lastSeenOnline Boolean @default(true)
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([ip])
+}
+
+// Konfiguration für die Explore-Netzwerkscans. Singleton-Tabelle (analog zu
+// VapidKeys) - es existiert höchstens eine Zeile, bei Bedarf beim ersten
+// Zugriff angelegt.
+model ExploreSettings {
+  id String @id @default(cuid())
+
+  // Manuell überschriebene Scan-Range (CIDR, z.B. "192.168.1.0/24"). Ist
+  // dieses Feld leer, wird die Range automatisch aus den
+  // Netzwerkschnittstellen des Hosts ermittelt.
+  scanRangeOverride String?
+
+  autoScanEnabled    Boolean @default(false)
+  autoScanIntervalHr Int     @default(24)
+
+  updatedAt DateTime @updatedAt
+}
+
 // FritzBox / FritzRepeater, abgefragt per TR-064 (SOAP über HTTP-Digest-Auth,
 // Standardport 49000, TLS-Variante 49443). Eigenständige Geräte, keine
 // Mesh-Hierarchie zwischen FritzBox und Repeater.

@@ -226,6 +226,8 @@ cd "$INSTALL_DIR"
 # ---------------------------------------------------------------------------
 ui_info "Willkommen bei NetMaster!\n\nIm nächsten Schritt richten wir den ersten Admin-Account und ein paar Grundeinstellungen ein."
 
+ui_info "Hinweis zu Explore (Netzwerk-Scan):\n\nNetMaster kann das lokale Netzwerk nach Geräten durchsuchen (ARP-/Ping-Sweep + Port-Scan). Dafür läuft der Container mit network_mode: host und den Capabilities NET_ADMIN/NET_RAW - er teilt sich also direkt das Netzwerk-Interface des Hosts, statt isoliert im Docker-Bridge-Netz zu laufen. Es gibt dadurch kein Docker-Portmapping mehr; die App ist immer direkt auf dem Host-Netzwerk erreichbar. Wird unten eine Domain für Caddy eingerichtet, wird der App-eigene Port zusätzlich per Host-Firewall von außen gesperrt, damit Caddy der einzige öffentliche Zugang bleibt (nur wenn eine unterstützte Firewall - ufw oder firewalld - aktiv ist)."
+
 ADMIN_EMAIL=$(ui_input "Admin-E-Mail-Adresse" "admin@netmaster.local")
 GENERATED_PASSWORD=$(openssl rand -base64 18 | tr -d '=+/' | cut -c1-16)
 ADMIN_PASSWORD=$(ui_password "Admin-Passwort (leer lassen für ein zufällig generiertes Passwort)")
@@ -268,12 +270,14 @@ if [ -n "$DOMAIN" ]; then
 }
 
 ${DOMAIN} {
-	reverse_proxy netmaster:3000
+	reverse_proxy localhost:${HOST_PORT}
 }
 EOF
-  # bind netmaster's host port to loopback only; Caddy reaches it directly
-  # over the internal Docker network and is the only public entrypoint (80/443)
-  printf 'HOST_BIND="127.0.0.1"\n' >> "$INSTALL_DIR/.env"
+  # NetMaster läuft mit network_mode: host (siehe unten) und hat damit kein
+  # Docker-Portmapping mehr, über das sich der App-Port auf localhost
+  # beschränken ließe (kein HOST_BIND wie zuvor im Bridge-Netz). Caddy soll
+  # der einzige öffentliche Entrypoint sein - der App-Port wird daher weiter
+  # unten per Host-Firewall explizit von außen gesperrt.
   printf 'COMPOSE_PROFILES=proxy\n' >> "$INSTALL_DIR/.env"
   printf 'COOKIE_SECURE=true\n' >> "$INSTALL_DIR/.env"
 fi
@@ -297,8 +301,22 @@ open_ports() {
   fi
 }
 
+# Sperrt einen Port von außen (nur relevant, wenn Caddy der einzige
+# öffentliche Entrypoint sein soll) - unter network_mode: host gibt es kein
+# Docker-NAT mehr, das den App-Port sonst nach außen abschirmen würde.
+deny_port_externally() {
+  local port="$1"
+  if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    ufw deny "$port"/tcp || true
+  elif command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
+    firewall-cmd --permanent --add-rich-rule="rule family='ipv4' port port='${port}' protocol='tcp' reject" || true
+    firewall-cmd --reload || true
+  fi
+}
+
 if [ -n "$DOMAIN" ]; then
   open_ports 80 443
+  deny_port_externally "$HOST_PORT"
 else
   open_ports "$HOST_PORT"
 fi

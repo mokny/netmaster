@@ -32,12 +32,15 @@ interface Props {
   trigger?: React.ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  // Vorausgefüllter Hostname für ein neu anzulegendes Gerät (z.B. aus der
+  // Explore-Netzwerkerkennung) - wird ignoriert, wenn `server` gesetzt ist.
+  initialHostname?: string;
 }
 
-function formFromServer(server?: ServerDTO) {
+function formFromServer(server?: ServerDTO, initialHostname?: string) {
   return {
     name: server?.name ?? "",
-    hostname: server?.hostname ?? "",
+    hostname: server?.hostname ?? initialHostname ?? "",
     sshPort: server?.sshPort ?? 22,
     sshUsername: server?.sshUsername ?? "root",
     authType: server?.authType ?? "PASSWORD",
@@ -70,6 +73,7 @@ export function ServerFormDialog({
   trigger,
   open: openProp,
   onOpenChange,
+  initialHostname,
 }: Props) {
   const isEdit = Boolean(server);
   const controlled = openProp !== undefined;
@@ -78,7 +82,7 @@ export function ServerFormDialog({
   const setOpen = onOpenChange ?? setOpenState;
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState(() => formFromServer(server));
+  const [form, setForm] = useState(() => formFromServer(server, initialHostname));
 
   // Formular auf die aktuellen Server-Werte zurücksetzen, sobald der Dialog
   // (wieder) geöffnet wird — der Dialog bleibt sonst dauerhaft gemountet.
@@ -86,7 +90,7 @@ export function ServerFormDialog({
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-      setForm(formFromServer(server));
+      setForm(formFromServer(server, initialHostname));
     }
   }
 

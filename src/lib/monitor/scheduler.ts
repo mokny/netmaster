@@ -8,6 +8,7 @@ import {
 } from "./collect";
 import { collectRouterDevice } from "./router-collect";
 import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
+import { getOrCreateExploreSettings, runDiscoveryScan } from "@/lib/discovery/scan";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
@@ -23,6 +24,32 @@ const checkIntervals = new Map<string, number>();
 
 const RECONCILE_INTERVAL_MS = 15_000;
 let reconcileTimer: NodeJS.Timeout | null = null;
+
+// Globaler Netzwerk-Scan-Job (Explore) - kein Per-Row-Timer wie oben, da es
+// nur eine einzige Konfiguration (ExploreSettings) gibt, kein Set von
+// DB-Zeilen. Läuft nur, wenn autoScanEnabled gesetzt ist.
+let discoveryTimer: NodeJS.Timeout | null = null;
+let discoveryIntervalHr: number | null = null;
+
+async function reconcileDiscovery() {
+  const settings = await getOrCreateExploreSettings();
+  if (!settings.autoScanEnabled) {
+    if (discoveryTimer) {
+      clearInterval(discoveryTimer);
+      discoveryTimer = null;
+      discoveryIntervalHr = null;
+    }
+    return;
+  }
+  if (discoveryTimer && discoveryIntervalHr === settings.autoScanIntervalHr) return;
+
+  if (discoveryTimer) clearInterval(discoveryTimer);
+  discoveryIntervalHr = settings.autoScanIntervalHr;
+  discoveryTimer = setInterval(
+    () => void runDiscoveryScan(),
+    settings.autoScanIntervalHr * 3_600_000
+  );
+}
 
 function scheduleServer(
   serverId: string,
@@ -169,6 +196,8 @@ async function reconcile() {
       routerIntervals.delete(id);
     }
   }
+
+  await reconcileDiscovery();
 }
 
 let started = false;
@@ -183,6 +212,9 @@ export function startMonitorScheduler() {
 export function stopMonitorScheduler() {
   started = false;
   if (reconcileTimer) clearInterval(reconcileTimer);
+  if (discoveryTimer) clearInterval(discoveryTimer);
+  discoveryTimer = null;
+  discoveryIntervalHr = null;
   for (const t of serverTimers.values()) clearInterval(t);
   for (const t of dockerTimers.values()) clearInterval(t);
   for (const t of dockerImageTimers.values()) clearInterval(t);

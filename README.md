@@ -60,7 +60,16 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`). Optional: `HOST_PORT` in `.env` setzt den Host-Port (Standard `3000`). Für HTTPS via Caddy + Let's Encrypt: `COMPOSE_PROFILES=proxy` und `HOST_BIND=127.0.0.1` in `.env` setzen sowie ein `Caddyfile` anlegen (siehe `install.sh` für ein Beispiel) – Caddy erreicht `netmaster` dann direkt über das interne Docker-Netzwerk.
+Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`). Optional: `HOST_PORT` in `.env` setzt den Port, auf dem die App lauscht (Standard `3000`). Für HTTPS via Caddy + Let's Encrypt: `COMPOSE_PROFILES=proxy` in `.env` setzen sowie ein `Caddyfile` anlegen (siehe `install.sh` für ein Beispiel), das per `reverse_proxy localhost:<HOST_PORT>` auf die App zeigt.
+
+Der `netmaster`-Container läuft mit `network_mode: host` (kein Docker-Portmapping) und `cap_add: [NET_ADMIN, NET_RAW]`, damit die Explore-Netzwerkerkennung (siehe unten) das echte LAN sehen kann – er teilt sich also direkt das Netzwerk-Interface des Hosts. Wird Caddy als einziger öffentlicher Zugang genutzt, sollte der App-eigene Port zusätzlich per Host-Firewall von außen gesperrt werden (macht `install.sh` automatisch, wenn eine unterstützte Firewall aktiv ist).
+
+## Explore (Netzwerk-Scan)
+
+Der Menüpunkt „Explore" durchsucht das lokale Netzwerk per `nmap` (ARP-/Ping-Sweep, danach Port-/Dienst-Erkennung für gefundene Hosts) und zeigt an, welche Geräte noch nicht als Server/Router in NetMaster erfasst sind.
+
+- **Docker**: funktioniert nur mit `network_mode: host` + `NET_ADMIN`/`NET_RAW` (siehe oben) – ohne Host-Networking sieht der Scan nur das isolierte Docker-Bridge-Netz, nicht das echte LAN. `network_mode: host` funktioniert unter Linux; unter Docker Desktop für Mac/Windows verhält es sich anders bzw. wird nicht unterstützt.
+- **Lokale Entwicklung** (`npm run dev`): benötigt ein installiertes `nmap`-Binary im `PATH`. Ohne erhöhte Rechte liefert der Host-Sweep in der Regel keine MAC-Adressen (und Hosts ohne MAC werden übersprungen) – für vollständige Ergebnisse lokal ggf. `sudo npm run dev` verwenden.
 
 ## Wichtige Umgebungsvariablen
 

@@ -1,15 +1,20 @@
 services:
   netmaster:
     build: .
-    ports:
-      # HOST_BIND defaults to 0.0.0.0 (publicly reachable). install.sh sets it
-      # to 127.0.0.1 when a Caddy proxy is used, since Caddy reaches this
-      # container directly over the internal Docker network regardless of
-      # this host-port mapping.
-      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-3000}:3000"
+    # network_mode: host statt Portmapping - die "Explore"-Netzwerkerkennung
+    # (ARP-/Ping-Sweep + Port-Scan per nmap) braucht direkten Zugriff auf das
+    # LAN-Interface des Hosts, den es im isolierten Docker-Bridge-Netz nicht
+    # gäbe. Der Container lauscht dadurch direkt auf Port 3000 des Hosts
+    # (steuerbar über PORT), ein HOST_BIND/HOST_PORT-Portmapping entfällt.
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     environment:
       NODE_ENV: production
-      PORT: 3000
+      # HOST_PORT wird hier zum tatsächlichen Listen-Port der App, da
+      # unter network_mode: host kein Docker-Portmapping mehr existiert.
+      PORT: ${HOST_PORT:-3000}
       DATABASE_URL: "file:/app/data/netmaster.db"
       MASTER_SECRET: ${MASTER_SECRET}
       AUTH_SECRET: ${AUTH_SECRET}
@@ -26,9 +31,10 @@ services:
     profiles: ["proxy"]
     depends_on:
       - netmaster
-    ports:
-      - "80:80"
-      - "443:443"
+    # Ebenfalls Host-Networking: unter network_mode: host gibt es kein
+    # Compose-internes DNS mehr, über das "netmaster" auflösbar wäre - Caddy
+    # erreicht die App stattdessen über localhost:3000 (siehe Caddyfile).
+    network_mode: host
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

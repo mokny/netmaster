@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
 import { TerminalManagerProvider } from "@/hooks/use-terminal-manager";
@@ -12,9 +13,14 @@ export default async function AppLayout({
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const cookieStore = await cookies();
+  const defaultCollapsed = cookieStore.get("sidebar_collapsed")?.value === "1";
+
   return (
     <TerminalManagerProvider>
-      <AppShell session={session}>{children}</AppShell>
+      <AppShell session={session} defaultCollapsed={defaultCollapsed}>
+        {children}
+      </AppShell>
       <TerminalDock />
     </TerminalManagerProvider>
   );

@@ -23,13 +23,32 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
 
-export function RouterDeviceDialog({ onSaved }: { onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
+interface Props {
+  onSaved: () => void;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // Vorausgefüllte Werte für ein neu anzulegendes Gerät (z.B. aus der
+  // Explore-Netzwerkerkennung).
+  initial?: { name?: string; hostname?: string };
+}
+
+export function RouterDeviceDialog({
+  onSaved,
+  trigger,
+  open: openProp,
+  onOpenChange,
+  initial,
+}: Props) {
+  const controlled = openProp !== undefined;
+  const [openState, setOpenState] = useState(false);
+  const open = controlled ? openProp : openState;
+  const setOpen = onOpenChange ?? setOpenState;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    name: "",
+    name: initial?.name ?? "",
     type: "FRITZBOX" as "FRITZBOX" | "REPEATER",
-    hostname: "fritz.box",
+    hostname: initial?.hostname ?? "fritz.box",
     port: 49000,
     useTls: false,
     username: "",
@@ -65,14 +84,18 @@ export function RouterDeviceDialog({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button size="sm">
-            <Plus className="size-4" />
-            Gerät hinzufügen
-          </Button>
-        }
-      />
+      {(!controlled || trigger) && (
+        <DialogTrigger
+          render={
+            trigger ?? (
+              <Button size="sm">
+                <Plus className="size-4" />
+                Gerät hinzufügen
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Router-Gerät hinzufügen</DialogTitle>
