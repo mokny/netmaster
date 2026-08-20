@@ -109,6 +109,9 @@ export async function verifyRegistration(
     expectedChallenge,
     expectedOrigin: rp.origin,
     expectedRPID: rp.rpID,
+    // Optionen fragen nur "preferred" an, verifyRegistrationResponse
+    // verlangt UV sonst standardmäßig strikt (requireUserVerification=true).
+    requireUserVerification: false,
   });
 }
 
@@ -160,6 +163,7 @@ export async function verifyAuthentication(
         ? (credential.transports.split(",") as AuthenticatorTransportFuture[])
         : undefined,
     },
+    requireUserVerification: false,
   });
 
   return { result, credential: { id: credential.id, userId: credential.userId } };
