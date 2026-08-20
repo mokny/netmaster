@@ -12,8 +12,15 @@ export interface ParsedMetrics {
   diskPercent: number | null;
   disks: ParsedDisk[];
   loadAvg1: number | null;
+  loadAvg5: number | null;
+  loadAvg15: number | null;
   netRxBytes: number | null;
   netTxBytes: number | null;
+  memTotalMb: number | null;
+  cpuCores: number | null;
+  uptimeSeconds: number | null;
+  kernelVersion: string | null;
+  osName: string | null;
 }
 
 function section(raw: string, name: string): string[] {
@@ -43,8 +50,15 @@ export function parseMetricsOutput(raw: string): ParsedMetrics {
     diskPercent: null,
     disks: [],
     loadAvg1: null,
+    loadAvg5: null,
+    loadAvg15: null,
     netRxBytes: null,
     netTxBytes: null,
+    memTotalMb: null,
+    cpuCores: null,
+    uptimeSeconds: null,
+    kernelVersion: null,
+    osName: null,
   };
 
   try {
@@ -81,6 +95,7 @@ export function parseMetricsOutput(raw: string): ParsedMetrics {
       const t = Number(total);
       const a = Number(avail);
       result.memPercent = t > 0 ? ((t - a) / t) * 100 : null;
+      result.memTotalMb = t / 1024;
     }
   } catch {
     // ignore
@@ -112,8 +127,10 @@ export function parseMetricsOutput(raw: string): ParsedMetrics {
   try {
     const loadLines = section(raw, "LOAD");
     if (loadLines.length >= 1) {
-      const first = loadLines[0].trim().split(/\s+/)[0];
-      result.loadAvg1 = Number(first);
+      const [l1, l5, l15] = loadLines[0].trim().split(/\s+/);
+      result.loadAvg1 = Number(l1);
+      result.loadAvg5 = Number(l5);
+      result.loadAvg15 = Number(l15);
     }
   } catch {
     // ignore
@@ -133,6 +150,24 @@ export function parseMetricsOutput(raw: string): ParsedMetrics {
     }
     result.netRxBytes = rx;
     result.netTxBytes = tx;
+  } catch {
+    // ignore
+  }
+
+  try {
+    const sysLines = section(raw, "SYS");
+    const sys: Record<string, string> = {};
+    for (const line of sysLines) {
+      const eq = line.indexOf("=");
+      if (eq < 0) continue;
+      sys[line.slice(0, eq)] = line.slice(eq + 1).trim();
+    }
+    result.cpuCores =
+      sys.CORES && !Number.isNaN(Number(sys.CORES)) ? Number(sys.CORES) : null;
+    result.uptimeSeconds =
+      sys.UPTIME && !Number.isNaN(Number(sys.UPTIME)) ? Number(sys.UPTIME) : null;
+    result.kernelVersion = sys.KERNEL || null;
+    result.osName = sys.OS || null;
   } catch {
     // ignore
   }

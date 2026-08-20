@@ -27,6 +27,7 @@ import { ProcessManagerCard } from "@/components/servers/process-manager-card";
 import { FirewallCard } from "@/components/servers/firewall-card";
 import { PortsCard } from "@/components/servers/ports-card";
 import { ServerNetworkGraph } from "@/components/servers/server-network-graph";
+import { ServerSummaryBar } from "@/components/servers/server-summary-bar";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
 import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { VmRow } from "@/components/vms/vm-row";
@@ -320,6 +321,8 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           </CardContent>
         </Card>
       )}
+
+      <ServerSummaryBar server={server} latest={latest} disks={disks} />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">

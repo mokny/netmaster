@@ -148,6 +148,14 @@ model Server {
   lastError     String?
   lastCheckedAt DateTime?
 
+  // Statische Host-Eigenschaften, bei jedem erfolgreichen Poll aktualisiert
+  // (ändern sich quasi nie, daher kein eigener Zeitverlauf).
+  cpuCores      Int?
+  memTotalMb    Float?
+  osName        String?
+  kernelVersion String?
+  bootedAt      DateTime?
+
   metricSamples MetricSample[]
   diskSamples   DiskSample[]
   serviceChecks ServiceCheck[]
@@ -167,6 +175,8 @@ model MetricSample {
   memPercent  Float?
   diskPercent Float?
   loadAvg1    Float?
+  loadAvg5    Float?
+  loadAvg15   Float?
   netRxBytes  Float?
   netTxBytes  Float?
 

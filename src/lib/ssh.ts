@@ -255,6 +255,11 @@ echo "__MEM__"; cat /proc/meminfo | grep -E 'MemTotal|MemAvailable';
 echo "__DISK__"; df -kP -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2;
 echo "__LOAD__"; cat /proc/loadavg;
 echo "__NET__"; cat /proc/net/dev | grep -v -E 'lo:|Inter|face';
+echo "__SYS__";
+echo "CORES=$(nproc 2>/dev/null)";
+echo "UPTIME=$(awk '{print $1}' /proc/uptime 2>/dev/null)";
+echo "KERNEL=$(uname -r 2>/dev/null)";
+echo "OS=$( . /etc/os-release 2>/dev/null; echo "$PRETTY_NAME" )";
 `.trim();
 
 // Baut einen Befehl (und ggf. stdin), der root-Rechte benötigt. Läuft der

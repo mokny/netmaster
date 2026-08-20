@@ -348,9 +348,12 @@ SUMMARY="${SUMMARY}
 Verwaltung:
   netmaster status      Status anzeigen
   netmaster logs        Live-Logs ansehen
+  netmaster stop        Container stoppen
+  netmaster start        Container starten
   netmaster restart      Container neu starten
   netmaster update       auf neuestes Release aktualisieren
   netmaster update --nightly   auf neuesten main-Commit aktualisieren
+  netmaster prune-all    systemweit alle ungenutzten Docker-Ressourcen entfernen
   netmaster uninstall    NetMaster entfernen"
 
 if [ -z "$DOMAIN" ]; then

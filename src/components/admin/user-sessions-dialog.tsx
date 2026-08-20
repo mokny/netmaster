@@ -74,7 +74,7 @@ export function UserSessionsDialog({ user }: { user: UserDTO }) {
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Sessions von {user.name}</DialogTitle>
         </DialogHeader>

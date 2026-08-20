@@ -38,6 +38,11 @@ const SERVER_SELECT = {
   lastCheckedAt: true,
   createdAt: true,
   updatedAt: true,
+  cpuCores: true,
+  memTotalMb: true,
+  osName: true,
+  kernelVersion: true,
+  bootedAt: true,
 } as const;
 
 export async function GET(

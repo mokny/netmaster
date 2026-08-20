@@ -65,6 +65,16 @@ cmd_restart() {
   compose restart
 }
 
+cmd_stop() {
+  log "Stoppe Container..."
+  compose stop
+}
+
+cmd_start() {
+  log "Starte Container..."
+  compose up -d
+}
+
 resolve_release_ref() {
   local tag
   tag=$(curl -fsSL "https://api.github.com/repos/${REPO_SLUG}/releases/latest" 2>/dev/null \
@@ -123,8 +133,8 @@ cmd_cleanup() {
   log "Entferne verwaiste Docker-Images..."
   docker image prune -f --filter "label=com.docker.compose.project=${project}" >/dev/null || true
 
-  log "Entferne alten Docker-Build-Cache (>7 Tage)..."
-  docker builder prune -f --filter "until=168h" >/dev/null || true
+  log "Entferne Docker-Build-Cache..."
+  docker builder prune -f >/dev/null || true
 
   local backup_dir="$INSTALL_DIR/backups" keep=3
   if [ -d "$backup_dir" ]; then
@@ -137,6 +147,19 @@ cmd_cleanup() {
   fi
 
   log "Cleanup abgeschlossen."
+}
+
+cmd_prune_all() {
+  warn "Dies führt 'docker system prune -a' auf dem gesamten Host aus."
+  warn "Betrifft ALLE Docker-Images/Container/Netzwerke/Build-Cache auf diesem System,"
+  warn "nicht nur NetMaster - auch anderer Docker-Workload auf diesem Host ist betroffen."
+  warn "Volumes werden NICHT gelöscht."
+  if ! ui_yesno "Wirklich systemweit alle ungenutzten Docker-Ressourcen entfernen?"; then
+    log "Abgebrochen."
+    return 0
+  fi
+  docker system prune -a -f
+  log "System-weites Cleanup abgeschlossen."
 }
 
 cmd_reset_login() {
@@ -205,9 +228,12 @@ Verwendung: netmaster <befehl> [optionen]
 Befehle:
   status               Container-Status und URL anzeigen
   logs                 Live-Logs ansehen (Strg+C zum Beenden)
+  stop                 Container stoppen
+  start                Container starten
   restart              Container neu starten
   update [--nightly]   Auf neuestes Release aktualisieren (mit --nightly: neuester main-Commit)
   cleanup              Verwaiste Docker-Images/Build-Cache und alte Backups entfernen
+  prune-all            Systemweit alle ungenutzten Docker-Ressourcen entfernen (docker system prune -a)
   reset-login <email>  Login eines Users zurücksetzen (neues Passwort, Passkeys/2FA entfernt)
   uninstall            NetMaster interaktiv entfernen
 EOF
@@ -216,9 +242,12 @@ EOF
 case "${1:-}" in
   status)      cmd_status ;;
   logs)        cmd_logs ;;
+  stop)        cmd_stop ;;
+  start)       cmd_start ;;
   restart)     cmd_restart ;;
   update)      shift; cmd_update "$@" ;;
   cleanup)     cmd_cleanup ;;
+  prune-all)   cmd_prune_all ;;
   reset-login) shift; cmd_reset_login "$@" ;;
   uninstall)   cmd_uninstall ;;
   *)           usage; exit 1 ;;

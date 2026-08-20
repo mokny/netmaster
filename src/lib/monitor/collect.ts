@@ -29,14 +29,30 @@ export async function collectServerMetrics(server: ServerModel) {
         memPercent: metrics.memPercent,
         diskPercent: metrics.diskPercent,
         loadAvg1: metrics.loadAvg1,
+        loadAvg5: metrics.loadAvg5,
+        loadAvg15: metrics.loadAvg15,
         netRxBytes: metrics.netRxBytes,
         netTxBytes: metrics.netTxBytes,
       },
     });
 
+    // Statische Host-Eigenschaften nur überschreiben, wenn dieser Poll sie
+    // liefern konnte - ein einzelner Parse-Aussetzer soll nicht den zuletzt
+    // bekannten Wert löschen.
     await prisma.server.update({
       where: { id: server.id },
-      data: { lastStatus: status, lastError: null, lastCheckedAt: new Date() },
+      data: {
+        lastStatus: status,
+        lastError: null,
+        lastCheckedAt: new Date(),
+        ...(metrics.cpuCores !== null && { cpuCores: metrics.cpuCores }),
+        ...(metrics.memTotalMb !== null && { memTotalMb: metrics.memTotalMb }),
+        ...(metrics.osName !== null && { osName: metrics.osName }),
+        ...(metrics.kernelVersion !== null && { kernelVersion: metrics.kernelVersion }),
+        ...(metrics.uptimeSeconds !== null && {
+          bootedAt: new Date(Date.now() - metrics.uptimeSeconds * 1000),
+        }),
+      },
     });
 
     if (metrics.disks.length > 0) {
@@ -63,6 +79,8 @@ export async function collectServerMetrics(server: ServerModel) {
         memPercent: sample.memPercent,
         diskPercent: sample.diskPercent,
         loadAvg1: sample.loadAvg1,
+        loadAvg5: sample.loadAvg5,
+        loadAvg15: sample.loadAvg15,
         netRxBytes: sample.netRxBytes,
         netTxBytes: sample.netTxBytes,
       },

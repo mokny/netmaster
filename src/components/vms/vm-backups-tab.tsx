@@ -133,10 +133,14 @@ export function VmBackupsTab({ serverId, vmid, canControl }: Props) {
             {backups.map((b) => (
               <TableRow key={b.volid}>
                 {canControl && (
-                  <TableCell>
+                  <TableCell
+                    className="cursor-pointer"
+                    onClick={() => toggle(b.volid, !selected.has(b.volid))}
+                  >
                     <Checkbox
                       checked={selected.has(b.volid)}
                       onCheckedChange={(c) => toggle(b.volid, !!c)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </TableCell>
                 )}

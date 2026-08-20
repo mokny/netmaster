@@ -23,6 +23,11 @@ export interface ServerDTO {
   lastCheckedAt: string | null;
   createdAt: string;
   updatedAt?: string;
+  cpuCores: number | null;
+  memTotalMb: number | null;
+  osName: string | null;
+  kernelVersion: string | null;
+  bootedAt: string | null;
 }
 
 export interface MetricSampleDTO {
@@ -32,6 +37,8 @@ export interface MetricSampleDTO {
   memPercent: number | null;
   diskPercent: number | null;
   loadAvg1: number | null;
+  loadAvg5: number | null;
+  loadAvg15: number | null;
   netRxBytes: number | null;
   netTxBytes: number | null;
 }

@@ -52,16 +52,14 @@ export function MetricChart({
           tickFormatter={(v) =>
             new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           }
-          className="text-xs"
-          tick={{ fill: "currentColor", opacity: 0.5 }}
+          tick={{ fill: "currentColor", opacity: 0.5, fontSize: 10 }}
           minTickGap={40}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           domain={domain ?? [0, 100]}
-          className="text-xs"
-          tick={{ fill: "currentColor", opacity: 0.5 }}
+          tick={{ fill: "currentColor", opacity: 0.5, fontSize: 10 }}
           width={36}
           axisLine={false}
           tickLine={false}

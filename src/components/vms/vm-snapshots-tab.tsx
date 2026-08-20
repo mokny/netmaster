@@ -111,10 +111,14 @@ export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
             {snapshots.map((snap) => (
               <TableRow key={snap.name}>
                 {canControl && (
-                  <TableCell>
+                  <TableCell
+                    className="cursor-pointer"
+                    onClick={() => toggle(snap.name, !selected.has(snap.name))}
+                  >
                     <Checkbox
                       checked={selected.has(snap.name)}
                       onCheckedChange={(c) => toggle(snap.name, !!c)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </TableCell>
                 )}

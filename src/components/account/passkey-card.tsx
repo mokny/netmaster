@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasskeyList } from "@/components/account/passkey-list";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { usePrompt } from "@/components/ui/prompt-dialog";
 import { Loader2, Fingerprint } from "lucide-react";
 import type { PasskeyDTO } from "@/lib/types";
 
@@ -26,14 +27,18 @@ export function PasskeyCard({
   onChanged: () => void;
 }) {
   const confirm = useConfirm();
+  const prompt = usePrompt();
   const [loading, setLoading] = useState(false);
   const ipHost = isIpHost();
 
   async function addPasskey() {
-    const name = window.prompt(
-      "Name für diesen Passkey (z.B. \"MacBook Pro\"):",
-      "Neues Gerät"
-    );
+    const name = await prompt({
+      title: "Passkey hinzufügen",
+      label: "Name für diesen Passkey",
+      placeholder: "z.B. MacBook Pro",
+      defaultValue: "Neues Gerät",
+      confirmText: "Weiter",
+    });
     if (name === null) return;
 
     setLoading(true);
