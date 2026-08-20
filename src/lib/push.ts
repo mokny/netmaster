@@ -1,17 +1,53 @@
 import webPush from "web-push";
 import { prisma } from "@/lib/prisma";
 
-let configured = false;
+interface VapidKeySet {
+  publicKey: string;
+  privateKey: string;
+  subject: string;
+}
 
-function ensureConfigured() {
-  if (configured) return true;
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) return false;
-  webPush.setVapidDetails(subject, publicKey, privateKey);
-  configured = true;
-  return true;
+let vapidKeys: Promise<VapidKeySet> | null = null;
+
+async function loadOrGenerateVapidKeys(): Promise<VapidKeySet> {
+  // Manuell per .env gesetzte Keys haben Vorrang (z.B. wenn mehrere
+  // Instanzen dieselben Keys teilen müssen).
+  const envPublic = process.env.VAPID_PUBLIC_KEY;
+  const envPrivate = process.env.VAPID_PRIVATE_KEY;
+  if (envPublic && envPrivate) {
+    return {
+      publicKey: envPublic,
+      privateKey: envPrivate,
+      subject: process.env.VAPID_SUBJECT || "mailto:admin@localhost",
+    };
+  }
+
+  const existing = await prisma.vapidKeys.findFirst();
+  if (existing) return existing;
+
+  const generated = webPush.generateVAPIDKeys();
+  return prisma.vapidKeys.create({
+    data: {
+      publicKey: generated.publicKey,
+      privateKey: generated.privateKey,
+      subject: process.env.VAPID_SUBJECT || "mailto:admin@localhost",
+    },
+  });
+}
+
+// Lädt (und generiert bei Bedarf einmalig) das VAPID-Schlüsselpaar. Wird
+// beim Serverstart aufgerufen, damit Push ohne manuellen Setup-Schritt
+// funktioniert - läuft aber ebenso lazy, falls doch mal übersprungen.
+export async function ensureVapidKeys(): Promise<VapidKeySet> {
+  if (!vapidKeys) {
+    vapidKeys = loadOrGenerateVapidKeys().catch((err) => {
+      vapidKeys = null;
+      throw err;
+    });
+  }
+  const keys = await vapidKeys;
+  webPush.setVapidDetails(keys.subject, keys.publicKey, keys.privateKey);
+  return keys;
 }
 
 export interface PushPayload {
@@ -24,7 +60,7 @@ export interface PushPayload {
 // gewordene Subscriptions (404/410 vom Push-Dienst, z.B. App deinstalliert)
 // werden dabei aus der DB entfernt.
 export async function sendPushToUser(userId: string, payload: PushPayload) {
-  if (!ensureConfigured()) return;
+  await ensureVapidKeys();
 
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;
@@ -70,7 +106,7 @@ export async function notifyServerEvent(
   event: NotificationEvent,
   payload: PushPayload
 ) {
-  if (!ensureConfigured()) return;
+  await ensureVapidKeys();
 
   const [users, prefs] = await Promise.all([
     prisma.user.findMany({

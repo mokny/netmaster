@@ -9,6 +9,7 @@ import {
 } from "./src/lib/session-token";
 import { monitorEvents, type MonitorEvent } from "./src/lib/monitor/events";
 import { startMonitorScheduler } from "./src/lib/monitor/scheduler";
+import { ensureVapidKeys } from "./src/lib/push";
 import { handleTerminalSocket } from "./src/lib/ws/terminal-handler";
 import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
 import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
@@ -168,6 +169,10 @@ app.prepare().then(() => {
     }
   };
   monitorEvents.on("event", onEvent);
+
+  void ensureVapidKeys().catch((err) => {
+    console.error("VAPID-Schlüssel konnten nicht geladen/erzeugt werden:", err);
+  });
 
   startMonitorScheduler();
 

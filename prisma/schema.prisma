@@ -60,6 +60,18 @@ model User {
   notificationPreferences NotificationPreference[]
 }
 
+// Automatisch beim ersten Start generiertes VAPID-Schlüsselpaar für
+// Web-Push (siehe src/lib/push.ts). Es gibt zur Laufzeit höchstens eine
+// Zeile - wird beim Serverstart erzeugt, falls noch keine existiert, damit
+// kein manueller Setup-Schritt nötig ist.
+model VapidKeys {
+  id         String   @id @default(cuid())
+  publicKey  String
+  privateKey String
+  subject    String
+  createdAt  DateTime @default(now())
+}
+
 // Ein Web-Push-Endpunkt (i.d.R. ein installiertes/geöffnetes Browser- bzw.
 // PWA-Fenster). Ein User kann mehrere haben (mehrere Geräte/Browser).
 model PushSubscription {
