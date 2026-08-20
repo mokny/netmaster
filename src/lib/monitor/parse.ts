@@ -328,3 +328,124 @@ export function parseProxmoxOutput(raw: string): ParsedVm[] {
   }
   return vms;
 }
+
+export interface ParsedSnapshot {
+  name: string;
+  description: string;
+  timestamp: number | null;
+  parent: string | null;
+  hasVmstate: boolean;
+}
+
+interface PveSnapshotEntry {
+  name?: string;
+  description?: string;
+  snaptime?: number;
+  parent?: string;
+  vmstate?: number;
+}
+
+// Erwartet die JSON-Ausgabe von
+// `pvesh get /nodes/{node}/qemu|lxc/{vmid}/snapshot --output-format json`.
+export function parseSnapshotListOutput(raw: string): ParsedSnapshot[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let entries: PveSnapshotEntry[];
+  try {
+    entries = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((e) => e.name && e.name !== "current")
+    .map((e) => ({
+      name: e.name!,
+      description: e.description ?? "",
+      timestamp: typeof e.snaptime === "number" ? e.snaptime * 1000 : null,
+      parent: e.parent ?? null,
+      hasVmstate: e.vmstate === 1,
+    }));
+}
+
+export interface ParsedStorage {
+  storage: string;
+  contentTypes: string[];
+}
+
+interface PveStorageEntry {
+  storage?: string;
+  content?: string;
+}
+
+// Erwartet die JSON-Ausgabe von `pvesh get /nodes/{node}/storage`.
+export function parseStorageListOutput(raw: string): ParsedStorage[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let entries: PveStorageEntry[];
+  try {
+    entries = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((e) => e.storage && e.content)
+    .map((e) => ({
+      storage: e.storage!,
+      contentTypes: e.content!.split(","),
+    }))
+    .filter((s) => s.contentTypes.includes("backup"));
+}
+
+export interface ParsedBackup {
+  volid: string;
+  storage: string;
+  sizeBytes: number | null;
+  timestamp: number | null;
+  notes: string;
+  vmType: "qemu" | "lxc" | null;
+}
+
+interface PveContentEntry {
+  volid?: string;
+  size?: number;
+  ctime?: number;
+  notes?: string;
+  format?: string;
+  content?: string;
+}
+
+// Erwartet die JSON-Ausgabe von
+// `pvesh get /nodes/{node}/storage/{storage}/content --content backup`.
+export function parseBackupListOutput(raw: string, storage: string): ParsedBackup[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let entries: PveContentEntry[];
+  try {
+    entries = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((e) => e.volid)
+    .map((e) => {
+      const vmType = e.volid!.includes("vzdump-qemu-")
+        ? "qemu"
+        : e.volid!.includes("vzdump-lxc-")
+          ? "lxc"
+          : null;
+      return {
+        volid: e.volid!,
+        storage,
+        sizeBytes: typeof e.size === "number" ? e.size : null,
+        timestamp: typeof e.ctime === "number" ? e.ctime * 1000 : null,
+        notes: e.notes ?? "",
+        vmType,
+      };
+    });
+}

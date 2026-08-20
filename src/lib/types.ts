@@ -118,6 +118,23 @@ export interface ProxmoxVmSampleDTO {
   diskPercent: number | null;
 }
 
+export interface ProxmoxSnapshotDTO {
+  name: string;
+  description: string;
+  timestamp: number | null;
+  parent: string | null;
+  hasVmstate: boolean;
+}
+
+export interface ProxmoxBackupDTO {
+  volid: string;
+  storage: string;
+  sizeBytes: number | null;
+  timestamp: number | null;
+  notes: string;
+  vmType: "qemu" | "lxc" | null;
+}
+
 export interface UserDTO {
   id: string;
   email: string;

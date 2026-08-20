@@ -501,6 +501,159 @@ export function openVmVncSession(
   });
 }
 
+// pvesh-Pfade brauchen einen Node-Namen; da nur der lokale (VM-besitzende)
+// Knoten unterstützt wird (siehe buildVmPowerCommand), wird er per
+// $(hostname) auf dem Zielserver selbst aufgelöst statt vorab per JS
+// abgefragt zu werden. Setzt voraus, dass der Proxmox-Node-Name dem
+// System-Hostnamen entspricht (Standardfall bei der Proxmox-Installation).
+const PVE_NODE = "$(hostname)";
+
+const SNAPSHOT_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+const STORAGE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+// Proxmox-Volume-ID für Backups, z.B. "local:backup/vzdump-qemu-100-...vma.zst".
+const VOLID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,255}$/;
+
+function validateVmid(vmid: number): void {
+  if (!Number.isInteger(vmid) || vmid <= 0) {
+    throw new Error("Ungültige VM-ID");
+  }
+}
+
+function vmBinary(type: VmType): "qm" | "pct" {
+  return type === "qemu" ? "qm" : "pct";
+}
+
+function vmApiSegment(type: VmType): "qemu" | "lxc" {
+  return type === "qemu" ? "qemu" : "lxc";
+}
+
+// Listet Snapshots einer VM/LXC als JSON (über pvesh, da 'qm listsnapshot'
+// nur eine Textbaum-Darstellung liefert).
+export function buildSnapshotListCommand(type: VmType, vmid: number): string {
+  validateVmid(vmid);
+  return `pvesh get /nodes/${PVE_NODE}/${vmApiSegment(type)}/${vmid}/snapshot --output-format json 2>/dev/null`;
+}
+
+export function buildSnapshotCreateCommand(
+  server: ServerModel,
+  type: VmType,
+  vmid: number,
+  name: string,
+  opts: { description?: string; vmstate?: boolean } = {}
+): { command: string; stdin?: string } {
+  validateVmid(vmid);
+  if (!SNAPSHOT_NAME_PATTERN.test(name)) {
+    throw new Error("Ungültiger Snapshot-Name (nur Buchstaben, Zahlen, _ und -, muss mit Buchstabe beginnen)");
+  }
+  let cmd = `${vmBinary(type)} snapshot ${vmid} ${shellQuote(name)}`;
+  if (opts.description) {
+    cmd += ` --description ${shellQuote(opts.description)}`;
+  }
+  if (type === "qemu" && opts.vmstate) {
+    cmd += " --vmstate 1";
+  }
+  return buildRootCommand(server, cmd);
+}
+
+export function buildSnapshotDeleteCommand(
+  server: ServerModel,
+  type: VmType,
+  vmid: number,
+  name: string
+): { command: string; stdin?: string } {
+  validateVmid(vmid);
+  if (!SNAPSHOT_NAME_PATTERN.test(name)) {
+    throw new Error("Ungültiger Snapshot-Name");
+  }
+  return buildRootCommand(server, `${vmBinary(type)} delsnapshot ${vmid} ${shellQuote(name)}`);
+}
+
+export function buildSnapshotRollbackCommand(
+  server: ServerModel,
+  type: VmType,
+  vmid: number,
+  name: string
+): { command: string; stdin?: string } {
+  validateVmid(vmid);
+  if (!SNAPSHOT_NAME_PATTERN.test(name)) {
+    throw new Error("Ungültiger Snapshot-Name");
+  }
+  return buildRootCommand(server, `${vmBinary(type)} rollback ${vmid} ${shellQuote(name)}`);
+}
+
+// Listet alle Storages des Knotens, die Backups aufnehmen können.
+export const STORAGE_LIST_COMMAND = `pvesh get /nodes/${PVE_NODE}/storage --output-format json 2>/dev/null`;
+
+export function buildBackupListCommand(storageId: string, vmid: number): string {
+  validateVmid(vmid);
+  if (!STORAGE_ID_PATTERN.test(storageId)) {
+    throw new Error("Ungültige Storage-ID");
+  }
+  return `pvesh get /nodes/${PVE_NODE}/storage/${shellQuote(storageId)}/content --content backup --vmid ${vmid} --output-format json 2>/dev/null`;
+}
+
+export type ProxmoxBackupMode = "snapshot" | "suspend" | "stop";
+export type ProxmoxBackupCompress = "zstd" | "gzip" | "lzo" | "0";
+
+const BACKUP_MODES: ProxmoxBackupMode[] = ["snapshot", "suspend", "stop"];
+const BACKUP_COMPRESS: ProxmoxBackupCompress[] = ["zstd", "gzip", "lzo", "0"];
+
+export function buildBackupCreateCommand(
+  server: ServerModel,
+  vmid: number,
+  opts: { storage: string; mode: ProxmoxBackupMode; compress: ProxmoxBackupCompress }
+): { command: string; stdin?: string } {
+  validateVmid(vmid);
+  if (!STORAGE_ID_PATTERN.test(opts.storage)) {
+    throw new Error("Ungültige Storage-ID");
+  }
+  if (!BACKUP_MODES.includes(opts.mode)) {
+    throw new Error("Ungültiger Backup-Modus");
+  }
+  if (!BACKUP_COMPRESS.includes(opts.compress)) {
+    throw new Error("Ungültige Kompression");
+  }
+  const cmd = `vzdump ${vmid} --storage ${shellQuote(opts.storage)} --mode ${opts.mode} --compress ${opts.compress} --quiet 1`;
+  return buildRootCommand(server, cmd);
+}
+
+export function buildBackupDeleteCommand(
+  server: ServerModel,
+  storageId: string,
+  volid: string
+): { command: string; stdin?: string } {
+  if (!STORAGE_ID_PATTERN.test(storageId)) {
+    throw new Error("Ungültige Storage-ID");
+  }
+  if (!VOLID_PATTERN.test(volid)) {
+    throw new Error("Ungültige Volume-ID");
+  }
+  const cmd = `pvesh delete /nodes/${PVE_NODE}/storage/${shellQuote(storageId)}/content/${shellQuote(volid)}`;
+  return buildRootCommand(server, cmd);
+}
+
+export function buildBackupRestoreCommand(
+  server: ServerModel,
+  type: VmType,
+  targetVmid: number,
+  storage: string,
+  volid: string,
+  force: boolean
+): { command: string; stdin?: string } {
+  validateVmid(targetVmid);
+  if (!STORAGE_ID_PATTERN.test(storage)) {
+    throw new Error("Ungültige Storage-ID");
+  }
+  if (!VOLID_PATTERN.test(volid)) {
+    throw new Error("Ungültige Volume-ID");
+  }
+  const cmd =
+    type === "qemu"
+      ? `qmrestore ${shellQuote(volid)} ${targetVmid} --storage ${shellQuote(storage)}${force ? " --force 1" : ""}`
+      : `pct restore ${targetVmid} ${shellQuote(volid)} --storage ${shellQuote(storage)}${force ? " --force 1" : ""}`;
+  return buildRootCommand(server, cmd);
+}
+
 // Öffnet eine interaktive PTY-Session, die statt einer Login-Shell direkt
 // 'pct enter'/'qm terminal' ausführt (Proxmox-VM/LXC-Konsole). Der Aufrufer
 // ist dafür verantwortlich, `conn.end()` beim Schließen aufzurufen.

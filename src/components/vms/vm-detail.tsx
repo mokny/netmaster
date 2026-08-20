@@ -14,11 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VmPowerDialog } from "@/components/vms/vm-power-dialog";
 import { VmTerminalMenu } from "@/components/vms/vm-terminal-menu";
+import { VmSnapshotsTab } from "@/components/vms/vm-snapshots-tab";
+import { VmBackupsTab } from "@/components/vms/vm-backups-tab";
 import {
   CombinedMetricChart,
   DISK_KEY_PREFIX,
   type CombinedPoint,
 } from "@/components/servers/combined-metric-chart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { ArrowLeft, Play, Square, RotateCw } from "lucide-react";
@@ -177,26 +180,46 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>CPU / RAM / Disk</CardTitle>
-          <CardDescription>
-            CPU {vm.cpuPercent != null ? `${vm.cpuPercent.toFixed(1)}%` : "–"} · RAM{" "}
-            {vm.memUsedMb != null && vm.memTotalMb
-              ? `${(vm.memUsedMb / 1024).toFixed(1)} / ${(vm.memTotalMb / 1024).toFixed(1)} GB`
-              : "–"}
-            {vm.diskUsedGb != null && vm.diskTotalGb
-              ? ` · Disk ${vm.diskUsedGb.toFixed(1)} / ${vm.diskTotalGb.toFixed(1)} GB`
-              : ""}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CombinedMetricChart
-            data={chartData}
-            diskLines={[{ key: `${DISK_KEY_PREFIX}disk`, label: "Disk" }]}
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Übersicht</TabsTrigger>
+          <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
+          <TabsTrigger value="backups">Backups</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <Card>
+            <CardHeader>
+              <CardTitle>CPU / RAM / Disk</CardTitle>
+              <CardDescription>
+                CPU {vm.cpuPercent != null ? `${vm.cpuPercent.toFixed(1)}%` : "–"} · RAM{" "}
+                {vm.memUsedMb != null && vm.memTotalMb
+                  ? `${(vm.memUsedMb / 1024).toFixed(1)} / ${(vm.memTotalMb / 1024).toFixed(1)} GB`
+                  : "–"}
+                {vm.diskUsedGb != null && vm.diskTotalGb
+                  ? ` · Disk ${vm.diskUsedGb.toFixed(1)} / ${vm.diskTotalGb.toFixed(1)} GB`
+                  : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CombinedMetricChart
+                data={chartData}
+                diskLines={[{ key: `${DISK_KEY_PREFIX}disk`, label: "Disk" }]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="snapshots">
+          <VmSnapshotsTab
+            serverId={serverId}
+            vmid={vmid}
+            vmType={vm.type}
+            canControl={canControl}
           />
-        </CardContent>
-      </Card>
+        </TabsContent>
+        <TabsContent value="backups">
+          <VmBackupsTab serverId={serverId} vmid={vmid} canControl={canControl} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
