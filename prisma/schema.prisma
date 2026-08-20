@@ -41,8 +41,53 @@ model User {
   role         Role     @default(VIEWER)
   createdAt    DateTime @default(now())
 
-  dashboardLayout DashboardLayout?
-  sessions        Session[]
+  // Erzwingt nach dem nächsten Login eine Passwortänderung, bevor die App
+  // sonst nutzbar ist – wird von "netmaster reset-login" gesetzt.
+  mustChangePassword Boolean @default(false)
+
+  // TOTP-Secret liegt auch während des Setups (vor Verifikation) hier,
+  // totpEnabled wird erst nach erfolgreicher Code-Verifikation gesetzt.
+  totpSecret         String?
+  totpEnabled        Boolean   @default(false)
+  totpFailedAttempts Int       @default(0)
+  totpLockedUntil    DateTime?
+
+  dashboardLayout    DashboardLayout?
+  sessions           Session[]
+  webauthnCredentials WebAuthnCredential[]
+  backupCodes        BackupCode[]
+}
+
+// Passkeys (WebAuthn, discoverable credentials). Sobald ein User hier
+// mindestens einen Eintrag hat, ist Passwort-Login (und damit auch TOTP)
+// für diesen Account gesperrt – siehe src/lib/auth.ts.
+model WebAuthnCredential {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    String
+  counter      Int       @default(0)
+  transports   String    @default("")
+  name         String    @default("Passkey")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+// Einmal-Codes für TOTP-Wiederherstellung (falls das Authenticator-Gerät
+// verloren geht, das Passwort aber noch bekannt ist). Werden gehasht
+// gespeichert, beim Verbrauch mit usedAt markiert statt gelöscht.
+model BackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Datenbankgestützte Login-Sessions. Das Cookie enthält nur ein signiertes

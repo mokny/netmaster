@@ -13,6 +13,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: Role;
+  mustChangePassword: boolean;
 }
 
 // Nur die für optimistische Checks (Proxy/Middleware, WebSocket-Handshake)
@@ -48,3 +49,35 @@ export async function verifySessionToken(
 }
 
 export const SESSION_MAX_AGE = SESSION_TTL_SECONDS;
+
+// Kurzlebiges Token für den Zwischenzustand "Passwort korrekt, TOTP-Code
+// steht noch aus". Bewusst getrennt vom Session-JWT: es erzeugt KEINE
+// DB-Session und trägt keine Rolle/Rechte, nur die userId.
+const PRE_AUTH_TTL_SECONDS = 5 * 60;
+
+export interface PreAuthPayload {
+  purpose: "totp-pending";
+  userId: string;
+}
+
+export async function createPreAuthToken(userId: string): Promise<string> {
+  return new SignJWT({ purpose: "totp-pending", userId })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${PRE_AUTH_TTL_SECONDS}s`)
+    .sign(getAuthSecret());
+}
+
+export async function verifyPreAuthToken(
+  token: string
+): Promise<PreAuthPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, getAuthSecret());
+    if (payload.purpose !== "totp-pending" || typeof payload.userId !== "string") {
+      return null;
+    }
+    return { purpose: "totp-pending", userId: payload.userId };
+  } catch {
+    return null;
+  }
+}

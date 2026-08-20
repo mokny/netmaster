@@ -27,7 +27,7 @@ export async function verifyPassword(
   return bcrypt.compare(password, hash);
 }
 
-async function setSessionCookie(sessionId: string, payload: SessionPayload) {
+export async function setSessionCookie(sessionId: string, payload: SessionPayload) {
   const token = await createSessionToken(payload);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
@@ -44,7 +44,7 @@ async function setSessionCookie(sessionId: string, payload: SessionPayload) {
 // enthält danach nur noch die Session-ID + signierte Nutzer-Claims für
 // optimistische Checks in der Middleware.
 export async function createUserSession(
-  user: Pick<User, "id" | "email" | "name" | "role">,
+  user: Pick<User, "id" | "email" | "name" | "role" | "mustChangePassword">,
   userAgent: string
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000);
@@ -57,7 +57,15 @@ export async function createUserSession(
     email: user.email,
     name: user.name,
     role: user.role,
+    mustChangePassword: user.mustChangePassword,
   });
+}
+
+// Hat der User mindestens einen Passkey hinterlegt? Wenn ja, sind
+// Passwort-Login und TOTP für diesen Account komplett gesperrt.
+export async function hasActivePasskeys(userId: string): Promise<boolean> {
+  const count = await prisma.webAuthnCredential.count({ where: { userId } });
+  return count > 0;
 }
 
 export async function clearSessionCookie() {
@@ -109,6 +117,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     email: session.user.email,
     name: session.user.name,
     role: session.user.role,
+    mustChangePassword: session.user.mustChangePassword,
   };
 }
 

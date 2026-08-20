@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, setSessionCookie } from "@/lib/auth";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -17,8 +17,12 @@ export async function POST(req: Request) {
 
     await prisma.user.update({
       where: { id: session.userId },
-      data: { passwordHash: await hashPassword(password) },
+      data: { passwordHash: await hashPassword(password), mustChangePassword: false },
     });
+
+    // JWT-Claim mustChangePassword neu ausstellen, sonst leitet proxy.ts mit
+    // dem alten (optimistischen) Cookie weiter auf die Zwangs-Änderungsseite um.
+    await setSessionCookie(session.sessionId, { ...session, mustChangePassword: false });
 
     if (revokeOtherSessions) {
       await prisma.session.updateMany({

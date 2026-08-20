@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword, createUserSession } from "@/lib/auth";
+import { verifyPassword, createUserSession, hasActivePasskeys } from "@/lib/auth";
+import { createPreAuthToken } from "@/lib/session-token";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -19,14 +20,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ungültige Anmeldedaten" }, { status: 401 });
   }
 
+  if (await hasActivePasskeys(user.id)) {
+    return NextResponse.json(
+      {
+        error:
+          "Dieser Account verwendet ausschließlich Passkey-Login. Bitte nutze den Passkey-Button oben.",
+      },
+      { status: 403 }
+    );
+  }
+
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
     return NextResponse.json({ error: "Ungültige Anmeldedaten" }, { status: 401 });
   }
 
+  if (user.totpEnabled) {
+    const preAuthToken = await createPreAuthToken(user.id);
+    return NextResponse.json({ requiresTotp: true, preAuthToken });
+  }
+
   await createUserSession(user, req.headers.get("user-agent") ?? "");
 
   return NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+    },
   });
 }

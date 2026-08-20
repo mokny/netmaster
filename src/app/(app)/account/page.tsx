@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SessionsList } from "@/components/account/sessions-list";
+import { TotpSetupCard } from "@/components/account/totp-setup-card";
+import { PasskeyCard } from "@/components/account/passkey-card";
 import { useSession } from "@/hooks/use-session";
 import { Loader2 } from "lucide-react";
-import type { SessionDTO } from "@/lib/types";
+import type { SessionDTO, PasskeyDTO } from "@/lib/types";
 
 export default function AccountPage() {
   const session = useSession();
@@ -18,15 +20,27 @@ export default function AccountPage() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [passkeys, setPasskeys] = useState<PasskeyDTO[]>([]);
 
   const loadSessions = useCallback(async () => {
     const res = await fetch("/api/account/sessions");
     if (res.ok) setSessions((await res.json()).sessions);
   }, []);
 
+  const loadSecurity = useCallback(async () => {
+    const res = await fetch("/api/account/security");
+    if (res.ok) {
+      const data = await res.json();
+      setTotpEnabled(data.totpEnabled);
+      setPasskeys(data.passkeys);
+    }
+  }, []);
+
   useEffect(() => {
     loadSessions();
-  }, [loadSessions]);
+    loadSecurity();
+  }, [loadSessions, loadSecurity]);
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +113,7 @@ export default function AccountPage() {
         </p>
       </div>
 
+      {passkeys.length === 0 && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Passwort ändern</CardTitle>
@@ -132,6 +147,15 @@ export default function AccountPage() {
           </form>
         </CardContent>
       </Card>
+      )}
+
+      <PasskeyCard passkeys={passkeys} onChanged={loadSecurity} />
+
+      <TotpSetupCard
+        enabled={totpEnabled}
+        hasPasskeys={passkeys.length > 0}
+        onChanged={loadSecurity}
+      />
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">

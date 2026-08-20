@@ -139,6 +139,20 @@ cmd_cleanup() {
   log "Cleanup abgeschlossen."
 }
 
+cmd_reset_login() {
+  local email="${1:-}"
+  if [ -z "$email" ]; then
+    die "Verwendung: netmaster reset-login <email>"
+  fi
+
+  if ! compose ps --status running --services 2>/dev/null | grep -q '^netmaster$'; then
+    die "NetMaster-Container läuft nicht. Starte ihn zuerst mit 'netmaster restart'."
+  fi
+
+  log "Setze Login für $email zurück (neues Passwort, Passkeys/2FA werden entfernt)..."
+  compose exec -T netmaster npm run --silent reset-login -- "$email"
+}
+
 cmd_uninstall() {
   if ! ui_yesno "NetMaster wirklich deinstallieren? Container werden gestoppt und entfernt."; then
     log "Abgebrochen."
@@ -194,16 +208,18 @@ Befehle:
   restart              Container neu starten
   update [--nightly]   Auf neuestes Release aktualisieren (mit --nightly: neuester main-Commit)
   cleanup              Verwaiste Docker-Images/Build-Cache und alte Backups entfernen
+  reset-login <email>  Login eines Users zurücksetzen (neues Passwort, Passkeys/2FA entfernt)
   uninstall            NetMaster interaktiv entfernen
 EOF
 }
 
 case "${1:-}" in
-  status)    cmd_status ;;
-  logs)      cmd_logs ;;
-  restart)   cmd_restart ;;
-  update)    shift; cmd_update "$@" ;;
-  cleanup)   cmd_cleanup ;;
-  uninstall) cmd_uninstall ;;
-  *)         usage; exit 1 ;;
+  status)      cmd_status ;;
+  logs)        cmd_logs ;;
+  restart)     cmd_restart ;;
+  update)      shift; cmd_update "$@" ;;
+  cleanup)     cmd_cleanup ;;
+  reset-login) shift; cmd_reset_login "$@" ;;
+  uninstall)   cmd_uninstall ;;
+  *)           usage; exit 1 ;;
 esac

@@ -6,7 +6,13 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 // gehören hier nicht hin. Die maßgebliche Prüfung inkl. Widerruf einzelner
 // Sessions läuft in getSession() (lib/auth.ts), das jede Route/jeder Layout
 // als Data-Access-Layer aufruft.
-const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/login/totp",
+  "/api/auth/webauthn/login/options",
+  "/api/auth/webauthn/login/verify",
+];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -33,6 +39,21 @@ export async function proxy(req: NextRequest) {
 
   if (pathname.startsWith("/admin") && session.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  // Nach einem Shell-Reset ("netmaster reset-login") muss zuerst ein neues
+  // Passwort gesetzt werden, bevor irgendetwas anderes zugänglich ist.
+  const FORCE_CHANGE_EXEMPT_API = ["/api/account/password", "/api/auth/me", "/api/auth/logout"];
+  if (session.mustChangePassword && pathname !== "/change-password") {
+    if (pathname.startsWith("/api") && !FORCE_CHANGE_EXEMPT_API.includes(pathname)) {
+      return NextResponse.json(
+        { error: "Passwort muss zuerst geändert werden" },
+        { status: 403 }
+      );
+    }
+    if (!pathname.startsWith("/api")) {
+      return NextResponse.redirect(new URL("/change-password", req.url));
+    }
   }
 
   return NextResponse.next();

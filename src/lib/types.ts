@@ -133,3 +133,10 @@ export interface SessionDTO {
   lastSeenAt: string;
   isCurrent: boolean;
 }
+
+export interface PasskeyDTO {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}

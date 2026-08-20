@@ -2,24 +2,52 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { startAuthentication } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Network } from "lucide-react";
+import { Loader2, Network, Fingerprint } from "lucide-react";
+
+function goAfterLogin(
+  router: ReturnType<typeof useRouter>,
+  redirectTo: string,
+  user: { mustChangePassword: boolean }
+) {
+  router.push(user.mustChangePassword ? "/change-password" : redirectTo);
+  router.refresh();
+}
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [preAuthToken, setPreAuthToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      if (preAuthToken) {
+        const res = await fetch("/api/auth/login/totp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preAuthToken, code: totpCode }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Anmeldung fehlgeschlagen");
+          return;
+        }
+        goAfterLogin(router, redirectTo, data.user);
+        return;
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,12 +58,46 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         setError(data.error ?? "Anmeldung fehlgeschlagen");
         return;
       }
-      router.push(redirectTo);
-      router.refresh();
+      if (data.requiresTotp) {
+        setPreAuthToken(data.preAuthToken);
+        return;
+      }
+      goAfterLogin(router, redirectTo, data.user);
     } catch {
       setError("Verbindung zum Server fehlgeschlagen");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onPasskeyLogin() {
+    setError(null);
+    setPasskeyLoading(true);
+    try {
+      const optionsRes = await fetch("/api/auth/webauthn/login/options", { method: "POST" });
+      const options = await optionsRes.json();
+      if (!optionsRes.ok) {
+        setError(options.error ?? "Passkey-Login nicht verfügbar");
+        return;
+      }
+
+      const response = await startAuthentication({ optionsJSON: options });
+
+      const verifyRes = await fetch("/api/auth/webauthn/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response }),
+      });
+      const data = await verifyRes.json();
+      if (!verifyRes.ok) {
+        setError(data.error ?? "Passkey-Anmeldung fehlgeschlagen");
+        return;
+      }
+      goAfterLogin(router, redirectTo, data.user);
+    } catch {
+      setError("Passkey-Anmeldung abgebrochen oder fehlgeschlagen");
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -51,30 +113,73 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         </p>
       </div>
 
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={passkeyLoading || !!preAuthToken}
+        onClick={onPasskeyLogin}
+      >
+        {passkeyLoading ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Fingerprint className="size-4" />
+        )}
+        Mit Passkey einloggen
+      </Button>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
+        oder
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">E-Mail</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@netmaster.local"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Passwort</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+        {preAuthToken ? (
+          <div className="space-y-2">
+            <Label htmlFor="totpCode">Bestätigungscode</Label>
+            <Input
+              id="totpCode"
+              type="text"
+              inputMode="text"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+              placeholder="6-stelliger Code oder Backup-Code"
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Code aus deiner Authenticator-App, oder ein Backup-Code (XXXXX-XXXXX).
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="email">E-Mail</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@netmaster.local"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Passwort</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         {error && (
           <Alert variant="destructive">
@@ -84,8 +189,22 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" />}
-          Anmelden
+          {preAuthToken ? "Bestätigen" : "Anmelden"}
         </Button>
+        {preAuthToken && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => {
+              setPreAuthToken(null);
+              setTotpCode("");
+              setError(null);
+            }}
+          >
+            Zurück
+          </Button>
+        )}
       </form>
     </div>
   );

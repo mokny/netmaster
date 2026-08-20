@@ -22,3 +22,24 @@ export async function writeAuditLog(
     console.error("Audit-Log konnte nicht geschrieben werden:", err);
   }
 }
+
+// Variante ohne Session-Kontext, für Aktionen außerhalb einer eingeloggten
+// Anfrage (z.B. "netmaster reset-login" über die Shell).
+export async function writeAuditLogRaw(
+  actor: { userId: string; userEmail: string },
+  action: string,
+  options: { detail?: string } = {}
+) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: actor.userId,
+        userEmail: actor.userEmail,
+        action,
+        detail: options.detail ?? "",
+      },
+    });
+  } catch (err) {
+    console.error("Audit-Log konnte nicht geschrieben werden:", err);
+  }
+}
