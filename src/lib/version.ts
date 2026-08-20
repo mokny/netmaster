@@ -30,11 +30,6 @@ function computeDynamicVersion(baseVersion: string): string {
   }
 }
 
-let cached: string | null = null;
-
 export function getVersion(): string {
-  if (cached === null) {
-    cached = computeDynamicVersion(packageJson.version);
-  }
-  return cached;
+  return computeDynamicVersion(packageJson.version);
 }

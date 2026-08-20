@@ -5,9 +5,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 FROM base AS deps
+ARG TARGETOS
+ARG TARGETARCH
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN NPM_CPU=$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "$TARGETARCH" ;; esac) \
+    && npm ci --os=$TARGETOS --cpu=$NPM_CPU --libc=glibc
 
 FROM deps AS builder
 COPY . .

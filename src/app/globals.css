@@ -126,9 +126,13 @@
     @apply bg-background text-foreground;
     /* Globale Absicherung gegen horizontales Scrollen - egal welche
        Unterkomponente mal zu breit wird, die Seite selbst darf nie seitlich
-       scrollen (v.a. relevant auf Mobile). */
+       scrollen (v.a. relevant auf Mobile).
+       "clip" statt "hidden": hidden erzwingt implizit overflow-y:auto,
+       wodurch body zum eigenen Scroll-Container wird und position:sticky
+       in der Sidebar bricht (Sidebar scrollt dann mit). clip verhindert
+       X-Overflow ohne diesen Nebeneffekt. */
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   html {
     @apply font-sans;
