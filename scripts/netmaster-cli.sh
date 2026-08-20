@@ -54,6 +54,9 @@ current_url() {
 cmd_status() {
   compose ps
   printf '\nURL: %s\n' "$(current_url)"
+  local version
+  version=$(compose exec -T app node -e "process.stdout.write(require('./package.json').version)" 2>/dev/null || true)
+  [ -n "$version" ] && printf 'Version: %s\n' "$version"
 }
 
 cmd_logs() {

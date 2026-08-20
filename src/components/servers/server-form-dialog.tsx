@@ -55,6 +55,10 @@ function formFromServer(server?: ServerDTO) {
     memCrit: server?.memCrit ?? 90,
     diskWarn: server?.diskWarn ?? 80,
     diskCrit: server?.diskCrit ?? 95,
+    netUploadWarn: server?.netUploadWarn ?? 800,
+    netUploadCrit: server?.netUploadCrit ?? 950,
+    netDownloadWarn: server?.netDownloadWarn ?? 800,
+    netDownloadCrit: server?.netDownloadCrit ?? 950,
     description: server?.description ?? "",
     tags: server?.tags ?? "",
   };
@@ -341,6 +345,8 @@ export function ServerFormDialog({
                   ["cpuWarn", "cpuCrit", "CPU (%)"],
                   ["memWarn", "memCrit", "RAM (%)"],
                   ["diskWarn", "diskCrit", "Disk (%)"],
+                  ["netUploadWarn", "netUploadCrit", "Upload (Mbit/s)"],
+                  ["netDownloadWarn", "netDownloadCrit", "Download (Mbit/s)"],
                 ] as const
               ).map(([warnKey, critKey, label]) => (
                 <div key={label} className="grid grid-cols-3 items-end gap-3">

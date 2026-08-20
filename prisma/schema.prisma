@@ -33,6 +33,11 @@ enum VmType {
   LXC
 }
 
+enum RouterDeviceType {
+  FRITZBOX
+  REPEATER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -58,6 +63,7 @@ model User {
   backupCodes        BackupCode[]
   pushSubscriptions       PushSubscription[]
   notificationPreferences NotificationPreference[]
+  serviceCheckSubscriptions ServiceCheckSubscriber[]
 }
 
 // Automatisch beim ersten Start generiertes VAPID-Schlüsselpaar für
@@ -97,10 +103,20 @@ model NotificationPreference {
   serverId             String
   server               Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
   offlineEnabled       Boolean  @default(true)
-  warningEnabled       Boolean  @default(false)
-  criticalEnabled      Boolean  @default(true)
   dockerStoppedEnabled Boolean  @default(false)
-  updatedAt            DateTime @updatedAt
+
+  // Pro Metrik getrennte Warn-/Kritisch-Toggles, statt eines generischen
+  // Warning/Critical-Schalters für den gesamten Server-Status.
+  cpuWarnEnabled  Boolean @default(false)
+  cpuCritEnabled  Boolean @default(true)
+  memWarnEnabled  Boolean @default(false)
+  memCritEnabled  Boolean @default(true)
+  diskWarnEnabled Boolean @default(false)
+  diskCritEnabled Boolean @default(true)
+  netWarnEnabled  Boolean @default(false)
+  netCritEnabled  Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, serverId])
 }
@@ -185,6 +201,15 @@ model Server {
   diskWarn Float @default(80)
   diskCrit Float @default(95)
 
+  // Durchsatz-Schwellwerte in Mbit/s, getrennt für Up-/Download (Verbindungen
+  // sind meist asymmetrisch). 0 deaktiviert die jeweilige Prüfung nicht -
+  // ein sehr hoher Wert (z.B. 0) würde sofort auslösen, daher Defaults für
+  // ein typisches 1-Gbit-Netz.
+  netUploadWarn    Float @default(800)
+  netUploadCrit    Float @default(950)
+  netDownloadWarn  Float @default(800)
+  netDownloadCrit  Float @default(950)
+
   description String @default("")
   tags        String @default("") // comma-separated
 
@@ -194,6 +219,15 @@ model Server {
   lastStatus    Status   @default(UNKNOWN)
   lastError     String?
   lastCheckedAt DateTime?
+
+  // Letzter bekannter Status je Einzelmetrik, um Push-Benachrichtigungen pro
+  // Metrik flankengetriggert (nur bei Statuswechsel) auslösen zu können -
+  // lastStatus allein reicht dafür nicht, da er nur den schlechtesten Wert
+  // aller Metriken abbildet.
+  lastCpuStatus  Status @default(UNKNOWN)
+  lastMemStatus  Status @default(UNKNOWN)
+  lastDiskStatus Status @default(UNKNOWN)
+  lastNetStatus  Status @default(UNKNOWN)
 
   // Statische Host-Eigenschaften, bei jedem erfolgreichen Poll aktualisiert
   // (ändern sich quasi nie, daher kein eigener Zeitverlauf).
@@ -246,10 +280,13 @@ model DiskSample {
   @@index([serverId, mountpoint, timestamp])
 }
 
+// serverId ist optional: ein Check kann an einen Server gebunden sein (dann
+// zusätzlich in dessen Detailansicht sichtbar) oder frei/global stehen (z.B.
+// eine eigene Domain ohne zugehörigen Server in NetMaster).
 model ServiceCheck {
   id             String   @id @default(cuid())
-  serverId       String
-  server         Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  serverId       String?
+  server         Server?  @relation(fields: [serverId], references: [id], onDelete: Cascade)
   name           String
   url            String
   expectedStatus Int      @default(200)
@@ -263,7 +300,22 @@ model ServiceCheck {
 
   createdAt DateTime @default(now())
 
-  results ServiceCheckResult[]
+  results     ServiceCheckResult[]
+  subscribers ServiceCheckSubscriber[]
+}
+
+// Wer bei einem Ausfall eines Checks per Push benachrichtigt wird - nur für
+// freistehende (serverId=null) Checks relevant, serverbezogene Checks nutzen
+// weiterhin keine eigene Benachrichtigung.
+model ServiceCheckSubscriber {
+  id             String       @id @default(cuid())
+  serviceCheckId String
+  serviceCheck   ServiceCheck @relation(fields: [serviceCheckId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([serviceCheckId, userId])
 }
 
 model ServiceCheckResult {
@@ -373,5 +425,46 @@ model DashboardLayout {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   layoutJson String  @default("[]")
+  updatedAt DateTime @updatedAt
+}
+
+// FritzBox / FritzRepeater, abgefragt per TR-064 (SOAP über HTTP-Digest-Auth,
+// Standardport 49000, TLS-Variante 49443). Eigenständige Geräte, keine
+// Mesh-Hierarchie zwischen FritzBox und Repeater.
+model RouterDevice {
+  id       String           @id @default(cuid())
+  name     String
+  type     RouterDeviceType
+  hostname String
+  port     Int              @default(49000)
+  useTls   Boolean          @default(false)
+  username String
+
+  // AES-256-GCM verschlüsselt (iv:authTag:ciphertext, base64), wie bei Server.
+  encryptedPassword String
+
+  pollIntervalSec Int @default(60)
+
+  lastStatus    Status    @default(UNKNOWN)
+  lastError     String?
+  lastCheckedAt DateTime?
+
+  // Statische Geräteinfos (DeviceInfo:1#GetInfo)
+  modelName       String?
+  firmwareVersion String?
+  uptimeSec       Int?
+
+  // WAN-Status (nur FritzBox relevant, bei Repeater leer)
+  wanConnectionStatus String?
+  wanExternalIp       String?
+
+  // JSON-Array verbundener Hosts ({name, ip, mac, active, interfaceType}[]),
+  // via TR-064 Hosts:1-Service ermittelt.
+  connectedHostsJson String @default("[]")
+
+  // JSON-Array der WLAN-Funknetze ({index, ssid, enabled, band}[])
+  wifiNetworksJson String @default("[]")
+
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

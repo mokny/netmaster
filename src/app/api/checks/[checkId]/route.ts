@@ -18,6 +18,16 @@ export async function PATCH(
       if (body[f] !== undefined) data[f] = Number(body[f]);
     }
 
+    if (Array.isArray(body.subscriberUserIds)) {
+      const ids = body.subscriberUserIds.filter((id: unknown) => typeof id === "string");
+      await prisma.serviceCheckSubscriber.deleteMany({ where: { serviceCheckId: checkId } });
+      if (ids.length > 0) {
+        await prisma.serviceCheckSubscriber.createMany({
+          data: ids.map((userId: string) => ({ serviceCheckId: checkId, userId })),
+        });
+      }
+    }
+
     const check = await prisma.serviceCheck.update({ where: { id: checkId }, data });
     return NextResponse.json({ check });
   } catch (err) {

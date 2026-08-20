@@ -13,10 +13,11 @@ export type MonitorEvent =
       disks?: Record<string, unknown>[];
     }
   | { type: "server-status"; serverId: string; status: string; error?: string | null }
-  | { type: "service-check"; serviceCheckId: string; serverId: string; status: string }
+  | { type: "service-check"; serviceCheckId: string; serverId: string | null; status: string }
   | { type: "docker"; serverId: string; containers: unknown[] }
   | { type: "docker-images"; serverId: string; images: unknown[] }
-  | { type: "proxmox"; serverId: string; vms: unknown[] };
+  | { type: "proxmox"; serverId: string; vms: unknown[] }
+  | { type: "router-device"; routerDeviceId: string; status: string };
 
 export function publish(event: MonitorEvent) {
   monitorEvents.emit("event", event);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,11 +16,20 @@ function urlBase64ToUint8Array(base64: string) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-const EVENT_LABELS: { key: keyof Omit<NotificationPreferenceDTO, "serverId" | "serverName">; label: string }[] = [
+type PrefKey = keyof Omit<NotificationPreferenceDTO, "serverId" | "serverName">;
+
+const EVENT_LABELS: { key: PrefKey; label: string }[] = [
   { key: "offlineEnabled", label: "Offline" },
-  { key: "warningEnabled", label: "Warnung" },
-  { key: "criticalEnabled", label: "Kritisch" },
   { key: "dockerStoppedEnabled", label: "Docker gestoppt" },
+];
+
+// Pro Metrik zwei Spalten (Warnung/Kritisch), statt eines generischen
+// Warning/Critical-Schalters für den gesamten Server-Status.
+const METRIC_EVENT_LABELS: { warnKey: PrefKey; critKey: PrefKey; label: string }[] = [
+  { warnKey: "cpuWarnEnabled", critKey: "cpuCritEnabled", label: "CPU" },
+  { warnKey: "memWarnEnabled", critKey: "memCritEnabled", label: "RAM" },
+  { warnKey: "diskWarnEnabled", critKey: "diskCritEnabled", label: "Disk" },
+  { warnKey: "netWarnEnabled", critKey: "netCritEnabled", label: "Netzwerk" },
 ];
 
 function pushSupported() {
@@ -225,11 +234,26 @@ export function PushNotificationsCard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
-                    <th className="p-2 text-left font-medium">Server</th>
+                    <th rowSpan={2} className="p-2 text-left font-medium align-bottom">
+                      Server
+                    </th>
                     {EVENT_LABELS.map((e) => (
-                      <th key={e.key} className="p-2 text-center font-medium">
+                      <th key={e.key} rowSpan={2} className="p-2 text-center font-medium align-bottom">
                         {e.label}
                       </th>
+                    ))}
+                    {METRIC_EVENT_LABELS.map((m) => (
+                      <th key={m.label} colSpan={2} className="p-2 text-center font-medium">
+                        {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
+                    {METRIC_EVENT_LABELS.map((m) => (
+                      <Fragment key={m.label}>
+                        <th className="p-2 text-center font-normal">Warnung</th>
+                        <th className="p-2 text-center font-normal">Kritisch</th>
+                      </Fragment>
                     ))}
                   </tr>
                 </thead>
@@ -244,6 +268,22 @@ export function PushNotificationsCard() {
                             onCheckedChange={(c) => updatePref(p.serverId, { [e.key]: !!c })}
                           />
                         </td>
+                      ))}
+                      {METRIC_EVENT_LABELS.map((m) => (
+                        <Fragment key={m.label}>
+                          <td className="p-2 text-center">
+                            <Switch
+                              checked={p[m.warnKey]}
+                              onCheckedChange={(c) => updatePref(p.serverId, { [m.warnKey]: !!c })}
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            <Switch
+                              checked={p[m.critKey]}
+                              onCheckedChange={(c) => updatePref(p.serverId, { [m.critKey]: !!c })}
+                            />
+                          </td>
+                        </Fragment>
                       ))}
                     </tr>
                   ))}

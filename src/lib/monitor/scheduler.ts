@@ -6,6 +6,7 @@ import {
   collectProxmoxVms,
   runServiceCheck,
 } from "./collect";
+import { collectRouterDevice } from "./router-collect";
 import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
@@ -13,6 +14,8 @@ const dockerTimers = new Map<string, NodeJS.Timeout>();
 const dockerImageTimers = new Map<string, NodeJS.Timeout>();
 const proxmoxTimers = new Map<string, NodeJS.Timeout>();
 const checkTimers = new Map<string, NodeJS.Timeout>();
+const routerTimers = new Map<string, NodeJS.Timeout>();
+const routerIntervals = new Map<string, number>();
 // Signatur aus Poll-Intervall + Docker/Proxmox-Flags – ein Wechsel eines
 // dieser Werte löst ein Neuplanen der Timer für diesen Server aus.
 const serverConfigs = new Map<string, string>();
@@ -65,6 +68,15 @@ function scheduleServer(
     }, Math.max(5, intervalSec) * 1000);
     proxmoxTimers.set(serverId, proxmoxTimer);
   }
+}
+
+function scheduleRouterDevice(deviceId: string, intervalSec: number) {
+  clearInterval(routerTimers.get(deviceId));
+  const timer = setInterval(async () => {
+    const device = await prisma.routerDevice.findUnique({ where: { id: deviceId } });
+    if (device) await collectRouterDevice(device);
+  }, Math.max(15, intervalSec) * 1000);
+  routerTimers.set(deviceId, timer);
 }
 
 function scheduleCheck(checkId: string, intervalSec: number) {
@@ -138,6 +150,25 @@ async function reconcile() {
       checkIntervals.delete(id);
     }
   }
+
+  const routerDevices = await prisma.routerDevice.findMany();
+  const activeRouterIds = new Set(routerDevices.map((d) => d.id));
+  for (const device of routerDevices) {
+    const changed = routerIntervals.get(device.id) !== device.pollIntervalSec;
+    const isNew = !routerTimers.has(device.id);
+    if (isNew || changed) {
+      scheduleRouterDevice(device.id, device.pollIntervalSec);
+      routerIntervals.set(device.id, device.pollIntervalSec);
+      if (isNew) void collectRouterDevice(device);
+    }
+  }
+  for (const [id, timer] of routerTimers) {
+    if (!activeRouterIds.has(id)) {
+      clearInterval(timer);
+      routerTimers.delete(id);
+      routerIntervals.delete(id);
+    }
+  }
 }
 
 let started = false;
@@ -157,11 +188,14 @@ export function stopMonitorScheduler() {
   for (const t of dockerImageTimers.values()) clearInterval(t);
   for (const t of proxmoxTimers.values()) clearInterval(t);
   for (const t of checkTimers.values()) clearInterval(t);
+  for (const t of routerTimers.values()) clearInterval(t);
   serverTimers.clear();
   dockerTimers.clear();
   dockerImageTimers.clear();
   proxmoxTimers.clear();
   checkTimers.clear();
+  routerTimers.clear();
+  routerIntervals.clear();
   serverConfigs.clear();
   closeAllPooledConnections();
 }

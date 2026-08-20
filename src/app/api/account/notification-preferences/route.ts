@@ -22,9 +22,15 @@ export async function GET() {
           serverId: s.id,
           serverName: s.name,
           offlineEnabled: pref?.offlineEnabled ?? DEFAULTS.offlineEnabled,
-          warningEnabled: pref?.warningEnabled ?? DEFAULTS.warningEnabled,
-          criticalEnabled: pref?.criticalEnabled ?? DEFAULTS.criticalEnabled,
           dockerStoppedEnabled: pref?.dockerStoppedEnabled ?? DEFAULTS.dockerStoppedEnabled,
+          cpuWarnEnabled: pref?.cpuWarnEnabled ?? DEFAULTS.cpuWarnEnabled,
+          cpuCritEnabled: pref?.cpuCritEnabled ?? DEFAULTS.cpuCritEnabled,
+          memWarnEnabled: pref?.memWarnEnabled ?? DEFAULTS.memWarnEnabled,
+          memCritEnabled: pref?.memCritEnabled ?? DEFAULTS.memCritEnabled,
+          diskWarnEnabled: pref?.diskWarnEnabled ?? DEFAULTS.diskWarnEnabled,
+          diskCritEnabled: pref?.diskCritEnabled ?? DEFAULTS.diskCritEnabled,
+          netWarnEnabled: pref?.netWarnEnabled ?? DEFAULTS.netWarnEnabled,
+          netCritEnabled: pref?.netCritEnabled ?? DEFAULTS.netCritEnabled,
         };
       }),
     });
@@ -45,9 +51,15 @@ export async function PUT(req: Request) {
 
     const data = {
       offlineEnabled: Boolean(body.offlineEnabled),
-      warningEnabled: Boolean(body.warningEnabled),
-      criticalEnabled: Boolean(body.criticalEnabled),
       dockerStoppedEnabled: Boolean(body.dockerStoppedEnabled),
+      cpuWarnEnabled: Boolean(body.cpuWarnEnabled),
+      cpuCritEnabled: Boolean(body.cpuCritEnabled),
+      memWarnEnabled: Boolean(body.memWarnEnabled),
+      memCritEnabled: Boolean(body.memCritEnabled),
+      diskWarnEnabled: Boolean(body.diskWarnEnabled),
+      diskCritEnabled: Boolean(body.diskCritEnabled),
+      netWarnEnabled: Boolean(body.netWarnEnabled),
+      netCritEnabled: Boolean(body.netCritEnabled),
     };
 
     await prisma.notificationPreference.upsert({

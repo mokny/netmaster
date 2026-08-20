@@ -87,15 +87,27 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 
 export type NotificationEvent =
   | "offlineEnabled"
-  | "warningEnabled"
-  | "criticalEnabled"
-  | "dockerStoppedEnabled";
+  | "dockerStoppedEnabled"
+  | "cpuWarnEnabled"
+  | "cpuCritEnabled"
+  | "memWarnEnabled"
+  | "memCritEnabled"
+  | "diskWarnEnabled"
+  | "diskCritEnabled"
+  | "netWarnEnabled"
+  | "netCritEnabled";
 
 export const NOTIFICATION_DEFAULTS: Record<NotificationEvent, boolean> = {
   offlineEnabled: true,
-  warningEnabled: false,
-  criticalEnabled: true,
   dockerStoppedEnabled: false,
+  cpuWarnEnabled: false,
+  cpuCritEnabled: true,
+  memWarnEnabled: false,
+  memCritEnabled: true,
+  diskWarnEnabled: false,
+  diskCritEnabled: true,
+  netWarnEnabled: false,
+  netCritEnabled: true,
 };
 
 // Schickt eine Push-Nachricht an alle User, die für diesen Server und dieses

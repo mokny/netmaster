@@ -31,6 +31,10 @@ const SERVER_SELECT = {
   memCrit: true,
   diskWarn: true,
   diskCrit: true,
+  netUploadWarn: true,
+  netUploadCrit: true,
+  netDownloadWarn: true,
+  netDownloadCrit: true,
   description: true,
   tags: true,
   lastStatus: true,
@@ -86,6 +90,10 @@ export async function PATCH(
       "memCrit",
       "diskWarn",
       "diskCrit",
+      "netUploadWarn",
+      "netUploadCrit",
+      "netDownloadWarn",
+      "netDownloadCrit",
     ];
     for (const f of numFields) {
       if (body[f] !== undefined) data[f] = Number(body[f]);

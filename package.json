@@ -11,6 +11,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
     "reset-login": "tsx scripts/reset-login.ts",
+    "release": "bash scripts/release.sh",
     "lint": "eslint"
   },
   "dependencies": {

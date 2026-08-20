@@ -16,6 +16,10 @@ export interface ServerDTO {
   memCrit: number;
   diskWarn: number;
   diskCrit: number;
+  netUploadWarn: number;
+  netUploadCrit: number;
+  netDownloadWarn: number;
+  netDownloadCrit: number;
   description: string;
   tags: string;
   lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
@@ -70,14 +74,21 @@ export interface NotificationPreferenceDTO {
   serverId: string;
   serverName: string;
   offlineEnabled: boolean;
-  warningEnabled: boolean;
-  criticalEnabled: boolean;
   dockerStoppedEnabled: boolean;
+  cpuWarnEnabled: boolean;
+  cpuCritEnabled: boolean;
+  memWarnEnabled: boolean;
+  memCritEnabled: boolean;
+  diskWarnEnabled: boolean;
+  diskCritEnabled: boolean;
+  netWarnEnabled: boolean;
+  netCritEnabled: boolean;
 }
 
 export interface ServiceCheckDTO {
   id: string;
-  serverId: string;
+  serverId: string | null;
+  serverName?: string | null;
   name: string;
   url: string;
   expectedStatus: number;
@@ -87,6 +98,7 @@ export interface ServiceCheckDTO {
   lastLatencyMs: number | null;
   lastCheckedAt: string | null;
   lastError: string | null;
+  subscriberUserIds?: string[];
 }
 
 export interface ContainerSnapshotDTO {
@@ -180,4 +192,40 @@ export interface PasskeyDTO {
   name: string;
   createdAt: string;
   lastUsedAt: string | null;
+}
+
+export interface RouterHostEntry {
+  name: string;
+  ip: string;
+  mac: string;
+  active: boolean;
+  interfaceType: string;
+}
+
+export interface RouterWifiNetwork {
+  index: number;
+  ssid: string;
+  enabled: boolean;
+}
+
+export interface RouterDeviceDTO {
+  id: string;
+  name: string;
+  type: "FRITZBOX" | "REPEATER";
+  hostname: string;
+  port: number;
+  useTls: boolean;
+  username: string;
+  pollIntervalSec: number;
+  lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastError: string | null;
+  lastCheckedAt: string | null;
+  modelName: string | null;
+  firmwareVersion: string | null;
+  uptimeSec: number | null;
+  wanConnectionStatus: string | null;
+  wanExternalIp: string | null;
+  connectedHostsJson: string;
+  wifiNetworksJson: string;
+  createdAt: string;
 }

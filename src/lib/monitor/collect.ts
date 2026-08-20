@@ -12,16 +12,52 @@ import {
   parseDockerImagesOutput,
   parseProxmoxOutput,
 } from "./parse";
-import { computeServerStatus } from "./status";
+import { computeServerStatus, type MetricKey, type StatusValue } from "./status";
 import { publish } from "./events";
-import { notifyServerEvent } from "@/lib/push";
+import { notifyServerEvent, sendPushToUser, type NotificationEvent } from "@/lib/push";
 import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/client";
+
+// Rate = Delta der kumulativen Byte-Zähler / Delta der Zeit zum letzten Poll,
+// umgerechnet in Mbit/s. Kein vorheriger Sample oder ein negatives Delta
+// (Zähler-Reset, z.B. Reboot) liefert null statt eines falschen Ausreißers.
+function bytesPerSecToMbit(bytesPerSec: number) {
+  return (bytesPerSec * 8) / 1_000_000;
+}
+
+async function computeNetRates(
+  serverId: string,
+  now: Date,
+  rxBytes: number | null,
+  txBytes: number | null
+) {
+  const prev = await prisma.metricSample.findFirst({
+    where: { serverId },
+    orderBy: { timestamp: "desc" },
+    select: { timestamp: true, netRxBytes: true, netTxBytes: true },
+  });
+
+  const rateFor = (curr: number | null, prevVal: number | null | undefined, deltaSec: number) => {
+    if (curr === null || prevVal === null || prevVal === undefined || deltaSec <= 0) return null;
+    const delta = curr - prevVal;
+    if (delta < 0) return null;
+    return bytesPerSecToMbit(delta / deltaSec);
+  };
+
+  const deltaSec = prev ? (now.getTime() - prev.timestamp.getTime()) / 1000 : 0;
+  return {
+    downloadMbit: rateFor(rxBytes, prev?.netRxBytes, deltaSec),
+    uploadMbit: rateFor(txBytes, prev?.netTxBytes, deltaSec),
+  };
+}
 
 export async function collectServerMetrics(server: ServerModel) {
   try {
     const { stdout } = await execPooled(server, METRICS_COMMAND);
     const metrics = parseMetricsOutput(stdout);
-    const status = computeServerStatus(server, metrics);
+    const now = new Date();
+    const netRates = await computeNetRates(server.id, now, metrics.netRxBytes, metrics.netTxBytes);
+    const result = computeServerStatus(server, metrics, netRates);
+    const status = result.overall;
 
     const sample = await prisma.metricSample.create({
       data: {
@@ -46,6 +82,10 @@ export async function collectServerMetrics(server: ServerModel) {
         lastStatus: status,
         lastError: null,
         lastCheckedAt: new Date(),
+        lastCpuStatus: result.metrics.cpu,
+        lastMemStatus: result.metrics.mem,
+        lastDiskStatus: result.metrics.disk,
+        lastNetStatus: result.metrics.net,
         ...(metrics.cpuCores !== null && { cpuCores: metrics.cpuCores }),
         ...(metrics.memTotalMb !== null && { memTotalMb: metrics.memTotalMb }),
         ...(metrics.osName !== null && { osName: metrics.osName }),
@@ -95,7 +135,7 @@ export async function collectServerMetrics(server: ServerModel) {
       })),
     });
     publish({ type: "server-status", serverId: server.id, status });
-    void notifyStatusTransition(server.id, server.name, server.lastStatus, server.lastError, status);
+    void notifyMetricTransitions(server, result.metrics);
 
     const cutoff = new Date(
       Date.now() - server.retentionDays * 24 * 60 * 60 * 1000
@@ -133,44 +173,61 @@ export async function collectServerMetrics(server: ServerModel) {
   }
 }
 
-// Löst Push-Benachrichtigungen bei Statuswechseln aus (Flanken-getriggert,
-// nicht bei jedem Poll) - sowohl beim Verschlechtern als auch beim Erholen.
-async function notifyStatusTransition(
-  serverId: string,
-  serverName: string,
-  oldStatus: string,
-  oldError: string | null,
-  newStatus: string
-) {
-  // Server war zuvor per SSH nicht erreichbar und ist jetzt wieder da.
-  if (oldError) {
-    void notifyServerEvent(serverId, "offlineEnabled", {
-      title: `${serverName}: wieder erreichbar`,
-      body: "Server antwortet wieder auf SSH-Anfragen.",
-      url: `/servers/${serverId}`,
-    });
-    return;
-  }
+const METRIC_LABELS: Record<MetricKey, string> = {
+  cpu: "CPU-Auslastung",
+  mem: "RAM-Auslastung",
+  disk: "Disk-Auslastung",
+  net: "Netzwerk-Durchsatz",
+};
 
-  if (newStatus === "CRITICAL" && oldStatus !== "CRITICAL") {
-    void notifyServerEvent(serverId, "criticalEnabled", {
-      title: `${serverName}: kritischer Zustand`,
-      body: "Ein Ressourcen-Schwellwert (CPU/RAM/Disk) im kritischen Bereich wurde überschritten.",
-      url: `/servers/${serverId}`,
-    });
-  } else if (newStatus === "WARNING" && oldStatus !== "WARNING" && oldStatus !== "CRITICAL") {
-    void notifyServerEvent(serverId, "warningEnabled", {
-      title: `${serverName}: Warnung`,
-      body: "Ein Ressourcen-Schwellwert (CPU/RAM/Disk) im Warnbereich wurde überschritten.",
-      url: `/servers/${serverId}`,
-    });
-  } else if (newStatus === "OK" && (oldStatus === "WARNING" || oldStatus === "CRITICAL")) {
-    const event = oldStatus === "CRITICAL" ? "criticalEnabled" : "warningEnabled";
-    void notifyServerEvent(serverId, event, {
-      title: `${serverName}: wieder normal`,
-      body: "Alle Ressourcenwerte sind wieder im Normalbereich.",
-      url: `/servers/${serverId}`,
-    });
+const METRIC_PREV_FIELD: Record<MetricKey, "lastCpuStatus" | "lastMemStatus" | "lastDiskStatus" | "lastNetStatus"> = {
+  cpu: "lastCpuStatus",
+  mem: "lastMemStatus",
+  disk: "lastDiskStatus",
+  net: "lastNetStatus",
+};
+
+const METRIC_EVENTS: Record<MetricKey, { warn: NotificationEvent; crit: NotificationEvent }> = {
+  cpu: { warn: "cpuWarnEnabled", crit: "cpuCritEnabled" },
+  mem: { warn: "memWarnEnabled", crit: "memCritEnabled" },
+  disk: { warn: "diskWarnEnabled", crit: "diskCritEnabled" },
+  net: { warn: "netWarnEnabled", crit: "netCritEnabled" },
+};
+
+// Löst Push-Benachrichtigungen pro Einzelmetrik bei Statuswechseln aus
+// (Flanken-getriggert, nicht bei jedem Poll) - sowohl beim Verschlechtern als
+// auch beim Erholen. Jede Metrik hat ihr eigenes Warn-/Kritisch-Toggle in den
+// NotificationPreference (z.B. cpuCritEnabled), damit z.B. Disk-Warnungen
+// unabhängig von CPU-Warnungen an/aus geschaltet werden können.
+async function notifyMetricTransitions(server: ServerModel, newStatuses: Record<MetricKey, StatusValue>) {
+  for (const key of Object.keys(newStatuses) as MetricKey[]) {
+    const oldStatus = server[METRIC_PREV_FIELD[key]] as StatusValue;
+    const newStatus = newStatuses[key];
+    if (newStatus === oldStatus) continue;
+
+    const label = METRIC_LABELS[key];
+    const events = METRIC_EVENTS[key];
+
+    if (newStatus === "CRITICAL" && oldStatus !== "CRITICAL") {
+      void notifyServerEvent(server.id, events.crit, {
+        title: `${server.name}: ${label} kritisch`,
+        body: `${label} liegt im kritischen Bereich.`,
+        url: `/servers/${server.id}`,
+      });
+    } else if (newStatus === "WARNING" && oldStatus !== "WARNING" && oldStatus !== "CRITICAL") {
+      void notifyServerEvent(server.id, events.warn, {
+        title: `${server.name}: ${label} Warnung`,
+        body: `${label} liegt im Warnbereich.`,
+        url: `/servers/${server.id}`,
+      });
+    } else if (newStatus === "OK" && (oldStatus === "WARNING" || oldStatus === "CRITICAL")) {
+      const event = oldStatus === "CRITICAL" ? events.crit : events.warn;
+      void notifyServerEvent(server.id, event, {
+        title: `${server.name}: ${label} wieder normal`,
+        body: `${label} ist wieder im Normalbereich.`,
+        url: `/servers/${server.id}`,
+      });
+    }
   }
 }
 
@@ -361,10 +418,30 @@ export async function collectProxmoxVms(server: ServerModel) {
   }
 }
 
+// Benachrichtigt bei einem Statuswechsel nach CRITICAL alle Abonnenten eines
+// freistehenden (serverId=null) Checks. Serverbezogene Checks lösen bewusst
+// keine eigene Push-Benachrichtigung aus - dafür gibt es die Server-Events.
+async function notifyServiceCheckDown(check: ServiceCheck, previousStatus: string) {
+  if (check.serverId || previousStatus === "CRITICAL") return;
+  const subscribers = await prisma.serviceCheckSubscriber.findMany({
+    where: { serviceCheckId: check.id },
+    select: { userId: true },
+  });
+  await Promise.all(
+    subscribers.map((s) =>
+      sendPushToUser(s.userId, {
+        title: `${check.name} nicht erreichbar`,
+        body: check.lastError || `${check.url} antwortet nicht wie erwartet`,
+      })
+    )
+  );
+}
+
 export async function runServiceCheck(check: ServiceCheck) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), check.timeoutMs);
   const start = Date.now();
+  const previousStatus = check.lastStatus;
 
   try {
     const res = await fetch(check.url, {
@@ -385,7 +462,7 @@ export async function runServiceCheck(check: ServiceCheck) {
     });
 
     const status = success ? "OK" : "CRITICAL";
-    await prisma.serviceCheck.update({
+    const updated = await prisma.serviceCheck.update({
       where: { id: check.id },
       data: {
         lastStatus: status,
@@ -401,12 +478,13 @@ export async function runServiceCheck(check: ServiceCheck) {
       serverId: check.serverId,
       status,
     });
+    if (!success) void notifyServiceCheckDown(updated, previousStatus);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
     await prisma.serviceCheckResult.create({
       data: { serviceCheckId: check.id, success: false, latencyMs: null },
     });
-    await prisma.serviceCheck.update({
+    const updated = await prisma.serviceCheck.update({
       where: { id: check.id },
       data: {
         lastStatus: "CRITICAL",
@@ -420,6 +498,7 @@ export async function runServiceCheck(check: ServiceCheck) {
       serverId: check.serverId,
       status: "CRITICAL",
     });
+    void notifyServiceCheckDown(updated, previousStatus);
   } finally {
     clearTimeout(timer);
   }

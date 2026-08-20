@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -15,6 +16,8 @@ import {
   Container,
   UserCog,
   Waypoints,
+  ActivitySquare,
+  Router,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +40,8 @@ const NAV_ITEMS = [
   { href: "/vms", label: "VMs", icon: Boxes, minRole: "VIEWER" },
   { href: "/docker", label: "Docker", icon: Container, minRole: "VIEWER" },
   { href: "/network", label: "Netzwerk", icon: Waypoints, minRole: "VIEWER" },
+  { href: "/upchecker", label: "Upchecker", icon: ActivitySquare, minRole: "VIEWER" },
+  { href: "/router", label: "Router", icon: Router, minRole: "ADMIN" },
   { href: "/admin/users", label: "Nutzer", icon: Users, minRole: "ADMIN" },
 ] as const;
 
@@ -52,6 +57,14 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/version")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setVersion(data?.version ?? null))
+      .catch(() => {});
+  }, []);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -103,6 +116,7 @@ export function AppShell({
           <div className="mt-1 flex items-center gap-2">
             <Badge variant="secondary">{session.role}</Badge>
           </div>
+          {version && <div className="mt-2 text-[11px] text-muted-foreground/70">v{version}</div>}
         </div>
       </aside>
 
