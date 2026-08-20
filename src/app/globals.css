@@ -121,8 +121,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    /* Globale Absicherung gegen horizontales Scrollen - egal welche
+       Unterkomponente mal zu breit wird, die Seite selbst darf nie seitlich
+       scrollen (v.a. relevant auf Mobile). */
+    max-width: 100vw;
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;

@@ -240,14 +240,19 @@ export function DashboardGrid() {
           {[...widgets]
             .sort((a, b) => a.y - b.y || a.x - b.x)
             .map((w) => (
-              <WidgetCard
-                key={w.i}
-                title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
-                editing={editing}
-                onRemove={() => removeWidget(w.i)}
-              >
-                {renderWidgetContent(w.spec)}
-              </WidgetCard>
+              // WidgetCard/die Charts darin sind auf eine Höhe vom Elternteil
+              // angewiesen (h-full/ResponsiveContainer) - im Desktop-Grid
+              // liefert react-grid-layout die per Inline-Style, hier muss sie
+              // explizit gesetzt werden, sonst kollabiert der Chart auf 0px.
+              <div key={w.i} style={{ height: w.h * 48 + (w.h - 1) * 12 }}>
+                <WidgetCard
+                  title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
+                  editing={editing}
+                  onRemove={() => removeWidget(w.i)}
+                >
+                  {renderWidgetContent(w.spec)}
+                </WidgetCard>
+              </div>
             ))}
         </div>
       ) : (

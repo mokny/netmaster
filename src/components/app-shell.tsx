@@ -106,7 +106,7 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2 md:hidden">
             <Network className="size-5" />
@@ -157,7 +157,7 @@ export function AppShell({
           </div>
         </header>
 
-        <nav className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5 md:hidden">
+        <nav className="flex flex-wrap items-center gap-1 border-b px-2 py-1.5 md:hidden">
           {NAV_ITEMS.filter(
             (item) => roleRank[session.role] >= roleRank[item.minRole]
           ).map((item) => (
@@ -177,7 +177,7 @@ export function AppShell({
           ))}
         </nav>
 
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
