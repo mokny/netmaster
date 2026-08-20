@@ -14,6 +14,7 @@ import {
   Boxes,
   Container,
   UserCog,
+  Waypoints,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { href: "/servers", label: "Server", icon: Server, minRole: "VIEWER" },
   { href: "/vms", label: "VMs", icon: Boxes, minRole: "VIEWER" },
   { href: "/docker", label: "Docker", icon: Container, minRole: "VIEWER" },
+  { href: "/network", label: "Netzwerk", icon: Waypoints, minRole: "VIEWER" },
   { href: "/admin/users", label: "Nutzer", icon: Users, minRole: "ADMIN" },
 ] as const;
 

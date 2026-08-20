@@ -37,6 +37,14 @@ export function requireProxmoxEnabled(server: Pick<ServerModel, "proxmoxEnabled"
   }
 }
 
+export function requireNetworkToolsEnabled(
+  server: Pick<ServerModel, "networkToolsEnabled">
+) {
+  if (!server.networkToolsEnabled) {
+    throw new ApiError(403, "Netzwerk-Tools sind für diesen Server nicht aktiviert");
+  }
+}
+
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message }, { status: err.status });

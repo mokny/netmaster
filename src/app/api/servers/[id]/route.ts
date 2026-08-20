@@ -14,6 +14,7 @@ const SERVER_SELECT = {
   retentionDays: true,
   dockerEnabled: true,
   proxmoxEnabled: true,
+  networkToolsEnabled: true,
   cpuWarn: true,
   cpuCrit: true,
   memWarn: true,
@@ -79,6 +80,8 @@ export async function PATCH(
     }
     if (typeof body.dockerEnabled === "boolean") data.dockerEnabled = body.dockerEnabled;
     if (typeof body.proxmoxEnabled === "boolean") data.proxmoxEnabled = body.proxmoxEnabled;
+    if (typeof body.networkToolsEnabled === "boolean")
+      data.networkToolsEnabled = body.networkToolsEnabled;
     if (typeof body.secret === "string" && body.secret.length > 0) {
       data.encryptedSecret = encryptSecret(body.secret);
     }

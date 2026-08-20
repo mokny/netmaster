@@ -75,6 +75,7 @@ export async function POST(req: Request) {
         retentionDays: Number(body.retentionDays ?? 30),
         dockerEnabled: Boolean(body.dockerEnabled ?? false),
         proxmoxEnabled: Boolean(body.proxmoxEnabled ?? false),
+        networkToolsEnabled: Boolean(body.networkToolsEnabled ?? false),
         cpuWarn: Number(body.cpuWarn ?? 70),
         cpuCrit: Number(body.cpuCrit ?? 90),
         memWarn: Number(body.memWarn ?? 75),

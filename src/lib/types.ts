@@ -9,6 +9,7 @@ export interface ServerDTO {
   retentionDays: number;
   dockerEnabled: boolean;
   proxmoxEnabled: boolean;
+  networkToolsEnabled: boolean;
   cpuWarn: number;
   cpuCrit: number;
   memWarn: number;

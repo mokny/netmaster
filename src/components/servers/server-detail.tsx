@@ -24,6 +24,9 @@ import { DiskSelect } from "@/components/servers/disk-select";
 import { ServiceCheckDialog } from "@/components/servers/service-check-dialog";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { ProcessManagerCard } from "@/components/servers/process-manager-card";
+import { FirewallCard } from "@/components/servers/firewall-card";
+import { PortsCard } from "@/components/servers/ports-card";
+import { ServerNetworkGraph } from "@/components/servers/server-network-graph";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
 import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { VmRow } from "@/components/vms/vm-row";
@@ -461,6 +464,16 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           </CardContent>
         </Card>
       </div>
+
+      {server.networkToolsEnabled && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <FirewallCard serverId={serverId} />
+            <PortsCard serverId={serverId} />
+          </div>
+          <ServerNetworkGraph serverId={serverId} />
+        </>
+      )}
 
       {!server.proxmoxEnabled ? (
         <Card>

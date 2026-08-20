@@ -48,6 +48,7 @@ function formFromServer(server?: ServerDTO) {
     retentionDays: server?.retentionDays ?? 30,
     dockerEnabled: server?.dockerEnabled ?? false,
     proxmoxEnabled: server?.proxmoxEnabled ?? false,
+    networkToolsEnabled: server?.networkToolsEnabled ?? false,
     cpuWarn: server?.cpuWarn ?? 70,
     cpuCrit: server?.cpuCrit ?? 90,
     memWarn: server?.memWarn ?? 75,
@@ -214,6 +215,20 @@ export function ServerFormDialog({
                     id="proxmox-enabled"
                     checked={form.proxmoxEnabled}
                     onCheckedChange={(c) => set("proxmoxEnabled", !!c)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="network-tools-enabled">Netzwerk-Tools aktivieren</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Firewall-Verwaltung, Port-Übersicht und Netzwerk-Graph (benötigt
+                      root oder Sudo-Passwort)
+                    </p>
+                  </div>
+                  <Switch
+                    id="network-tools-enabled"
+                    checked={form.networkToolsEnabled}
+                    onCheckedChange={(c) => set("networkToolsEnabled", !!c)}
                   />
                 </div>
               </div>

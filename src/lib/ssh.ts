@@ -216,6 +216,30 @@ export function buildRootCommand(
   );
 }
 
+// Wie buildRootCommand, aber für mehrzeilige Skripte: das Skript wird per
+// stdin an `bash -s` übergeben statt in den Befehlstext eingebettet. Das
+// erlaubt komplexe (mehrzeilige) Logik ohne Shell-Escaping-Aufwand. Bei
+// sudo liest `sudo -S` nur die erste stdin-Zeile (das Passwort) und reicht
+// den Rest unverändert an die gestartete Shell durch.
+export function buildRootScriptCommand(
+  server: ServerModel,
+  script: string
+): { command: string; stdin?: string } {
+  if (server.sshUsername === "root") {
+    return { command: "bash -s", stdin: script };
+  }
+  if (server.encryptedSudoPassword) {
+    const sudoPassword = decryptSecret(server.encryptedSudoPassword);
+    return {
+      command: "sudo -S -p '' bash -s",
+      stdin: `${sudoPassword}\n${script}`,
+    };
+  }
+  throw new Error(
+    "Root oder Sudo-Passwort erforderlich, um diesen Befehl auszuführen"
+  );
+}
+
 export type PowerAction = "reboot" | "shutdown";
 
 const POWER_COMMANDS: Record<PowerAction, string> = {
@@ -263,7 +287,7 @@ export const DOCKER_IMAGES_COMMAND =
 // Bettet einen Wert sicher als einzelnes Shell-Argument ein (Single-Quoting,
 // eingebettete Single-Quotes werden escaped) – verhindert Command-Injection
 // über Image-Namen, Ports, Env-Werte etc. in den per SSH ausgeführten Befehlen.
-function shellQuote(value: string): string {
+export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
