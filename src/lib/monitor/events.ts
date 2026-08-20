@@ -15,6 +15,7 @@ export type MonitorEvent =
   | { type: "server-status"; serverId: string; status: string; error?: string | null }
   | { type: "service-check"; serviceCheckId: string; serverId: string; status: string }
   | { type: "docker"; serverId: string; containers: unknown[] }
+  | { type: "docker-images"; serverId: string; images: unknown[] }
   | { type: "proxmox"; serverId: string; vms: unknown[] };
 
 export function publish(event: MonitorEvent) {

@@ -28,6 +28,11 @@ export async function handleDockerTerminalSocket(
     ws.close();
     return;
   }
+  if (!server.dockerEnabled) {
+    send({ type: "error", message: "Docker ist für diesen Server nicht aktiviert" });
+    ws.close();
+    return;
+  }
 
   let shell: Awaited<ReturnType<typeof openDockerExecSession>> | null = null;
   try {

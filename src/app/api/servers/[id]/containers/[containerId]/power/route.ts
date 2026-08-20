@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, handleApiError, ApiError } from "@/lib/api-helpers";
+import { requireRole, handleApiError, ApiError, requireDockerEnabled } from "@/lib/api-helpers";
 import { execOnServer, buildDockerPowerCommand, type DockerPowerAction } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -19,6 +19,7 @@ export async function POST(
     const action: DockerPowerAction = body.action;
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
+    requireDockerEnabled(server);
     const latest = await prisma.dockerContainerSnapshot.findFirst({
       where: { serverId: id, containerId },
       orderBy: { timestamp: "desc" },

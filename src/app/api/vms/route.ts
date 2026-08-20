@@ -7,6 +7,7 @@ export async function GET() {
     await requireSession();
 
     const vms = await prisma.proxmoxVm.findMany({
+      where: { server: { proxmoxEnabled: true } },
       orderBy: [{ name: "asc" }],
       include: { server: { select: { id: true, name: true } } },
     });

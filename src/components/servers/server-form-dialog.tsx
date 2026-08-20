@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Plus } from "lucide-react";
 import type { ServerDTO } from "@/lib/types";
 
@@ -45,6 +46,8 @@ function formFromServer(server?: ServerDTO) {
     sudoPassword: "",
     pollIntervalSec: server?.pollIntervalSec ?? 30,
     retentionDays: server?.retentionDays ?? 30,
+    dockerEnabled: server?.dockerEnabled ?? false,
+    proxmoxEnabled: server?.proxmoxEnabled ?? false,
     cpuWarn: server?.cpuWarn ?? 70,
     cpuCrit: server?.cpuCrit ?? 90,
     memWarn: server?.memWarn ?? 75,
@@ -183,6 +186,34 @@ export function ServerFormDialog({
                     min={1}
                     value={form.retentionDays}
                     onChange={(e) => set("retentionDays", Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="docker-enabled">Docker aktivieren</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Container/Images erkennen und verwalten
+                    </p>
+                  </div>
+                  <Switch
+                    id="docker-enabled"
+                    checked={form.dockerEnabled}
+                    onCheckedChange={(c) => set("dockerEnabled", !!c)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="proxmox-enabled">Proxmox aktivieren</Label>
+                    <p className="text-xs text-muted-foreground">
+                      VMs/LXC-Container erkennen und verwalten
+                    </p>
+                  </div>
+                  <Switch
+                    id="proxmox-enabled"
+                    checked={form.proxmoxEnabled}
+                    onCheckedChange={(c) => set("proxmoxEnabled", !!c)}
                   />
                 </div>
               </div>

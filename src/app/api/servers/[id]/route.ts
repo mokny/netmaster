@@ -12,6 +12,8 @@ const SERVER_SELECT = {
   authType: true,
   pollIntervalSec: true,
   retentionDays: true,
+  dockerEnabled: true,
+  proxmoxEnabled: true,
   cpuWarn: true,
   cpuCrit: true,
   memWarn: true,
@@ -75,6 +77,8 @@ export async function PATCH(
     if (body.authType === "PASSWORD" || body.authType === "PRIVATE_KEY") {
       data.authType = body.authType;
     }
+    if (typeof body.dockerEnabled === "boolean") data.dockerEnabled = body.dockerEnabled;
+    if (typeof body.proxmoxEnabled === "boolean") data.proxmoxEnabled = body.proxmoxEnabled;
     if (typeof body.secret === "string" && body.secret.length > 0) {
       data.encryptedSecret = encryptSecret(body.secret);
     }

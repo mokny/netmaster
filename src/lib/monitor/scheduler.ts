@@ -2,24 +2,37 @@ import { prisma } from "@/lib/prisma";
 import {
   collectServerMetrics,
   collectDockerContainers,
+  collectDockerImages,
   collectProxmoxVms,
   runServiceCheck,
 } from "./collect";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
+const dockerImageTimers = new Map<string, NodeJS.Timeout>();
 const proxmoxTimers = new Map<string, NodeJS.Timeout>();
 const checkTimers = new Map<string, NodeJS.Timeout>();
-const serverIntervals = new Map<string, number>();
+// Signatur aus Poll-Intervall + Docker/Proxmox-Flags – ein Wechsel eines
+// dieser Werte löst ein Neuplanen der Timer für diesen Server aus.
+const serverConfigs = new Map<string, string>();
 const checkIntervals = new Map<string, number>();
 
 const RECONCILE_INTERVAL_MS = 15_000;
 let reconcileTimer: NodeJS.Timeout | null = null;
 
-function scheduleServer(serverId: string, intervalSec: number) {
+function scheduleServer(
+  serverId: string,
+  intervalSec: number,
+  dockerEnabled: boolean,
+  proxmoxEnabled: boolean
+) {
   clearInterval(serverTimers.get(serverId));
   clearInterval(dockerTimers.get(serverId));
+  clearInterval(dockerImageTimers.get(serverId));
   clearInterval(proxmoxTimers.get(serverId));
+  dockerTimers.delete(serverId);
+  dockerImageTimers.delete(serverId);
+  proxmoxTimers.delete(serverId);
 
   const metricsTimer = setInterval(async () => {
     const server = await prisma.server.findUnique({ where: { id: serverId } });
@@ -27,20 +40,30 @@ function scheduleServer(serverId: string, intervalSec: number) {
   }, Math.max(5, intervalSec) * 1000);
   serverTimers.set(serverId, metricsTimer);
 
-  // Docker-Snapshot etwas seltener (2x Intervall), um SSH-Last gering zu halten.
-  const dockerTimer = setInterval(async () => {
-    const server = await prisma.server.findUnique({ where: { id: serverId } });
-    if (server) await collectDockerContainers(server);
-  }, Math.max(10, intervalSec * 2) * 1000);
-  dockerTimers.set(serverId, dockerTimer);
+  if (dockerEnabled) {
+    // Docker-Snapshots etwas seltener (2x Intervall), um SSH-Last gering zu halten.
+    const dockerTimer = setInterval(async () => {
+      const server = await prisma.server.findUnique({ where: { id: serverId } });
+      if (server) await collectDockerContainers(server);
+    }, Math.max(10, intervalSec * 2) * 1000);
+    dockerTimers.set(serverId, dockerTimer);
 
-  // Proxmox-VMs im selben Intervall wie die Host-Metriken, damit VM- und
-  // Host-Graphen zeitlich vergleichbar sind.
-  const proxmoxTimer = setInterval(async () => {
-    const server = await prisma.server.findUnique({ where: { id: serverId } });
-    if (server) await collectProxmoxVms(server);
-  }, Math.max(5, intervalSec) * 1000);
-  proxmoxTimers.set(serverId, proxmoxTimer);
+    const dockerImageTimer = setInterval(async () => {
+      const server = await prisma.server.findUnique({ where: { id: serverId } });
+      if (server) await collectDockerImages(server);
+    }, Math.max(10, intervalSec * 2) * 1000);
+    dockerImageTimers.set(serverId, dockerImageTimer);
+  }
+
+  if (proxmoxEnabled) {
+    // Proxmox-VMs im selben Intervall wie die Host-Metriken, damit VM- und
+    // Host-Graphen zeitlich vergleichbar sind.
+    const proxmoxTimer = setInterval(async () => {
+      const server = await prisma.server.findUnique({ where: { id: serverId } });
+      if (server) await collectProxmoxVms(server);
+    }, Math.max(5, intervalSec) * 1000);
+    proxmoxTimers.set(serverId, proxmoxTimer);
+  }
 }
 
 function scheduleCheck(checkId: string, intervalSec: number) {
@@ -57,15 +80,25 @@ async function reconcile() {
   const activeServerIds = new Set(servers.map((s) => s.id));
 
   for (const server of servers) {
-    const changed = serverIntervals.get(server.id) !== server.pollIntervalSec;
-    if (!serverTimers.has(server.id) || changed) {
-      scheduleServer(server.id, server.pollIntervalSec);
-      serverIntervals.set(server.id, server.pollIntervalSec);
-      if (!changed) {
+    const config = `${server.pollIntervalSec}:${server.dockerEnabled}:${server.proxmoxEnabled}`;
+    const isNew = !serverTimers.has(server.id);
+    const changed = serverConfigs.get(server.id) !== config;
+    if (isNew || changed) {
+      scheduleServer(
+        server.id,
+        server.pollIntervalSec,
+        server.dockerEnabled,
+        server.proxmoxEnabled
+      );
+      serverConfigs.set(server.id, config);
+      if (isNew) {
         // Sofortiger erster Poll, statt auf das erste Intervall zu warten.
         void collectServerMetrics(server);
-        void collectDockerContainers(server);
-        void collectProxmoxVms(server);
+        if (server.dockerEnabled) {
+          void collectDockerContainers(server);
+          void collectDockerImages(server);
+        }
+        if (server.proxmoxEnabled) void collectProxmoxVms(server);
       }
     }
   }
@@ -76,10 +109,13 @@ async function reconcile() {
       const dockerTimer = dockerTimers.get(id);
       if (dockerTimer) clearInterval(dockerTimer);
       dockerTimers.delete(id);
+      const dockerImageTimer = dockerImageTimers.get(id);
+      if (dockerImageTimer) clearInterval(dockerImageTimer);
+      dockerImageTimers.delete(id);
       const proxmoxTimer = proxmoxTimers.get(id);
       if (proxmoxTimer) clearInterval(proxmoxTimer);
       proxmoxTimers.delete(id);
-      serverIntervals.delete(id);
+      serverConfigs.delete(id);
     }
   }
 
@@ -116,10 +152,13 @@ export function stopMonitorScheduler() {
   if (reconcileTimer) clearInterval(reconcileTimer);
   for (const t of serverTimers.values()) clearInterval(t);
   for (const t of dockerTimers.values()) clearInterval(t);
+  for (const t of dockerImageTimers.values()) clearInterval(t);
   for (const t of proxmoxTimers.values()) clearInterval(t);
   for (const t of checkTimers.values()) clearInterval(t);
   serverTimers.clear();
   dockerTimers.clear();
+  dockerImageTimers.clear();
   proxmoxTimers.clear();
   checkTimers.clear();
+  serverConfigs.clear();
 }

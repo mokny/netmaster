@@ -22,6 +22,10 @@ export async function handleVmVncSocket(
     ws.close(4404, "Server nicht gefunden");
     return;
   }
+  if (!server.proxmoxEnabled) {
+    ws.close(4403, "Proxmox ist für diesen Server nicht aktiviert");
+    return;
+  }
 
   const vm = await prisma.proxmoxVm.findUnique({
     where: { serverId_vmid: { serverId, vmid } },

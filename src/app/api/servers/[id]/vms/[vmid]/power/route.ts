@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, handleApiError, ApiError } from "@/lib/api-helpers";
+import { requireRole, handleApiError, ApiError, requireProxmoxEnabled } from "@/lib/api-helpers";
 import { execOnServer, buildVmPowerCommand, type VmPowerAction } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -21,6 +21,7 @@ export async function POST(
     const action: VmPowerAction = body.action;
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
+    requireProxmoxEnabled(server);
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
     });

@@ -7,6 +7,8 @@ export interface ServerDTO {
   authType: "PASSWORD" | "PRIVATE_KEY";
   pollIntervalSec: number;
   retentionDays: number;
+  dockerEnabled: boolean;
+  proxmoxEnabled: boolean;
   cpuWarn: number;
   cpuCrit: number;
   memWarn: number;
@@ -79,6 +81,15 @@ export interface ContainerWithServerDTO extends ContainerSnapshotDTO {
   serverId: string;
   serverName: string;
   timestamp: string;
+}
+
+export interface DockerImageDTO {
+  id: string;
+  imageId: string;
+  repository: string;
+  tag: string;
+  sizeMb: number | null;
+  createdLabel: string;
 }
 
 export interface ProxmoxVmDTO {

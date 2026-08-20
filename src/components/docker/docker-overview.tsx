@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { DockerRow } from "@/components/docker/docker-row";
-import { Container } from "lucide-react";
+import { Container, Layers } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ContainerWithServerDTO } from "@/lib/types";
@@ -53,6 +55,15 @@ export function DockerOverview() {
     });
   });
 
+  const servers = useMemo(() => {
+    if (!containers) return [];
+    const map = new Map<string, string>();
+    for (const c of containers) map.set(c.serverId, c.serverName);
+    return [...map.entries()]
+      .map(([serverId, serverName]) => ({ serverId, serverName }))
+      .sort((a, b) => a.serverName.localeCompare(b.serverName));
+  }, [containers]);
+
   const filtered = useMemo(() => {
     if (!containers) return [];
     const q = search.trim().toLowerCase();
@@ -81,6 +92,19 @@ export function DockerOverview() {
           className="w-64"
         />
       </div>
+
+      {servers.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {servers.map((s) => (
+            <Link key={s.serverId} href={`/docker/${s.serverId}`}>
+              <Badge variant="outline" className="gap-1.5 py-1">
+                <Layers className="size-3" />
+                {s.serverName}
+              </Badge>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {containers === null ? (
         <div className="grid gap-4 sm:grid-cols-2">

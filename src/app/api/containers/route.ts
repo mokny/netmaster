@@ -7,7 +7,10 @@ export async function GET() {
   try {
     await requireSession();
 
-    const servers = await prisma.server.findMany({ select: { id: true, name: true } });
+    const servers = await prisma.server.findMany({
+      where: { dockerEnabled: true },
+      select: { id: true, name: true },
+    });
 
     const perServer = await Promise.all(
       servers.map(async (server) => {

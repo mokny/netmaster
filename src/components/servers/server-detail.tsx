@@ -355,10 +355,24 @@ export function ServerDetail({ serverId }: { serverId: string }) {
               <CardTitle>Docker-Container</CardTitle>
               <CardDescription>Aktueller Stand</CardDescription>
             </div>
-            <Container className="size-4 text-muted-foreground" />
+            {server.dockerEnabled ? (
+              <Link
+                href={`/docker/${serverId}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <Container className="size-4" />
+                Verwalten
+              </Link>
+            ) : (
+              <Container className="size-4 text-muted-foreground" />
+            )}
           </CardHeader>
           <CardContent>
-            {containers.length === 0 ? (
+            {!server.dockerEnabled ? (
+              <p className="text-sm text-muted-foreground">
+                Docker ist für diesen Server nicht aktiviert. Aktivierbar unter „Bearbeiten“.
+              </p>
+            ) : containers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Kein Docker erkannt oder keine Container laufen.
               </p>
@@ -438,7 +452,19 @@ export function ServerDetail({ serverId }: { serverId: string }) {
         </Card>
       </div>
 
-      {vms.length > 0 && (
+      {!server.proxmoxEnabled ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Virtuelle Maschinen</CardTitle>
+            <CardDescription>Proxmox QEMU-VMs / LXC-Container</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Proxmox ist für diesen Server nicht aktiviert. Aktivierbar unter „Bearbeiten“.
+            </p>
+          </CardContent>
+        </Card>
+      ) : vms.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">

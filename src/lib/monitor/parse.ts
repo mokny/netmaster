@@ -235,6 +235,37 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
   return Array.from(containers.values());
 }
 
+export interface ParsedImage {
+  imageId: string;
+  repository: string;
+  tag: string;
+  sizeMb: number | null;
+  createdLabel: string;
+}
+
+// docker images Size nutzt Dezimal-Einheiten (B/kB/MB/GB), analog zu NetIO.
+function parseImageSize(value: string): number | null {
+  return parseNetIoValue(value);
+}
+
+export function parseDockerImagesOutput(raw: string): ParsedImage[] {
+  const images: ParsedImage[] = [];
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [id, repository, tag, size, createdSince] = trimmed.split("|");
+    if (!id) continue;
+    images.push({
+      imageId: id,
+      repository: repository ?? "<none>",
+      tag: tag ?? "<none>",
+      sizeMb: size ? parseImageSize(size) : null,
+      createdLabel: createdSince ?? "",
+    });
+  }
+  return images;
+}
+
 export interface ParsedVm {
   vmid: number;
   type: "qemu" | "lxc";

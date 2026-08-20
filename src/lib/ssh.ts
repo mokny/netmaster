@@ -247,6 +247,111 @@ export function buildDockerPowerCommand(
   return `docker ${action} ${containerId}`;
 }
 
+export function buildDockerRemoveContainerCommand(
+  containerId: string,
+  force: boolean
+): string {
+  if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
+    throw new Error("Ungültige Container-ID");
+  }
+  return `docker rm ${force ? "-f " : ""}${containerId}`;
+}
+
+export const DOCKER_IMAGES_COMMAND =
+  "docker images --format '{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedSince}}' 2>/dev/null";
+
+// Bettet einen Wert sicher als einzelnes Shell-Argument ein (Single-Quoting,
+// eingebettete Single-Quotes werden escaped) – verhindert Command-Injection
+// über Image-Namen, Ports, Env-Werte etc. in den per SSH ausgeführten Befehlen.
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+// Docker-Image-Referenzen: [registry/]repo[:tag][@digest]
+const IMAGE_REF_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._\-/:@]{0,255}$/;
+
+export function buildDockerPullCommand(image: string): string {
+  if (!IMAGE_REF_PATTERN.test(image)) {
+    throw new Error("Ungültiger Image-Name");
+  }
+  return `docker pull ${shellQuote(image)}`;
+}
+
+export function buildDockerImageRemoveCommand(
+  imageId: string,
+  force: boolean
+): string {
+  if (!/^[a-zA-Z0-9]+$/.test(imageId)) {
+    throw new Error("Ungültige Image-ID");
+  }
+  return `docker rmi ${force ? "-f " : ""}${imageId}`;
+}
+
+const CONTAINER_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
+const PORT_MAPPING_PATTERN = /^\d{1,5}:\d{1,5}(\/(tcp|udp))?$/;
+const ENV_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const NETWORK_MODE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
+
+export interface DockerRunOptions {
+  image: string;
+  name?: string;
+  ports?: string[]; // "hostPort:containerPort[/tcp|udp]"
+  envs?: { key: string; value: string }[];
+  volumes?: string[]; // "hostPath:containerPath[:ro]"
+  restartPolicy?: "no" | "always" | "unless-stopped" | "on-failure";
+  network?: string;
+  extraArgs?: string;
+}
+
+export function buildDockerRunCommand(opts: DockerRunOptions): string {
+  if (!IMAGE_REF_PATTERN.test(opts.image)) {
+    throw new Error("Ungültiger Image-Name");
+  }
+  const parts = ["docker", "run", "-d"];
+
+  if (opts.name) {
+    if (!CONTAINER_NAME_PATTERN.test(opts.name)) {
+      throw new Error("Ungültiger Container-Name");
+    }
+    parts.push("--name", shellQuote(opts.name));
+  }
+  for (const port of opts.ports ?? []) {
+    if (!PORT_MAPPING_PATTERN.test(port)) {
+      throw new Error(`Ungültiges Port-Mapping: ${port}`);
+    }
+    parts.push("-p", shellQuote(port));
+  }
+  for (const env of opts.envs ?? []) {
+    if (!ENV_KEY_PATTERN.test(env.key)) {
+      throw new Error(`Ungültiger Umgebungsvariablen-Name: ${env.key}`);
+    }
+    parts.push("-e", shellQuote(`${env.key}=${env.value}`));
+  }
+  for (const volume of opts.volumes ?? []) {
+    if (!volume.includes(":")) {
+      throw new Error(`Ungültiges Volume-Mapping: ${volume}`);
+    }
+    parts.push("-v", shellQuote(volume));
+  }
+  if (opts.restartPolicy && opts.restartPolicy !== "no") {
+    parts.push("--restart", shellQuote(opts.restartPolicy));
+  }
+  if (opts.network) {
+    if (!NETWORK_MODE_PATTERN.test(opts.network)) {
+      throw new Error("Ungültiger Netzwerk-Modus");
+    }
+    parts.push("--network", shellQuote(opts.network));
+  }
+  // Freies Flag-Feld für Power-User – bewusst ungefiltert, siehe
+  // API-Route: gleiche Vertrauensstufe wie das bestehende Exec-Terminal.
+  if (opts.extraArgs && opts.extraArgs.trim()) {
+    parts.push(opts.extraArgs.trim());
+  }
+  parts.push(shellQuote(opts.image));
+
+  return parts.join(" ");
+}
+
 // Liefert alle VMs/LXCs des (lokalen) Proxmox-Knotens als JSON-Array
 // (leer/Fehler, falls kein Proxmox installiert ist -> vom Aufrufer als
 // "kein Proxmox" behandelt, kein harter Fehler).

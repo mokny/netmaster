@@ -80,6 +80,10 @@ model Server {
   pollIntervalSec Int @default(30)
   retentionDays   Int @default(30)
 
+  // Docker/Proxmox werden nur abgefragt, wenn hier explizit aktiviert.
+  dockerEnabled  Boolean @default(true)
+  proxmoxEnabled Boolean @default(true)
+
   cpuWarn  Float @default(70)
   cpuCrit  Float @default(90)
   memWarn  Float @default(75)
@@ -101,6 +105,7 @@ model Server {
   diskSamples   DiskSample[]
   serviceChecks ServiceCheck[]
   containerSnapshots DockerContainerSnapshot[]
+  imageSnapshots     DockerImageSnapshot[]
   proxmoxVms    ProxmoxVm[]
   auditLogs     AuditLog[]
 }
@@ -181,6 +186,23 @@ model DockerContainerSnapshot {
   memUsageMb  Float?
   netRxMb     Float?
   netTxMb     Float?
+
+  @@index([serverId, timestamp])
+}
+
+// Momentaufnahme der auf einem Server vorhandenen Docker-Images (via
+// 'docker images'). Analog zu DockerContainerSnapshot wird nur die jeweils
+// letzte Momentaufnahme pro Server behalten.
+model DockerImageSnapshot {
+  id           String   @id @default(cuid())
+  serverId     String
+  server       Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  timestamp    DateTime @default(now())
+  imageId      String
+  repository   String
+  tag          String
+  sizeMb       Float?
+  createdLabel String @default("")
 
   @@index([serverId, timestamp])
 }

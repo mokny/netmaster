@@ -28,6 +28,11 @@ export async function handleVmTerminalSocket(
     ws.close();
     return;
   }
+  if (!server.proxmoxEnabled) {
+    send({ type: "error", message: "Proxmox ist für diesen Server nicht aktiviert" });
+    ws.close();
+    return;
+  }
 
   const vm = await prisma.proxmoxVm.findUnique({
     where: { serverId_vmid: { serverId, vmid } },

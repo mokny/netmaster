@@ -1,6 +1,17 @@
 import { prisma } from "@/lib/prisma";
-import { execOnServer, METRICS_COMMAND, DOCKER_COMMAND, PROXMOX_COMMAND } from "@/lib/ssh";
-import { parseMetricsOutput, parseDockerOutput, parseProxmoxOutput } from "./parse";
+import {
+  execOnServer,
+  METRICS_COMMAND,
+  DOCKER_COMMAND,
+  DOCKER_IMAGES_COMMAND,
+  PROXMOX_COMMAND,
+} from "@/lib/ssh";
+import {
+  parseMetricsOutput,
+  parseDockerOutput,
+  parseDockerImagesOutput,
+  parseProxmoxOutput,
+} from "./parse";
 import { computeServerStatus } from "./status";
 import { publish } from "./events";
 import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/client";
@@ -95,6 +106,7 @@ export async function collectServerMetrics(server: ServerModel) {
 }
 
 export async function collectDockerContainers(server: ServerModel) {
+  if (!server.dockerEnabled) return;
   try {
     const { stdout } = await execOnServer(server, DOCKER_COMMAND);
     const containers = parseDockerOutput(stdout);
@@ -127,7 +139,39 @@ export async function collectDockerContainers(server: ServerModel) {
   }
 }
 
+export async function collectDockerImages(server: ServerModel) {
+  if (!server.dockerEnabled) return;
+  try {
+    const { stdout } = await execOnServer(server, DOCKER_IMAGES_COMMAND);
+    const images = parseDockerImagesOutput(stdout);
+
+    if (images.length > 0) {
+      await prisma.dockerImageSnapshot.createMany({
+        data: images.map((img) => ({
+          serverId: server.id,
+          imageId: img.imageId,
+          repository: img.repository,
+          tag: img.tag,
+          sizeMb: img.sizeMb,
+          createdLabel: img.createdLabel,
+        })),
+      });
+    }
+
+    publish({ type: "docker-images", serverId: server.id, images });
+
+    // Nur die letzte Momentaufnahme pro Server behalten, um die DB schlank zu halten.
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await prisma.dockerImageSnapshot.deleteMany({
+      where: { serverId: server.id, timestamp: { lt: cutoff } },
+    });
+  } catch {
+    // Server hat evtl. kein Docker installiert – kein harter Fehler.
+  }
+}
+
 export async function collectProxmoxVms(server: ServerModel) {
+  if (!server.proxmoxEnabled) return;
   try {
     const { stdout } = await execOnServer(server, PROXMOX_COMMAND);
     const vms = parseProxmoxOutput(stdout);

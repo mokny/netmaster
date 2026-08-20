@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
+import { RemoveContainerDialog } from "@/components/docker/remove-container-dialog";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
 import { Play, Square, RotateCw, TerminalSquare } from "lucide-react";
 import type { ContainerWithServerDTO } from "@/lib/types";
@@ -65,18 +66,26 @@ export function DockerRow({
               </Button>
             )}
             {!running && (
-              <DockerPowerDialog
-                serverId={container.serverId}
-                containerId={container.containerId}
-                containerName={container.name}
-                action="start"
-                onDone={onDone}
-                trigger={
-                  <Button variant="ghost" size="icon" className="size-6" title="Starten">
-                    <Play className="size-3.5" />
-                  </Button>
-                }
-              />
+              <>
+                <DockerPowerDialog
+                  serverId={container.serverId}
+                  containerId={container.containerId}
+                  containerName={container.name}
+                  action="start"
+                  onDone={onDone}
+                  trigger={
+                    <Button variant="ghost" size="icon" className="size-6" title="Starten">
+                      <Play className="size-3.5" />
+                    </Button>
+                  }
+                />
+                <RemoveContainerDialog
+                  serverId={container.serverId}
+                  containerId={container.containerId}
+                  containerName={container.name}
+                  onDone={onDone}
+                />
+              </>
             )}
             {running && (
               <>
