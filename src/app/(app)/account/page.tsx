@@ -11,6 +11,7 @@ import { SessionsList } from "@/components/account/sessions-list";
 import { TotpSetupCard } from "@/components/account/totp-setup-card";
 import { PasskeyCard } from "@/components/account/passkey-card";
 import { PushNotificationsCard } from "@/components/account/push-notifications-card";
+import { WakeLockCard } from "@/components/account/wake-lock-card";
 import { useSession } from "@/hooks/use-session";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2 } from "lucide-react";
@@ -167,6 +168,8 @@ export default function AccountPage() {
       <PasskeyCard passkeys={passkeys} onChanged={loadSecurity} />
 
       <PushNotificationsCard />
+
+      <WakeLockCard />
 
       <TotpSetupCard
         enabled={totpEnabled}

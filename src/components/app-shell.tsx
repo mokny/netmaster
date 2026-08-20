@@ -97,7 +97,7 @@ export function AppShell({
     <div className="flex min-h-screen w-full">
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex",
+          "sticky top-0 hidden h-screen shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex",
           collapsed ? "w-16" : "w-60"
         )}
       >
