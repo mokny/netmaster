@@ -11,6 +11,8 @@ import { monitorEvents, type MonitorEvent } from "./src/lib/monitor/events";
 import { startMonitorScheduler } from "./src/lib/monitor/scheduler";
 import { handleTerminalSocket } from "./src/lib/ws/terminal-handler";
 import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
+import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
+import { handleDockerTerminalSocket } from "./src/lib/ws/docker-terminal-handler";
 import { handleProcessesSocket } from "./src/lib/ws/processes-handler";
 import { handleFilesSocket } from "./src/lib/ws/files-handler";
 
@@ -44,6 +46,8 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true });
   const terminalWss = new WebSocketServer({ noServer: true });
   const vmTerminalWss = new WebSocketServer({ noServer: true });
+  const vmVncWss = new WebSocketServer({ noServer: true });
+  const dockerTerminalWss = new WebSocketServer({ noServer: true });
   const processesWss = new WebSocketServer({ noServer: true });
   const filesWss = new WebSocketServer({ noServer: true });
   const clients = new Set<WebSocket>();
@@ -57,6 +61,8 @@ app.prepare().then(() => {
       pathname !== "/api/ws" &&
       pathname !== "/api/ws/terminal" &&
       pathname !== "/api/ws/vm-terminal" &&
+      pathname !== "/api/ws/vm-vnc" &&
+      pathname !== "/api/ws/docker-terminal" &&
       pathname !== "/api/ws/processes" &&
       pathname !== "/api/ws/files"
     ) {
@@ -112,6 +118,33 @@ app.prepare().then(() => {
       }
       vmTerminalWss.handleUpgrade(req, socket, head, (ws) => {
         void handleVmTerminalSocket(ws, serverId, vmid, session);
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/vm-vnc") {
+      const vmid = Number(query.vmid);
+      const ticket = typeof query.ticket === "string" ? query.ticket : "";
+      if (!Number.isInteger(vmid) || !/^[a-zA-Z0-9]{16,64}$/.test(ticket)) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      vmVncWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleVmVncSocket(ws, serverId, vmid, ticket, session);
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/docker-terminal") {
+      const containerId = typeof query.containerId === "string" ? query.containerId : "";
+      if (!containerId) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      dockerTerminalWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleDockerTerminalSocket(ws, serverId, containerId, session);
       });
       return;
     }

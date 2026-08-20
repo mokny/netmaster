@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
-import { Play, Square, RotateCw } from "lucide-react";
+import { useTerminalManager } from "@/hooks/use-terminal-manager";
+import { Play, Square, RotateCw, TerminalSquare } from "lucide-react";
 import type { ContainerWithServerDTO } from "@/lib/types";
 
 const RUNNING_STATES = new Set(["running"]);
@@ -20,6 +21,7 @@ export function DockerRow({
   href?: string;
   onDone?: () => void;
 }) {
+  const { openDockerExec } = useTerminalManager();
   const running = RUNNING_STATES.has(container.state);
 
   const name = (
@@ -49,6 +51,19 @@ export function DockerRow({
         </Badge>
         {canControl && (
           <div className="flex items-center gap-1">
+            {running && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                title="Terminal"
+                onClick={() =>
+                  openDockerExec(container.serverId, container.containerId, container.name)
+                }
+              >
+                <TerminalSquare className="size-3.5" />
+              </Button>
+            )}
             {!running && (
               <DockerPowerDialog
                 serverId={container.serverId}

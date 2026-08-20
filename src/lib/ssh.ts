@@ -231,7 +231,7 @@ export function buildPowerCommand(
 }
 
 export const DOCKER_COMMAND =
-  "docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null && echo '__STATE__' && docker ps -a --format '{{.ID}}|{{.State}}|{{.Image}}' 2>/dev/null";
+  "docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null && echo '__STATE__' && docker ps -a --format '{{.ID}}|{{.State}}|{{.Image}}|{{.Names}}' 2>/dev/null";
 
 export type DockerPowerAction = "start" | "stop" | "restart";
 
@@ -285,6 +285,115 @@ export function buildVmTerminalCommand(
   }
   const baseCommand = type === "lxc" ? `pct enter ${vmid}` : `qm terminal ${vmid}`;
   return buildRootCommand(server, baseCommand);
+}
+
+// Läuft ohne sudo/root, analog zu DOCKER_COMMAND – setzt voraus, dass der
+// SSH-User Mitglied der 'docker'-Gruppe ist (oder root). Probiert zuerst
+// bash, fällt sonst auf sh zurück (POSIX sh ist in praktisch jedem
+// Container-Image vorhanden).
+export function buildDockerExecCommand(containerId: string): string {
+  if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
+    throw new Error("Ungültige Container-ID");
+  }
+  return `docker exec -it ${containerId} sh -c "exec bash 2>/dev/null || exec sh"`;
+}
+
+// Öffnet eine interaktive PTY-Session per 'docker exec' in einem Container.
+// Der Aufrufer ist dafür verantwortlich, `conn.end()` beim Schließen
+// aufzurufen.
+export function openDockerExecSession(
+  server: ServerModel,
+  containerId: string,
+  size: { cols: number; rows: number }
+): Promise<ShellSession> {
+  return new Promise((resolve, reject) => {
+    const command = buildDockerExecCommand(containerId);
+    const conn = new Client();
+    let settled = false;
+
+    conn
+      .on("ready", () => {
+        conn.exec(
+          command,
+          { pty: { term: "xterm-256color", cols: size.cols, rows: size.rows } },
+          (err, stream) => {
+            if (err) {
+              settled = true;
+              conn.end();
+              reject(err);
+              return;
+            }
+            settled = true;
+            resolve({ conn, stream });
+          }
+        );
+      })
+      .on("error", (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      })
+      .connect(buildConnectConfig(server));
+    attachKeyboardInteractive(conn, server);
+  });
+}
+
+// 'qm vncproxy' setzt (via LC_PVE_TICKET) ein frisches VNC-Passwort auf dem
+// QEMU-Prozess und proxied danach das rohe VNC-Protokoll über
+// stdin/stdout – ganz ohne Proxmox-API-Zugangsdaten, analog zu 'qm
+// terminal'. Das Ticket wird vom Aufrufer erzeugt und dem VNC-Client als
+// Passwort für die RFB-Authentifizierung mitgegeben.
+export function buildVmVncCommand(
+  server: ServerModel,
+  vmid: number,
+  ticket: string
+): { command: string; stdin?: string } {
+  if (!Number.isInteger(vmid) || vmid <= 0) {
+    throw new Error("Ungültige VM-ID");
+  }
+  if (!/^[a-zA-Z0-9]{16,64}$/.test(ticket)) {
+    throw new Error("Ungültiges VNC-Ticket");
+  }
+  return buildRootCommand(server, `env LC_PVE_TICKET='${ticket}' qm vncproxy ${vmid}`);
+}
+
+// Öffnet eine binäre (kein PTY) Session, die das rohe VNC-Protokoll einer
+// QEMU-VM über stdin/stdout liefert. Der Aufrufer ist dafür verantwortlich,
+// `conn.end()` beim Schließen aufzurufen.
+export function openVmVncSession(
+  server: ServerModel,
+  vmid: number,
+  ticket: string
+): Promise<ShellSession> {
+  return new Promise((resolve, reject) => {
+    const { command, stdin } = buildVmVncCommand(server, vmid, ticket);
+    const conn = new Client();
+    let settled = false;
+
+    conn
+      .on("ready", () => {
+        conn.exec(command, (err, stream) => {
+          if (err) {
+            settled = true;
+            conn.end();
+            reject(err);
+            return;
+          }
+          settled = true;
+          if (stdin !== undefined) stream.write(stdin);
+          resolve({ conn, stream });
+        });
+      })
+      .on("error", (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      })
+      .connect(buildConnectConfig(server));
+    attachKeyboardInteractive(conn, server);
+  });
 }
 
 // Öffnet eine interaktive PTY-Session, die statt einer Login-Shell direkt

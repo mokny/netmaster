@@ -13,6 +13,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VmPowerDialog } from "@/components/vms/vm-power-dialog";
+import { VmTerminalMenu } from "@/components/vms/vm-terminal-menu";
 import {
   CombinedMetricChart,
   DISK_KEY_PREFIX,
@@ -20,8 +21,7 @@ import {
 } from "@/components/servers/combined-metric-chart";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
-import { useTerminalManager } from "@/hooks/use-terminal-manager";
-import { ArrowLeft, Play, Square, RotateCw, TerminalSquare } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCw } from "lucide-react";
 import type { ProxmoxVmDTO, ProxmoxVmSampleDTO } from "@/lib/types";
 
 interface VmWithServer extends ProxmoxVmDTO {
@@ -31,7 +31,6 @@ interface VmWithServer extends ProxmoxVmDTO {
 export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number }) {
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
-  const { openVmTerminal } = useTerminalManager();
 
   const [vm, setVm] = useState<VmWithServer | null>(null);
   const [samples, setSamples] = useState<ProxmoxVmSampleDTO[]>([]);
@@ -121,14 +120,13 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
         {canControl && (
           <div className="flex items-center gap-2">
             {running && (
-              <Button
-                variant="outline"
+              <VmTerminalMenu
+                serverId={serverId}
+                vmid={vmid}
+                vmName={vm.name}
+                vmType={vm.type}
                 size="sm"
-                onClick={() => openVmTerminal(serverId, vmid, vm.name, vm.type)}
-              >
-                <TerminalSquare className="size-4" />
-                Terminal
-              </Button>
+              />
             )}
             {!running && (
               <VmPowerDialog

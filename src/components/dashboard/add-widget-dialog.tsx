@@ -20,7 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Plus } from "lucide-react";
-import type { ProxmoxVmDTO, ServerDTO } from "@/lib/types";
+import type { ContainerSnapshotDTO, ProxmoxVmDTO, ServerDTO } from "@/lib/types";
 
 export type WidgetSpec =
   | { type: "overview" }
@@ -35,7 +35,16 @@ export type WidgetSpec =
       aggregation: "weighted" | "average";
       showProblematic: boolean;
     }
-  | { type: "proxmox-global" };
+  | { type: "proxmox-global" }
+  | { type: "docker-container-compact"; serverId: string; containerId: string }
+  | { type: "docker-container-chart"; serverId: string; containerId: string }
+  | {
+      type: "docker-host";
+      serverId: string;
+      aggregation: "weighted" | "average";
+      showProblematic: boolean;
+    }
+  | { type: "docker-global" };
 
 const WIDGET_TYPES = [
   { value: "server-metric", label: "Server-Metrik (einzeln)" },
@@ -45,6 +54,10 @@ const WIDGET_TYPES = [
   { value: "vm-combined-chart", label: "VM: CPU/RAM/Disk (Verlauf)" },
   { value: "proxmox-host", label: "Proxmox-Host-Übersicht" },
   { value: "proxmox-global", label: "Proxmox-Gesamtübersicht" },
+  { value: "docker-container-compact", label: "Docker-Container (Kompakt)" },
+  { value: "docker-container-chart", label: "Docker-Container (Verlauf)" },
+  { value: "docker-host", label: "Docker-Host-Übersicht" },
+  { value: "docker-global", label: "Docker-Gesamtübersicht" },
   { value: "overview", label: "Übersicht (alle Server)" },
 ] as const;
 
@@ -62,11 +75,16 @@ export function AddWidgetDialog({
   const [metric, setMetric] = useState("cpuPercent");
   const [vms, setVms] = useState<ProxmoxVmDTO[]>([]);
   const [vmid, setVmid] = useState<string>("");
+  const [containers, setContainers] = useState<ContainerSnapshotDTO[]>([]);
+  const [containerId, setContainerId] = useState<string>("");
   const [aggregation, setAggregation] = useState<"weighted" | "average">("weighted");
   const [showProblematic, setShowProblematic] = useState(false);
 
-  const needsServer = widgetType !== "overview" && widgetType !== "proxmox-global";
+  const needsServer = widgetType !== "overview" && widgetType !== "proxmox-global" && widgetType !== "docker-global";
   const needsVm = widgetType === "vm-combined-compact" || widgetType === "vm-combined-chart";
+  const needsContainer =
+    widgetType === "docker-container-compact" || widgetType === "docker-container-chart";
+  const needsAggregation = widgetType === "proxmox-host" || widgetType === "docker-host";
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +106,16 @@ export function AddWidgetDialog({
       });
   }, [needsVm, serverId]);
 
+  useEffect(() => {
+    if (!needsContainer || !serverId) return;
+    fetch(`/api/servers/${serverId}/containers`)
+      .then((res) => (res.ok ? res.json() : { containers: [] }))
+      .then((data) => {
+        setContainers(data.containers ?? []);
+        setContainerId(data.containers?.[0]?.containerId ?? "");
+      });
+  }, [needsContainer, serverId]);
+
   function add() {
     const server = servers.find((s) => s.id === serverId);
 
@@ -95,6 +123,8 @@ export function AddWidgetDialog({
       onAdd({ type: "overview" }, "Übersicht");
     } else if (widgetType === "proxmox-global") {
       onAdd({ type: "proxmox-global" }, "Proxmox-Übersicht");
+    } else if (widgetType === "docker-global") {
+      onAdd({ type: "docker-global" }, "Docker-Übersicht");
     } else if (widgetType === "server-combined-compact") {
       onAdd(
         { type: "server-combined-compact", serverId },
@@ -110,12 +140,27 @@ export function AddWidgetDialog({
         { type: "proxmox-host", serverId, aggregation, showProblematic },
         `${server?.name ?? "Host"} – Proxmox`
       );
+    } else if (widgetType === "docker-host") {
+      onAdd(
+        { type: "docker-host", serverId, aggregation, showProblematic },
+        `${server?.name ?? "Host"} – Docker`
+      );
     } else if (widgetType === "vm-combined-compact" || widgetType === "vm-combined-chart") {
       const vm = vms.find((v) => String(v.vmid) === vmid);
       const suffix = widgetType === "vm-combined-chart" ? " (Verlauf)" : "";
       onAdd(
         { type: widgetType, serverId, vmid: Number(vmid) },
         `${vm?.name ?? "VM"} – CPU/RAM/Disk${suffix}`
+      );
+    } else if (
+      widgetType === "docker-container-compact" ||
+      widgetType === "docker-container-chart"
+    ) {
+      const container = containers.find((c) => c.containerId === containerId);
+      const suffix = widgetType === "docker-container-chart" ? " (Verlauf)" : "";
+      onAdd(
+        { type: widgetType, serverId, containerId },
+        `${container?.name ?? "Container"} – Docker${suffix}`
       );
     } else {
       const metricLabel =
@@ -161,7 +206,7 @@ export function AddWidgetDialog({
 
           {needsServer && (
             <div className="space-y-2">
-              <Label>{needsVm || widgetType === "proxmox-host" ? "Host" : "Server"}</Label>
+              <Label>{needsVm || needsContainer || needsAggregation ? "Host" : "Server"}</Label>
               <Select value={serverId} onValueChange={(v) => setServerId(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Server wählen" />
@@ -211,7 +256,25 @@ export function AddWidgetDialog({
             </div>
           )}
 
-          {widgetType === "proxmox-host" && (
+          {needsContainer && (
+            <div className="space-y-2">
+              <Label>Container</Label>
+              <Select value={containerId} onValueChange={(v) => setContainerId(v ?? "")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Container wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {containers.map((c) => (
+                    <SelectItem key={c.containerId} value={c.containerId}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {needsAggregation && (
             <>
               <div className="space-y-2">
                 <Label>Aggregation</Label>
@@ -229,7 +292,11 @@ export function AddWidgetDialog({
                 </Select>
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="show-problematic">Problematische VMs anzeigen</Label>
+                <Label htmlFor="show-problematic">
+                  {widgetType === "docker-host"
+                    ? "Problematische Container anzeigen"
+                    : "Problematische VMs anzeigen"}
+                </Label>
                 <Switch
                   id="show-problematic"
                   checked={showProblematic}
@@ -243,7 +310,9 @@ export function AddWidgetDialog({
           <Button
             onClick={add}
             disabled={
-              (needsServer && !serverId) || (needsVm && !vmid)
+              (needsServer && !serverId) ||
+              (needsVm && !vmid) ||
+              (needsContainer && !containerId)
             }
           >
             Hinzufügen

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VmPowerDialog } from "@/components/vms/vm-power-dialog";
-import { useTerminalManager } from "@/hooks/use-terminal-manager";
-import { Play, Square, RotateCw, TerminalSquare } from "lucide-react";
+import { VmTerminalMenu } from "@/components/vms/vm-terminal-menu";
+import { Play, Square, RotateCw } from "lucide-react";
 import type { ProxmoxVmDTO, ProxmoxVmWithServerDTO } from "@/lib/types";
 
 const RUNNING_STATES = new Set(["running"]);
@@ -21,7 +21,6 @@ export function VmRow({
   href?: string;
   onDone?: () => void;
 }) {
-  const { openVmTerminal } = useTerminalManager();
   const running = RUNNING_STATES.has(vm.status);
   const serverName = "serverName" in vm ? vm.serverName : null;
   const name = (
@@ -54,15 +53,12 @@ export function VmRow({
         {canControl && (
           <div className="flex items-center gap-1">
             {running && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                title="Terminal"
-                onClick={() => openVmTerminal(vm.serverId, vm.vmid, vm.name, vm.type)}
-              >
-                <TerminalSquare className="size-3.5" />
-              </Button>
+              <VmTerminalMenu
+                serverId={vm.serverId}
+                vmid={vm.vmid}
+                vmName={vm.name}
+                vmType={vm.type}
+              />
             )}
             {!running && (
               <VmPowerDialog

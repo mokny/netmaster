@@ -14,7 +14,13 @@ import { VmCombinedCompactWidget } from "@/components/dashboard/vm-combined-comp
 import { VmCombinedChartWidget } from "@/components/dashboard/vm-combined-chart-widget";
 import { ProxmoxHostWidget } from "@/components/dashboard/proxmox-host-widget";
 import { ProxmoxGlobalWidget } from "@/components/dashboard/proxmox-global-widget";
+import { DockerContainerCompactWidget } from "@/components/dashboard/docker-container-compact-widget";
+import { DockerContainerChartWidget } from "@/components/dashboard/docker-container-chart-widget";
+import { DockerHostWidget } from "@/components/dashboard/docker-host-widget";
+import { DockerGlobalWidget } from "@/components/dashboard/docker-global-widget";
 import { AddWidgetDialog, type WidgetSpec } from "@/components/dashboard/add-widget-dialog";
+import { resolveWidgetTitle, type NameLookups } from "@/lib/widget-titles";
+import type { ProxmoxVmWithServerDTO, ContainerWithServerDTO, ServerDTO } from "@/lib/types";
 import { LayoutGrid, Pencil, Check } from "lucide-react";
 
 const DEFAULT_SIZE: Record<WidgetSpec["type"], { w: number; h: number }> = {
@@ -26,6 +32,10 @@ const DEFAULT_SIZE: Record<WidgetSpec["type"], { w: number; h: number }> = {
   "vm-combined-chart": { w: 5, h: 4 },
   "proxmox-host": { w: 4, h: 4 },
   "proxmox-global": { w: 5, h: 6 },
+  "docker-container-compact": { w: 3, h: 3 },
+  "docker-container-chart": { w: 5, h: 4 },
+  "docker-host": { w: 4, h: 4 },
+  "docker-global": { w: 5, h: 6 },
 };
 
 const GridLayoutWithWidth = WidthProvider(ReactGridLayout);
@@ -47,6 +57,7 @@ const DEFAULT_LAYOUT: WidgetItem[] = [
 export function DashboardGrid() {
   const [widgets, setWidgets] = useState<WidgetItem[] | null>(null);
   const [editing, setEditing] = useState(false);
+  const [lookups, setLookups] = useState<NameLookups | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -56,6 +67,34 @@ export function DashboardGrid() {
         setWidgets(data.layout && data.layout.length > 0 ? data.layout : DEFAULT_LAYOUT);
       });
   }, []);
+
+  const loadLookups = useCallback(() => {
+    Promise.all([
+      fetch("/api/servers").then((res) => (res.ok ? res.json() : { servers: [] })),
+      fetch("/api/vms").then((res) => (res.ok ? res.json() : { vms: [] })),
+      fetch("/api/containers").then((res) => (res.ok ? res.json() : { containers: [] })),
+    ]).then(([serversData, vmsData, containersData]) => {
+      const servers = new Map<string, string>(
+        (serversData.servers as ServerDTO[]).map((s) => [s.id, s.name])
+      );
+      const vms = new Map<string, string>(
+        (vmsData.vms as ProxmoxVmWithServerDTO[]).map((v) => [`${v.serverId}:${v.vmid}`, v.name])
+      );
+      const containers = new Map<string, string>(
+        (containersData.containers as ContainerWithServerDTO[]).map((c) => [
+          `${c.serverId}:${c.containerId}`,
+          c.name,
+        ])
+      );
+      setLookups({ servers, vms, containers });
+    });
+  }, []);
+
+  useEffect(() => {
+    loadLookups();
+    const interval = setInterval(loadLookups, 60_000);
+    return () => clearInterval(interval);
+  }, [loadLookups]);
 
   const persist = useCallback((next: WidgetItem[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -87,7 +126,9 @@ export function DashboardGrid() {
       const id = `${spec.type}-${Date.now()}`;
       const size = DEFAULT_SIZE[spec.type];
       const h =
-        spec.type === "proxmox-host" && spec.showProblematic ? Math.max(size.h, 6) : size.h;
+        (spec.type === "proxmox-host" || spec.type === "docker-host") && spec.showProblematic
+          ? Math.max(size.h, 6)
+          : size.h;
       const next = [
         ...list,
         { i: id, x: 0, y: maxY, w: size.w, h, title, spec },
@@ -159,7 +200,7 @@ export function DashboardGrid() {
           {widgets.map((w) => (
             <div key={w.i}>
               <WidgetCard
-                title={w.title}
+                title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
                 editing={editing}
                 onRemove={() => removeWidget(w.i)}
               >
@@ -181,8 +222,26 @@ export function DashboardGrid() {
                     aggregation={w.spec.aggregation}
                     showProblematic={w.spec.showProblematic}
                   />
-                ) : (
+                ) : w.spec.type === "proxmox-global" ? (
                   <ProxmoxGlobalWidget />
+                ) : w.spec.type === "docker-container-compact" ? (
+                  <DockerContainerCompactWidget
+                    serverId={w.spec.serverId}
+                    containerId={w.spec.containerId}
+                  />
+                ) : w.spec.type === "docker-container-chart" ? (
+                  <DockerContainerChartWidget
+                    serverId={w.spec.serverId}
+                    containerId={w.spec.containerId}
+                  />
+                ) : w.spec.type === "docker-host" ? (
+                  <DockerHostWidget
+                    serverId={w.spec.serverId}
+                    aggregation={w.spec.aggregation}
+                    showProblematic={w.spec.showProblematic}
+                  />
+                ) : (
+                  <DockerGlobalWidget />
                 )}
               </WidgetCard>
             </div>

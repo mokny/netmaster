@@ -212,7 +212,7 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
   for (const line of (statePart ?? "").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const [id, state, image] = trimmed.split("|");
+    const [id, state, image, name] = trimmed.split("|");
     if (!id) continue;
     const existing = containers.get(id);
     if (existing) {
@@ -221,7 +221,7 @@ export function parseDockerOutput(raw: string): ParsedContainer[] {
     } else {
       containers.set(id, {
         containerId: id,
-        name: id,
+        name: name || id,
         image: image ?? "",
         state: state ?? "unknown",
         cpuPercent: null,

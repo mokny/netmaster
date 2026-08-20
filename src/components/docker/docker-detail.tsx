@@ -16,7 +16,8 @@ import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
 import { MetricChart, type ChartPoint } from "@/components/servers/metric-chart";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
-import { ArrowLeft, Play, Square, RotateCw } from "lucide-react";
+import { useTerminalManager } from "@/hooks/use-terminal-manager";
+import { ArrowLeft, Play, Square, RotateCw, TerminalSquare } from "lucide-react";
 
 interface ContainerSample {
   timestamp: string;
@@ -45,6 +46,7 @@ export function DockerDetail({
 }) {
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
+  const { openDockerExec } = useTerminalManager();
 
   const [container, setContainer] = useState<ContainerDetail | null>(null);
   const [samples, setSamples] = useState<ContainerSample[]>([]);
@@ -142,6 +144,16 @@ export function DockerDetail({
         </div>
         {canControl && (
           <div className="flex items-center gap-2">
+            {running && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openDockerExec(serverId, containerId, container.name)}
+              >
+                <TerminalSquare className="size-4" />
+                Terminal
+              </Button>
+            )}
             {!running && (
               <DockerPowerDialog
                 serverId={serverId}
