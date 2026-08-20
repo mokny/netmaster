@@ -35,6 +35,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { WakeLockManager } from "@/components/wake-lock-manager";
 import type { SessionPayload } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen w-full">
+      <WakeLockManager />
       <aside
         className={cn(
           "sticky top-0 hidden h-screen shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex",

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bell, BellOff, Loader2, Trash2 } from "lucide-react";
+import { Bell, BellOff, Loader2, Send, Trash2 } from "lucide-react";
 import type { PushSubscriptionDTO, NotificationPreferenceDTO } from "@/lib/types";
 
 function urlBase64ToUint8Array(base64: string) {
@@ -44,6 +44,7 @@ export function PushNotificationsCard() {
   );
   const [subscribedHere, setSubscribedHere] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [subscriptions, setSubscriptions] = useState<PushSubscriptionDTO[] | null>(null);
   const [prefs, setPrefs] = useState<NotificationPreferenceDTO[] | null>(null);
 
@@ -136,6 +137,21 @@ export function PushNotificationsCard() {
     }
   }
 
+  async function sendTest() {
+    setTesting(true);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Test-Benachrichtigung fehlgeschlagen");
+        return;
+      }
+      toast.success("Test-Benachrichtigung gesendet");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   async function removeSubscription(id: string) {
     const res = await fetch(`/api/push/subscriptions/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -174,17 +190,25 @@ export function PushNotificationsCard() {
             Push aktiviert werden kann.
           </CardDescription>
         </div>
-        {subscribedHere ? (
-          <Button variant="outline" size="sm" onClick={disableHere} disabled={busy}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <BellOff className="size-4" />}
-            Auf diesem Gerät deaktivieren
-          </Button>
-        ) : (
-          <Button size="sm" onClick={enable} disabled={busy}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Bell className="size-4" />}
-            Aktivieren
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {subscriptions && subscriptions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={sendTest} disabled={testing}>
+              {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              Test senden
+            </Button>
+          )}
+          {subscribedHere ? (
+            <Button variant="outline" size="sm" onClick={disableHere} disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <BellOff className="size-4" />}
+              Auf diesem Gerät deaktivieren
+            </Button>
+          ) : (
+            <Button size="sm" onClick={enable} disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <Bell className="size-4" />}
+              Aktivieren
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {permission === "denied" && (

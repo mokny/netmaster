@@ -1,67 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-
-const STORAGE_KEY = "keep_screen_awake";
-
-function wakeLockSupported() {
-  return typeof navigator !== "undefined" && "wakeLock" in navigator;
-}
+import { getWakeLockPreference, setWakeLockPreference, wakeLockAvailable } from "@/lib/wake-lock";
 
 export function WakeLockCard() {
-  const [enabled, setEnabled] = useState(false);
-  const sentinelRef = useRef<WakeLockSentinel | null>(null);
+  const [enabled, setEnabled] = useState(() => getWakeLockPreference());
+  const [supported] = useState(() => wakeLockAvailable());
 
-  async function requestLock() {
-    if (!wakeLockSupported()) return;
-    try {
-      sentinelRef.current = await navigator.wakeLock.request("screen");
-    } catch {
-      // Wird meist durch Tab-Wechsel/Minimieren verhindert, kein Fehler des Nutzers.
-    }
-  }
-
-  function releaseLock() {
-    sentinelRef.current?.release().catch(() => {});
-    sentinelRef.current = null;
-  }
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) === "1";
-    setEnabled(stored);
-    if (stored) requestLock();
-
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible" && localStorage.getItem(STORAGE_KEY) === "1") {
-        requestLock();
-      }
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      releaseLock();
-    };
-  }, []);
-
-  async function toggle(next: boolean) {
-    if (next && !wakeLockSupported()) {
-      toast.error("Dieser Browser unterstützt kein permanentes Wachhalten des Bildschirms");
-      return;
-    }
+  function toggle(next: boolean) {
     setEnabled(next);
-    localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-    if (next) {
-      await requestLock();
-      if (!sentinelRef.current) {
-        toast.error("Bildschirm konnte nicht wachgehalten werden");
-      }
-    } else {
-      releaseLock();
-    }
+    setWakeLockPreference(next);
   }
 
   return (
@@ -77,8 +28,13 @@ export function WakeLockCard() {
           <Label htmlFor="wake-lock" className="font-normal">
             Bildschirm nicht ausschalten
           </Label>
-          <Switch id="wake-lock" checked={enabled} onCheckedChange={toggle} />
+          <Switch id="wake-lock" checked={enabled} onCheckedChange={toggle} disabled={!supported} />
         </div>
+        {!supported && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Dein Browser unterstützt diese Funktion nicht.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
