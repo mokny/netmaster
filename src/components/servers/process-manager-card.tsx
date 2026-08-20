@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Cpu, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, X } from "lucide-react";
 
 interface ProcessRow {
   pid: number;
@@ -36,6 +36,7 @@ export function ProcessManagerCard({
   serverId: string;
   canKill: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [processes, setProcesses] = useState<ProcessRow[] | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [killTarget, setKillTarget] = useState<ProcessRow | null>(null);
@@ -43,6 +44,8 @@ export function ProcessManagerCard({
   const [killing, setKilling] = useState(false);
 
   useEffect(() => {
+    if (!expanded) return;
+
     let stopped = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
@@ -77,7 +80,7 @@ export function ProcessManagerCard({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [serverId]);
+  }, [serverId, expanded]);
 
   async function confirmKill() {
     if (!killTarget) return;
@@ -105,64 +108,82 @@ export function ProcessManagerCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader
+        className="flex flex-row items-center justify-between space-y-0 cursor-pointer select-none"
+        onClick={() => setExpanded((e) => !e)}
+      >
         <div>
           <CardTitle>Prozesse</CardTitle>
           <CardDescription>Live-Prozessliste (CPU-sortiert)</CardDescription>
         </div>
-        <Cpu className="size-4 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <Cpu className="size-4 text-muted-foreground" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+          >
+            {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent>
-        {connectionError && (
-          <p className="mb-2 text-sm text-red-500">{connectionError}</p>
-        )}
-        {!processes ? (
-          <p className="text-sm text-muted-foreground">Lade Prozessliste…</p>
-        ) : processes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Keine Prozesse gefunden.</p>
-        ) : (
-          <div className="max-h-80 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>PID</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Befehl</TableHead>
-                  <TableHead className="text-right">CPU%</TableHead>
-                  <TableHead className="text-right">RAM%</TableHead>
-                  {canKill && <TableHead className="w-8" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {processes.slice(0, 100).map((p) => (
-                  <TableRow key={p.pid}>
-                    <TableCell className="font-mono text-xs">{p.pid}</TableCell>
-                    <TableCell className="max-w-24 truncate text-xs">{p.user}</TableCell>
-                    <TableCell className="max-w-48 truncate text-xs">{p.command}</TableCell>
-                    <TableCell className="text-right text-xs">{p.cpuPercent.toFixed(1)}</TableCell>
-                    <TableCell className="text-right text-xs">{p.memPercent.toFixed(1)}</TableCell>
-                    {canKill && (
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-6"
-                          onClick={() => {
-                            setForceKill(false);
-                            setKillTarget(p);
-                          }}
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </TableCell>
-                    )}
+      {expanded && (
+        <CardContent>
+          {connectionError && (
+            <p className="mb-2 text-sm text-red-500">{connectionError}</p>
+          )}
+          {!processes ? (
+            <p className="text-sm text-muted-foreground">Lade Prozessliste…</p>
+          ) : processes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Keine Prozesse gefunden.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>PID</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Befehl</TableHead>
+                    <TableHead className="text-right">CPU%</TableHead>
+                    <TableHead className="text-right">RAM%</TableHead>
+                    {canKill && <TableHead className="w-8" />}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+                </TableHeader>
+                <TableBody>
+                  {processes.slice(0, 100).map((p) => (
+                    <TableRow key={p.pid}>
+                      <TableCell className="font-mono text-xs">{p.pid}</TableCell>
+                      <TableCell className="max-w-24 truncate text-xs">{p.user}</TableCell>
+                      <TableCell className="max-w-48 truncate text-xs">{p.command}</TableCell>
+                      <TableCell className="text-right text-xs">{p.cpuPercent.toFixed(1)}</TableCell>
+                      <TableCell className="text-right text-xs">{p.memPercent.toFixed(1)}</TableCell>
+                      {canKill && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            onClick={() => {
+                              setForceKill(false);
+                              setKillTarget(p);
+                            }}
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      )}
 
       <Dialog open={killTarget != null} onOpenChange={(o) => !o && setKillTarget(null)}>
         <DialogContent>
