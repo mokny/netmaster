@@ -29,8 +29,21 @@ const state: ScanState = {
   lastCompletedAt: null,
 };
 
+// Steuert den laufenden Scan ab - null, solange keiner läuft. Über das
+// AbortSignal werden auch die noch laufenden nmap-Kindprozesse beendet
+// (execFile tötet den Prozess automatisch, sobald das Signal abbricht).
+let abortController: AbortController | null = null;
+
 export function getScanStatus(): ScanState {
   return { ...state };
+}
+
+// Bricht einen laufenden Scan ab. Gibt zurück, ob tatsächlich etwas
+// abgebrochen wurde (false, wenn gerade kein Scan läuft).
+export function abortScan(): boolean {
+  if (state.status !== "running" || !abortController) return false;
+  abortController.abort();
+  return true;
 }
 
 // Sendet den aktuellen Scan-Status über den Live-Event-Bus (WebSocket
@@ -147,6 +160,8 @@ async function mapWithConcurrency<T, R>(
 export async function runDiscoveryScan(): Promise<void> {
   if (state.status === "running") return;
 
+  const controller = new AbortController();
+  abortController = controller;
   state.status = "running";
   state.startedAt = new Date().toISOString();
   state.error = null;
@@ -162,7 +177,8 @@ export async function runDiscoveryScan(): Promise<void> {
     const hosts = await runHostDiscovery(
       ranges.map((r) => r.cidr),
       120_000,
-      dnsServers
+      dnsServers,
+      controller.signal
     );
 
     state.progress = { phase: "ports", current: 0, total: hosts.length };
@@ -172,16 +188,24 @@ export async function runDiscoveryScan(): Promise<void> {
     let completed = 0;
 
     await mapWithConcurrency(hosts, settings.portScanConcurrency, async (host) => {
+      if (controller.signal.aborted) return;
+
       let openPorts: Awaited<ReturnType<typeof runPortScan>> = [];
       try {
-        openPorts = await runPortScan(host.ip, DEFAULT_SCAN_PORTS);
+        openPorts = await runPortScan(host.ip, DEFAULT_SCAN_PORTS, undefined, controller.signal);
       } catch {
+        // Abgebrochen: den Host gar nicht erst mit leeren Ports upserten,
+        // sonst würde ein einfach noch nicht dran gewesener Host fälschlich
+        // "0 offene Ports" bekommen.
+        if (controller.signal.aborted) return;
         // Port-Scan-Fehler für einen einzelnen Host sollen den restlichen
         // Sweep nicht abbrechen - der Host bleibt mit leeren Ports sichtbar.
       }
 
       const now = new Date();
-      const hostname = host.hostname || (await resolveNetbiosName(host.ip));
+      const hostname =
+        host.hostname || (await resolveNetbiosName(host.ip, undefined, controller.signal));
+      if (controller.signal.aborted) return;
       const range = findRangeForIp(host.ip, ranges);
       const data = {
         ip: host.ip,
@@ -225,7 +249,10 @@ export async function runDiscoveryScan(): Promise<void> {
       publish({ type: "explore-hosts" });
     });
 
-    if (touchedIds.length > 0) {
+    // Bei Abbruch nicht alle nicht mehr gescannten (aber vorher bekannten)
+    // Hosts fälschlich als offline markieren - "nicht gescannt" heißt nicht
+    // "nicht mehr da".
+    if (touchedIds.length > 0 && !controller.signal.aborted) {
       await prisma.discoveredHost.updateMany({
         where: { id: { notIn: touchedIds } },
         data: { lastSeenOnline: false },
@@ -235,11 +262,18 @@ export async function runDiscoveryScan(): Promise<void> {
 
     state.lastCompletedAt = new Date().toISOString();
   } catch (err) {
+    if (controller.signal.aborted) {
+      // Bewusst vom Nutzer abgebrochen - kein Fehlerzustand.
+      state.status = "idle";
+      state.error = null;
+      return;
+    }
     state.status = "error";
     state.error = err instanceof Error ? err.message : "Unbekannter Fehler beim Scan";
     return;
   } finally {
     if (state.status !== "error") state.status = "idle";
+    abortController = null;
     publishScanStatus();
   }
 }

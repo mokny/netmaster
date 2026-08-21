@@ -25,12 +25,12 @@ function ensureArray<T>(value: T | T[] | undefined): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
-function runNmap(args: string[], timeoutMs: number): Promise<string> {
+function runNmap(args: string[], timeoutMs: number, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = execFile(
       "nmap",
       args,
-      { timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024 },
+      { timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024, signal },
       (err, stdout) => {
         if (err) {
           reject(new Error(`nmap fehlgeschlagen (${args.join(" ")}): ${err.message}`));
@@ -63,13 +63,15 @@ const HOST_DISCOVERY_PROBES = ["-PE", "-PP", "-PS22,80,443", "-PA22,80,443"];
 export async function runHostDiscovery(
   ranges: string | string[],
   timeoutMs = 120_000,
-  dnsServers?: string[]
+  dnsServers?: string[],
+  signal?: AbortSignal
 ): Promise<DiscoveredAddress[]> {
   const targets = Array.isArray(ranges) ? ranges : [ranges];
   const dnsArgs = dnsServers && dnsServers.length > 0 ? ["--dns-servers", dnsServers.join(",")] : [];
   const xml = await runNmap(
     ["-sn", ...HOST_DISCOVERY_PROBES, ...dnsArgs, "-oX", "-", ...targets],
-    timeoutMs
+    timeoutMs,
+    signal
   );
   const parsed = parser.parse(xml);
   const hosts = ensureArray(parsed?.nmaprun?.host);
@@ -102,12 +104,14 @@ export async function runHostDiscovery(
 // wird das als "kein Name ermittelbar" behandelt statt den Sweep abzubrechen.
 export async function resolveNetbiosName(
   ip: string,
-  timeoutMs = 10_000
+  timeoutMs = 10_000,
+  signal?: AbortSignal
 ): Promise<string | undefined> {
   try {
     const xml = await runNmap(
       ["-sU", "-p", "137", "--host-timeout", "5s", "--script", "nbstat", "-oX", "-", ip],
-      timeoutMs
+      timeoutMs,
+      signal
     );
     const parsed = parser.parse(xml);
     const hosts = ensureArray(parsed?.nmaprun?.host);
@@ -127,9 +131,10 @@ export async function resolveNetbiosName(
 export async function runPortScan(
   ip: string,
   ports: string,
-  timeoutMs = 60_000
+  timeoutMs = 60_000,
+  signal?: AbortSignal
 ): Promise<DiscoveredPort[]> {
-  const xml = await runNmap(["-sV", "-p", ports, "-oX", "-", ip], timeoutMs);
+  const xml = await runNmap(["-sV", "-p", ports, "-oX", "-", ip], timeoutMs, signal);
   const parsed = parser.parse(xml);
   const hosts = ensureArray(parsed?.nmaprun?.host);
   const host = hosts[0];

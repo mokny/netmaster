@@ -33,6 +33,7 @@ import {
   Terminal as TerminalIcon,
   Globe,
   FolderUp,
+  X,
 } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
@@ -239,6 +240,42 @@ export function ExploreOverview() {
     setScanStatus({ status: "running", startedAt: new Date().toISOString(), progress: null, error: null, lastCompletedAt: null });
   }
 
+  const [aborting, setAborting] = useState(false);
+
+  async function abortRunningScan() {
+    setAborting(true);
+    try {
+      const res = await fetch("/api/explore/scan/abort", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Abbruch fehlgeschlagen");
+        return;
+      }
+      toast.success("Scan wird abgebrochen…");
+    } finally {
+      setAborting(false);
+    }
+  }
+
+  const [clearingHosts, setClearingHosts] = useState(false);
+
+  async function clearHosts() {
+    if (!window.confirm("Alle gefundenen Geräte aus der Liste entfernen?")) return;
+    setClearingHosts(true);
+    try {
+      const res = await fetch("/api/explore/hosts", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Liste konnte nicht geleert werden");
+        return;
+      }
+      setHosts([]);
+      toast.success("Liste geleert");
+    } finally {
+      setClearingHosts(false);
+    }
+  }
+
   async function saveSettings() {
     if (!settings) return;
     setSavingSettings(true);
@@ -338,10 +375,18 @@ export function ExploreOverview() {
           </p>
         </div>
         {canScan && (
-          <Button onClick={startScan} disabled={scanning}>
-            {scanning ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-            Scan starten
-          </Button>
+          <div className="flex gap-2">
+            {scanning && (
+              <Button variant="outline" onClick={abortRunningScan} disabled={aborting}>
+                {aborting ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                Abbrechen
+              </Button>
+            )}
+            <Button onClick={startScan} disabled={scanning}>
+              {scanning ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              Scan starten
+            </Button>
+          </div>
         )}
       </div>
 
@@ -475,6 +520,20 @@ export function ExploreOverview() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {canScan && hosts !== null && hosts.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearHosts}
+            disabled={clearingHosts || scanning}
+          >
+            {clearingHosts ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-3.5" />}
+            Liste leeren
+          </Button>
+        </div>
       )}
 
       {hosts === null ? (

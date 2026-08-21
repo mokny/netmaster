@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, handleApiError } from "@/lib/api-helpers";
+import { requireRole, requireSession, handleApiError } from "@/lib/api-helpers";
+import { publish } from "@/lib/monitor/events";
 
 type Match = { kind: "server" | "router"; id: string; name: string } | null;
 
@@ -59,6 +60,19 @@ export async function GET() {
     }));
 
     return NextResponse.json({ hosts: result });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+// Leert die gesamte Explore-Ergebnisliste (nicht die Ranges/Einstellungen).
+// Ein danach laufender Scan füllt sie normal wieder.
+export async function DELETE() {
+  try {
+    await requireRole("EDITOR");
+    await prisma.discoveredHost.deleteMany({});
+    publish({ type: "explore-hosts" });
+    return NextResponse.json({ cleared: true });
   } catch (err) {
     return handleApiError(err);
   }
