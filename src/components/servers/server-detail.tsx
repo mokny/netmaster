@@ -26,6 +26,7 @@ import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { ProcessManagerCard } from "@/components/servers/process-manager-card";
 import { FirewallCard } from "@/components/servers/firewall-card";
 import { PortsCard } from "@/components/servers/ports-card";
+import { WireguardCard } from "@/components/servers/wireguard-card";
 import { ServerNetworkGraph } from "@/components/servers/server-network-graph";
 import { ServerSummaryBar } from "@/components/servers/server-summary-bar";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
@@ -496,6 +497,12 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           </div>
           <ServerNetworkGraph serverId={serverId} />
         </>
+      )}
+
+      {server.wireguardEnabled && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <WireguardCard serverId={serverId} />
+        </div>
       )}
 
       {!server.proxmoxEnabled ? (

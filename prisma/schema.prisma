@@ -224,6 +224,8 @@ model Server {
   proxmoxEnabled Boolean @default(true)
   // Schaltet Firewall-Verwaltung, Port-Übersicht und Netzwerk-Graph frei.
   networkToolsEnabled Boolean @default(false)
+  // Schaltet WireGuard-Verwaltung (Interfaces/Peers) frei.
+  wireguardEnabled Boolean @default(false)
 
   cpuWarn  Float @default(70)
   cpuCrit  Float @default(90)

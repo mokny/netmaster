@@ -10,6 +10,7 @@ export interface ServerDTO {
   dockerEnabled: boolean;
   proxmoxEnabled: boolean;
   networkToolsEnabled: boolean;
+  wireguardEnabled: boolean;
   cpuWarn: number;
   cpuCrit: number;
   memWarn: number;

@@ -45,6 +45,14 @@ export function requireNetworkToolsEnabled(
   }
 }
 
+export function requireWireguardEnabled(
+  server: Pick<ServerModel, "wireguardEnabled">
+) {
+  if (!server.wireguardEnabled) {
+    throw new ApiError(403, "WireGuard ist für diesen Server nicht aktiviert");
+  }
+}
+
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message }, { status: err.status });

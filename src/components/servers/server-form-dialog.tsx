@@ -52,6 +52,7 @@ function formFromServer(server?: ServerDTO, initialHostname?: string) {
     dockerEnabled: server?.dockerEnabled ?? false,
     proxmoxEnabled: server?.proxmoxEnabled ?? false,
     networkToolsEnabled: server?.networkToolsEnabled ?? false,
+    wireguardEnabled: server?.wireguardEnabled ?? false,
     cpuWarn: server?.cpuWarn ?? 70,
     cpuCrit: server?.cpuCrit ?? 90,
     memWarn: server?.memWarn ?? 75,
@@ -237,6 +238,20 @@ export function ServerFormDialog({
                     id="network-tools-enabled"
                     checked={form.networkToolsEnabled}
                     onCheckedChange={(c) => set("networkToolsEnabled", !!c)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="wireguard-enabled">WireGuard aktivieren</Label>
+                    <p className="text-xs text-muted-foreground">
+                      VPN-Interfaces und Peers verwalten (benötigt root oder
+                      Sudo-Passwort)
+                    </p>
+                  </div>
+                  <Switch
+                    id="wireguard-enabled"
+                    checked={form.wireguardEnabled}
+                    onCheckedChange={(c) => set("wireguardEnabled", !!c)}
                   />
                 </div>
               </div>
