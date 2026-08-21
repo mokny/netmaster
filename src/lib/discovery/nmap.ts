@@ -31,9 +31,15 @@ function runNmap(args: string[], timeoutMs: number, signal?: AbortSignal): Promi
       "nmap",
       args,
       { timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024, signal },
-      (err, stdout) => {
+      (err, stdout, stderr) => {
         if (err) {
-          reject(new Error(`nmap fehlgeschlagen (${args.join(" ")}): ${err.message}`));
+          // execFiles Fehlermeldung allein ("Command failed: ...") verrät
+          // nicht den eigentlichen Grund - stderr (bzw. bei Timeout/Abbruch
+          // signal/killed) enthält die tatsächliche Ursache und wird daher
+          // explizit angehängt, statt sich auf Node zu verlassen.
+          const reason = stderr?.trim() || err.message;
+          const extra = err.killed ? ` (Prozess beendet, Signal ${err.signal ?? "?"})` : "";
+          reject(new Error(`nmap fehlgeschlagen (${args.join(" ")}): ${reason}${extra}`));
           return;
         }
         resolve(stdout);
@@ -62,7 +68,7 @@ const HOST_DISCOVERY_PROBES = ["-PE", "-PP", "-PS22,80,443", "-PA22,80,443"];
 // wenn der System-Resolver einen anderen Server priorisiert.
 export async function runHostDiscovery(
   ranges: string | string[],
-  timeoutMs = 120_000,
+  timeoutMs = 300_000,
   dnsServers?: string[],
   signal?: AbortSignal
 ): Promise<DiscoveredAddress[]> {

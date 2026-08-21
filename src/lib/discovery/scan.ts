@@ -185,7 +185,7 @@ export async function runDiscoveryScan(): Promise<void> {
     const dnsServers = await resolveDnsServers(ranges);
     const hosts = await runHostDiscovery(
       ranges.map((r) => r.cidr),
-      120_000,
+      300_000,
       dnsServers,
       controller.signal
     );
