@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 
-export type TerminalKind = "server" | "vm-serial" | "vm-vnc" | "docker-exec";
+export type TerminalKind = "server" | "vm-serial" | "vm-vnc" | "docker-exec" | "adhoc";
 
 export interface TerminalSession {
   id: string;
@@ -12,6 +12,9 @@ export interface TerminalSession {
   vmid: number | null;
   vmType: "QEMU" | "LXC" | null;
   containerId: string | null;
+  // Nur für kind === "adhoc": Einmal-Ticket für eine Explore-Host-Verbindung
+  // ohne Server-Eintrag (siehe adhoc-ssh-tickets.ts).
+  ticket: string | null;
   // Von runSnippet() gesetzte, noch nicht ausgeführte Befehlszeilen. Ein Tab
   // (XtermTab) konsumiert sie, sobald die WebSocket-Verbindung steht, und
   // wartet zwischen den Zeilen auf einen Abschluss-Marker im Output.
@@ -47,6 +50,7 @@ interface TerminalManagerContextValue {
   ) => void;
   openVmVnc: (serverId: string, vmid: number, vmName: string) => void;
   openDockerExec: (serverId: string, containerId: string, containerName: string) => void;
+  openAdhocTerminal: (ticket: string, label: string) => void;
   closeTab: (id: string) => void;
   setActive: (id: string) => void;
   closePanel: () => void;
@@ -89,6 +93,7 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid: null,
         vmType: null,
         containerId: null,
+        ticket: null,
         pendingCommands: null,
         pendingRunId: 0,
       }));
@@ -107,6 +112,7 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid,
         vmType,
         containerId: null,
+        ticket: null,
         pendingCommands: null,
         pendingRunId: 0,
       }));
@@ -125,6 +131,7 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid,
         vmType: "QEMU",
         containerId: null,
+        ticket: null,
         pendingCommands: null,
         pendingRunId: 0,
       }));
@@ -143,6 +150,29 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid: null,
         vmType: null,
         containerId,
+        ticket: null,
+        pendingCommands: null,
+        pendingRunId: 0,
+      }));
+    },
+    [openTab]
+  );
+
+  // Ad-hoc-SSH-Verbindung zu einem Explore-Host ohne Server-Eintrag - jedes
+  // Ticket ist einmalig, daher immer ein neuer Tab statt Dedupe über eine
+  // stabile Ressourcen-ID wie bei den anderen open*-Funktionen.
+  const openAdhocTerminal = useCallback(
+    (ticket: string, label: string) => {
+      const key = `adhoc:${ticket}`;
+      openTab(key, () => ({
+        id: key,
+        kind: "adhoc",
+        label,
+        serverId: "",
+        vmid: null,
+        vmType: null,
+        containerId: null,
+        ticket,
         pendingCommands: null,
         pendingRunId: 0,
       }));
@@ -173,6 +203,7 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
             vmid: null,
             vmType: null,
             containerId: null,
+            ticket: null,
             pendingCommands: commands,
             pendingRunId: 1,
           },
@@ -239,6 +270,7 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         openVmTerminal,
         openVmVnc,
         openDockerExec,
+        openAdhocTerminal,
         runSnippet,
         clearPendingCommands,
         closeTab,

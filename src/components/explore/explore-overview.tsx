@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,22 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Loader2, RefreshCw, Server as ServerIcon, Router as RouterIcon, Plus, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  RefreshCw,
+  Server as ServerIcon,
+  Router as RouterIcon,
+  Plus,
+  Trash2,
+  Terminal as TerminalIcon,
+  Globe,
+  FolderUp,
+} from "lucide-react";
 import { useSession } from "@/hooks/use-session";
+import { useTerminalManager } from "@/hooks/use-terminal-manager";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
+import { SshConnectDialog } from "@/components/explore/ssh-connect-dialog";
 
 const STATUS_POLL_MS = 3_000;
 
@@ -94,6 +106,42 @@ function rangeSourceLabel(source: RangeSource): string {
   return "Manuell";
 }
 
+interface HostConnections {
+  ssh: { port: number } | null;
+  ftp: { port: number } | null;
+  web: { url: string; label: string }[];
+}
+
+// Leitet aus den gescannten offenen Ports/Services her, welche Verbindungen
+// direkt anbietbar sind - basierend auf dem von nmap erkannten Service-
+// Namen, mit den Standardports als Fallback.
+function detectConnections(ports: OpenPort[], ip: string): HostConnections {
+  let ssh: HostConnections["ssh"] = null;
+  let ftp: HostConnections["ftp"] = null;
+  const web: HostConnections["web"] = [];
+
+  for (const p of ports) {
+    const svc = p.service.toLowerCase();
+    if (!ssh && (svc === "ssh" || p.port === 22)) {
+      ssh = { port: p.port };
+      continue;
+    }
+    if (!ftp && (svc === "ftp" || p.port === 21)) {
+      ftp = { port: p.port };
+      continue;
+    }
+    const isHttps = svc.includes("ssl") || svc === "https" || p.port === 443 || p.port === 8443;
+    const isHttp = !isHttps && (svc.includes("http") || p.port === 80 || p.port === 8080);
+    if (isHttps) {
+      web.push({ url: `https://${ip}${p.port === 443 ? "" : `:${p.port}`}`, label: "HTTPS" });
+    } else if (isHttp) {
+      web.push({ url: `http://${ip}${p.port === 80 ? "" : `:${p.port}`}`, label: "HTTP" });
+    }
+  }
+
+  return { ssh, ftp, web };
+}
+
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE");
 }
@@ -101,6 +149,7 @@ function formatDateTime(iso: string): string {
 export function ExploreOverview() {
   const session = useSession();
   const canScan = session?.role === "EDITOR" || session?.role === "ADMIN";
+  const { openTerminal } = useTerminalManager();
 
   const [hosts, setHosts] = useState<DiscoveredHostRow[] | null>(null);
   const [scanStatus, setScanStatus] = useState<ScanStatusDTO | null>(null);
@@ -112,6 +161,17 @@ export function ExploreOverview() {
 
   const [addServerHost, setAddServerHost] = useState<DiscoveredHostRow | null>(null);
   const [addRouterHost, setAddRouterHost] = useState<DiscoveredHostRow | null>(null);
+  const [sshDialogTarget, setSshDialogTarget] = useState<{ ip: string; port: number } | null>(
+    null
+  );
+
+  function connectSsh(host: DiscoveredHostRow, port: number) {
+    if (host.matched?.kind === "server") {
+      openTerminal(host.matched.id, host.matched.name);
+      return;
+    }
+    setSshDialogTarget({ ip: host.ip, port });
+  }
 
   const loadHosts = useCallback(async () => {
     const res = await fetch("/api/explore/hosts");
@@ -440,6 +500,7 @@ export function ExploreOverview() {
                   <TableHead>Hersteller</TableHead>
                   <TableHead>MAC</TableHead>
                   <TableHead>Quelle</TableHead>
+                  <TableHead>Verbindung</TableHead>
                   <TableHead>Offene Ports</TableHead>
                   <TableHead>Zuletzt gesehen</TableHead>
                   <TableHead>Status</TableHead>
@@ -447,7 +508,9 @@ export function ExploreOverview() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {hosts.map((host) => (
+                {hosts.map((host) => {
+                  const connections = detectConnections(host.openPorts, host.ip);
+                  return (
                   <TableRow key={host.id}>
                     <TableCell className="font-mono">{host.ip}</TableCell>
                     <TableCell>{host.hostname ?? "-"}</TableCell>
@@ -462,6 +525,45 @@ export function ExploreOverview() {
                       ) : (
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {connections.ssh && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            title={`SSH (Port ${connections.ssh.port})`}
+                            onClick={() => connectSsh(host, connections.ssh!.port)}
+                          >
+                            <TerminalIcon className="size-3.5" />
+                          </Button>
+                        )}
+                        {connections.web.map((w) => (
+                          <a
+                            key={w.url}
+                            href={w.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            title={w.label}
+                            className={buttonVariants({ variant: "ghost", size: "icon", className: "size-7" })}
+                          >
+                            <Globe className="size-3.5" />
+                          </a>
+                        ))}
+                        {connections.ftp && (
+                          <a
+                            href={`ftp://${host.ip}:${connections.ftp.port}`}
+                            title={`FTP (Port ${connections.ftp.port})`}
+                            className={buttonVariants({ variant: "ghost", size: "icon", className: "size-7" })}
+                          >
+                            <FolderUp className="size-3.5" />
+                          </a>
+                        )}
+                        {!connections.ssh && connections.web.length === 0 && !connections.ftp && (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -511,7 +613,8 @@ export function ExploreOverview() {
                       ) : null}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -536,6 +639,14 @@ export function ExploreOverview() {
           loadHosts();
         }}
       />
+      {sshDialogTarget && (
+        <SshConnectDialog
+          host={sshDialogTarget.ip}
+          port={sshDialogTarget.port}
+          open={sshDialogTarget !== null}
+          onOpenChange={(open) => !open && setSshDialogTarget(null)}
+        />
+      )}
     </div>
   );
 }

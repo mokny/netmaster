@@ -11,6 +11,7 @@ import { monitorEvents, type MonitorEvent } from "./src/lib/monitor/events";
 import { startMonitorScheduler } from "./src/lib/monitor/scheduler";
 import { ensureVapidKeys } from "./src/lib/push";
 import { handleTerminalSocket } from "./src/lib/ws/terminal-handler";
+import { handleAdhocTerminalSocket } from "./src/lib/ws/adhoc-terminal-handler";
 import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
 import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
 import { handleDockerTerminalSocket } from "./src/lib/ws/docker-terminal-handler";
@@ -48,6 +49,7 @@ app.prepare().then(() => {
 
   const wss = new WebSocketServer({ noServer: true });
   const terminalWss = new WebSocketServer({ noServer: true });
+  const adhocTerminalWss = new WebSocketServer({ noServer: true });
   const vmTerminalWss = new WebSocketServer({ noServer: true });
   const vmVncWss = new WebSocketServer({ noServer: true });
   const dockerTerminalWss = new WebSocketServer({ noServer: true });
@@ -65,6 +67,7 @@ app.prepare().then(() => {
     if (
       pathname !== "/api/ws" &&
       pathname !== "/api/ws/terminal" &&
+      pathname !== "/api/ws/adhoc-terminal" &&
       pathname !== "/api/ws/vm-terminal" &&
       pathname !== "/api/ws/vm-vnc" &&
       pathname !== "/api/ws/docker-terminal" &&
@@ -99,6 +102,19 @@ app.prepare().then(() => {
     if (roleRank[session.role] < roleRank.EDITOR) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
+      return;
+    }
+
+    if (pathname === "/api/ws/adhoc-terminal") {
+      const ticket = typeof query.ticket === "string" ? query.ticket : "";
+      if (!/^[a-f0-9]{48}$/.test(ticket)) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      adhocTerminalWss.handleUpgrade(req, socket, head, (ws) => {
+        void handleAdhocTerminalSocket(ws, ticket, session);
+      });
       return;
     }
 

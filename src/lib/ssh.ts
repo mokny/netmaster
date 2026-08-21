@@ -8,38 +8,71 @@ export interface SshExecResult {
   code: number | null;
 }
 
-function buildConnectConfig(server: ServerModel): ConnectConfig {
-  const secret = decryptSecret(server.encryptedSecret);
+// Rohe SSH-Zugangsdaten (bereits entschlüsselt bzw. im Klartext, wie sie aus
+// einem Ad-hoc-Ticket kommen) - Gegenstück zu ServerModel für Verbindungen
+// ohne DB-Server-Eintrag (siehe openAdhocShellSession).
+export interface RawSshCredentials {
+  host: string;
+  port: number;
+  username: string;
+  authType: "PASSWORD" | "PRIVATE_KEY";
+  secret: string;
+  passphrase?: string;
+}
+
+function buildConnectConfigFromCredentials(creds: RawSshCredentials): ConnectConfig {
   const base: ConnectConfig = {
-    host: server.hostname,
-    port: server.sshPort,
-    username: server.sshUsername,
+    host: creds.host,
+    port: creds.port,
+    username: creds.username,
     readyTimeout: 10_000,
     // Deckt PAM-basierte Server ab, die nur keyboard-interactive statt
     // password-auth anbieten (üblicher Fall bei gehärtetem sshd).
     tryKeyboard: true,
   };
-  if (server.authType === "PRIVATE_KEY") {
-    const passphrase = server.encryptedPassphrase
-      ? decryptSecret(server.encryptedPassphrase)
-      : undefined;
-    return { ...base, privateKey: secret, passphrase };
+  if (creds.authType === "PRIVATE_KEY") {
+    return { ...base, privateKey: creds.secret, passphrase: creds.passphrase };
   }
-  return { ...base, password: secret };
+  return { ...base, password: creds.secret };
 }
 
 // Beantwortet keyboard-interactive-Prompts automatisch mit dem gespeicherten
 // Passwort. Deckt Standard-PAM-Password-Setups ab, NICHT echtes OTP/2FA, das
 // eine dynamische, nicht vorhersehbare Eingabe erfordert.
-function attachKeyboardInteractive(conn: Client, server: ServerModel) {
-  if (server.authType !== "PASSWORD") return;
-  const secret = decryptSecret(server.encryptedSecret);
+function attachKeyboardInteractiveFromCredentials(conn: Client, creds: RawSshCredentials) {
+  if (creds.authType !== "PASSWORD") return;
   conn.on(
     "keyboard-interactive",
     (_name, _instructions, _lang, prompts, finish) => {
-      finish(prompts.map(() => secret));
+      finish(prompts.map(() => creds.secret));
     }
   );
+}
+
+function buildConnectConfig(server: ServerModel): ConnectConfig {
+  const secret = decryptSecret(server.encryptedSecret);
+  const passphrase =
+    server.authType === "PRIVATE_KEY" && server.encryptedPassphrase
+      ? decryptSecret(server.encryptedPassphrase)
+      : undefined;
+  return buildConnectConfigFromCredentials({
+    host: server.hostname,
+    port: server.sshPort,
+    username: server.sshUsername,
+    authType: server.authType,
+    secret,
+    passphrase,
+  });
+}
+
+function attachKeyboardInteractive(conn: Client, server: ServerModel) {
+  attachKeyboardInteractiveFromCredentials(conn, {
+    host: server.hostname,
+    port: server.sshPort,
+    username: server.sshUsername,
+    authType: server.authType,
+    secret: decryptSecret(server.encryptedSecret),
+  });
 }
 
 export function execOnServer(
@@ -198,6 +231,44 @@ export function openShellSession(
       })
       .connect(buildConnectConfig(server));
     attachKeyboardInteractive(conn, server);
+  });
+}
+
+// Wie openShellSession, aber für Ad-hoc-Verbindungen ohne DB-Server-Eintrag
+// (z.B. ein per Explore gefundener Host, für den einmalig Zugangsdaten
+// abgefragt wurden, siehe adhoc-ssh-tickets.ts).
+export function openAdhocShellSession(
+  creds: RawSshCredentials,
+  size: { cols: number; rows: number }
+): Promise<ShellSession> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let settled = false;
+
+    conn
+      .on("ready", () => {
+        conn.shell(
+          { term: "xterm-256color", cols: size.cols, rows: size.rows },
+          (err, stream) => {
+            if (err) {
+              settled = true;
+              conn.end();
+              reject(err);
+              return;
+            }
+            settled = true;
+            resolve({ conn, stream });
+          }
+        );
+      })
+      .on("error", (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      })
+      .connect(buildConnectConfigFromCredentials(creds));
+    attachKeyboardInteractiveFromCredentials(conn, creds);
   });
 }
 

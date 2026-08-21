@@ -15,6 +15,9 @@ function buildWsUrl(session: TerminalSession): string {
   if (session.kind === "docker-exec") {
     return `${protocol}://${host}/api/ws/docker-terminal?serverId=${encodeURIComponent(session.serverId)}&containerId=${encodeURIComponent(session.containerId ?? "")}`;
   }
+  if (session.kind === "adhoc") {
+    return `${protocol}://${host}/api/ws/adhoc-terminal?ticket=${encodeURIComponent(session.ticket ?? "")}`;
+  }
   return `${protocol}://${host}/api/ws/terminal?serverId=${encodeURIComponent(session.serverId)}`;
 }
 
