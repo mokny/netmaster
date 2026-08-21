@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -23,10 +30,19 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
   const [form, setForm] = useState({
     name: "",
     url: "https://",
+    checkType: "HTTP" as "HTTP" | "PING",
     expectedStatus: 200,
     intervalSec: 60,
     timeoutMs: 5000,
   });
+
+  function setCheckType(checkType: "HTTP" | "PING") {
+    setForm((f) => ({
+      ...f,
+      checkType,
+      url: checkType === "PING" && f.url === "https://" ? "" : f.url,
+    }));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +51,7 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
       const res = await fetch("/api/checks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, subscriberUserIds: notifyMe ? undefined : [] }),
+        body: JSON.stringify({ ...form, notifyMe }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -44,7 +60,7 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
       }
       toast.success("Check hinzugefügt");
       setOpen(false);
-      setForm({ name: "", url: "https://", expectedStatus: 200, intervalSec: 60, timeoutMs: 5000 });
+      setForm({ name: "", url: "https://", checkType: "HTTP", expectedStatus: 200, intervalSec: 60, timeoutMs: 5000 });
       onSaved();
     } finally {
       setLoading(false);
@@ -63,9 +79,21 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>HTTP-Check hinzufügen</DialogTitle>
+          <DialogTitle>Check hinzufügen</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
+          <div className="space-y-2">
+            <Label>Typ</Label>
+            <Select value={form.checkType} onValueChange={(v) => setCheckType(v as "HTTP" | "PING")}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HTTP">HTTP</SelectItem>
+                <SelectItem value="PING">Ping</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Name</Label>
             <Input
@@ -76,25 +104,28 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
             />
           </div>
           <div className="space-y-2">
-            <Label>URL</Label>
+            <Label>{form.checkType === "PING" ? "Host" : "URL"}</Label>
             <Input
               required
-              type="url"
+              type={form.checkType === "PING" ? "text" : "url"}
               value={form.url}
               onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+              placeholder={form.checkType === "PING" ? "192.168.1.1" : undefined}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Erw. Status</Label>
-              <Input
-                type="number"
-                value={form.expectedStatus}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
-                }
-              />
-            </div>
+            {form.checkType === "HTTP" && (
+              <div className="space-y-2">
+                <Label>Erw. Status</Label>
+                <Input
+                  type="number"
+                  value={form.expectedStatus}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
+                  }
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Intervall (s)</Label>
               <Input

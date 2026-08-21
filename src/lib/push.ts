@@ -1,5 +1,6 @@
 import webPush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { shouldFireDelayedAlert, shouldFireRecovery } from "@/lib/monitor/alert-delay";
 
 interface VapidKeySet {
   publicKey: string;
@@ -175,29 +176,74 @@ export type NotificationEvent =
   | "netWarnEnabled"
   | "netCritEnabled";
 
+// Alle Benachrichtigungen sind reines Opt-in - ohne expliziten Eintrag in
+// NotificationPreference ist ein Ereignis aus, Verzögerung 0 und Recovery aus.
 export const NOTIFICATION_DEFAULTS: Record<NotificationEvent, boolean> = {
-  offlineEnabled: true,
+  offlineEnabled: false,
   dockerStoppedEnabled: false,
   cpuWarnEnabled: false,
-  cpuCritEnabled: true,
+  cpuCritEnabled: false,
   memWarnEnabled: false,
-  memCritEnabled: true,
+  memCritEnabled: false,
   diskWarnEnabled: false,
-  diskCritEnabled: true,
+  diskCritEnabled: false,
   netWarnEnabled: false,
-  netCritEnabled: true,
+  netCritEnabled: false,
 };
 
-// Schickt eine Push-Nachricht an alle User, die für diesen Server und dieses
-// Ereignis benachrichtigt werden wollen (Default gilt, solange kein
-// expliziter Eintrag in NotificationPreference existiert).
-export async function notifyServerEvent(
-  serverId: string,
-  event: NotificationEvent,
-  payload: PushPayload
-) {
-  await ensureVapidKeys();
+type DelayField =
+  | "offlineDelayMin"
+  | "dockerStoppedDelayMin"
+  | "cpuWarnDelayMin"
+  | "cpuCritDelayMin"
+  | "memWarnDelayMin"
+  | "memCritDelayMin"
+  | "diskWarnDelayMin"
+  | "diskCritDelayMin"
+  | "netWarnDelayMin"
+  | "netCritDelayMin";
 
+type RecoveryField =
+  | "offlineRecoveryEnabled"
+  | "dockerStoppedRecoveryEnabled"
+  | "cpuWarnRecoveryEnabled"
+  | "cpuCritRecoveryEnabled"
+  | "memWarnRecoveryEnabled"
+  | "memCritRecoveryEnabled"
+  | "diskWarnRecoveryEnabled"
+  | "diskCritRecoveryEnabled"
+  | "netWarnRecoveryEnabled"
+  | "netCritRecoveryEnabled";
+
+const DELAY_FIELDS: Record<NotificationEvent, DelayField> = {
+  offlineEnabled: "offlineDelayMin",
+  dockerStoppedEnabled: "dockerStoppedDelayMin",
+  cpuWarnEnabled: "cpuWarnDelayMin",
+  cpuCritEnabled: "cpuCritDelayMin",
+  memWarnEnabled: "memWarnDelayMin",
+  memCritEnabled: "memCritDelayMin",
+  diskWarnEnabled: "diskWarnDelayMin",
+  diskCritEnabled: "diskCritDelayMin",
+  netWarnEnabled: "netWarnDelayMin",
+  netCritEnabled: "netCritDelayMin",
+};
+
+const RECOVERY_FIELDS: Record<NotificationEvent, RecoveryField> = {
+  offlineEnabled: "offlineRecoveryEnabled",
+  dockerStoppedEnabled: "dockerStoppedRecoveryEnabled",
+  cpuWarnEnabled: "cpuWarnRecoveryEnabled",
+  cpuCritEnabled: "cpuCritRecoveryEnabled",
+  memWarnEnabled: "memWarnRecoveryEnabled",
+  memCritEnabled: "memCritRecoveryEnabled",
+  diskWarnEnabled: "diskWarnRecoveryEnabled",
+  diskCritEnabled: "diskCritRecoveryEnabled",
+  netWarnEnabled: "netWarnRecoveryEnabled",
+  netCritEnabled: "netCritRecoveryEnabled",
+};
+
+type NotificationPreferenceLike = Record<string, unknown> & { userId: string };
+
+async function loadUsersAndPrefs(serverId: string) {
   const [users, prefs] = await Promise.all([
     prisma.user.findMany({
       where: { pushSubscriptions: { some: {} } },
@@ -205,15 +251,66 @@ export async function notifyServerEvent(
     }),
     prisma.notificationPreference.findMany({ where: { serverId } }),
   ]);
+  const prefByUser = new Map(
+    (prefs as NotificationPreferenceLike[]).map((p) => [p.userId, p])
+  );
+  return { users, prefByUser };
+}
+
+// Schickt eine (verzögerte) Push-Nachricht an alle User, die für diesen
+// Server und dieses Ereignis benachrichtigt werden wollen. `since` ist der
+// Zeitpunkt, seit dem der Zustand ununterbrochen besteht (z.B.
+// Server.cpuCritSince) - erst wenn die je-User konfigurierte Verzögerung
+// überschritten ist, wird zugestellt (siehe alert-delay.ts).
+export async function notifyServerEvent(
+  serverId: string,
+  event: NotificationEvent,
+  payload: PushPayload,
+  since: Date | null,
+  pollIntervalSec: number
+) {
+  await ensureVapidKeys();
+  const { users, prefByUser } = await loadUsersAndPrefs(serverId);
   if (users.length === 0) return;
 
-  const prefByUser = new Map(prefs.map((p) => [p.userId, p]));
+  const delayField = DELAY_FIELDS[event];
 
   await Promise.all(
     users.map((u) => {
       const pref = prefByUser.get(u.id);
-      const enabled = pref ? pref[event] : NOTIFICATION_DEFAULTS[event];
+      const enabled = pref ? Boolean(pref[event]) : NOTIFICATION_DEFAULTS[event];
       if (!enabled) return Promise.resolve();
+      const delayMin = pref ? Number(pref[delayField] ?? 0) : 0;
+      if (!shouldFireDelayedAlert(since, delayMin, pollIntervalSec)) return Promise.resolve();
+      return sendPushToUser(u.id, payload);
+    })
+  );
+}
+
+// Schickt eine Recovery-("wieder normal")-Nachricht an alle User, die dafür
+// ihr Recovery-Toggle aktiviert haben - und nur, wenn die zu Ende gegangene
+// Episode für sie lang genug war, dass ihr Alarm überhaupt ausgelöst hätte.
+export async function notifyServerRecovery(
+  serverId: string,
+  event: NotificationEvent,
+  payload: PushPayload,
+  sinceBeforeClear: Date | null
+) {
+  if (!sinceBeforeClear) return;
+  await ensureVapidKeys();
+  const { users, prefByUser } = await loadUsersAndPrefs(serverId);
+  if (users.length === 0) return;
+
+  const delayField = DELAY_FIELDS[event];
+  const recoveryField = RECOVERY_FIELDS[event];
+
+  await Promise.all(
+    users.map((u) => {
+      const pref = prefByUser.get(u.id);
+      const recoveryEnabled = pref ? Boolean(pref[recoveryField]) : false;
+      if (!recoveryEnabled) return Promise.resolve();
+      const delayMin = pref ? Number(pref[delayField] ?? 0) : 0;
+      if (!shouldFireRecovery(sinceBeforeClear, delayMin)) return Promise.resolve();
       return sendPushToUser(u.id, payload);
     })
   );

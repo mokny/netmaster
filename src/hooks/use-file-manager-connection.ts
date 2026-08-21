@@ -23,7 +23,11 @@ export class FileOpError extends Error {
 
 // Eine persistente WebSocket/SFTP-Session für ein Dateimanager-Panel. Jede
 // Anfrage bekommt eine reqId und wird über ein Promise aufgelöst (RPC über WS).
-export function useFileManagerConnection(serverId: string) {
+// `wsPath` ist der volle Pfad inkl. Query-String (z.B.
+// "/api/ws/files?serverId=..." oder "/api/ws/docker-files?serverId=...&containerId=..."),
+// damit dieselbe Verbindung/UI für Server, Docker-Container und Proxmox-VMs/LXCs
+// wiederverwendet werden kann.
+export function useFileManagerConnection(wsPath: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const pending = useRef<Map<string, Pending>>(new Map());
   const counter = useRef(0);
@@ -33,9 +37,7 @@ export function useFileManagerConnection(serverId: string) {
 
   useEffect(() => {
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(
-      `${proto}://${window.location.host}/api/ws/files?serverId=${encodeURIComponent(serverId)}`
-    );
+    const ws = new WebSocket(`${proto}://${window.location.host}${wsPath}`);
     wsRef.current = ws;
 
     ws.onopen = () => setStatus("open");
@@ -77,7 +79,7 @@ export function useFileManagerConnection(serverId: string) {
       }
       pendingMap.clear();
     };
-  }, [serverId]);
+  }, [wsPath]);
 
   const call = useCallback(
     (msg: DistributiveOmit<FileManagerClientMessage, "reqId">): Promise<FileManagerServerMessage> => {

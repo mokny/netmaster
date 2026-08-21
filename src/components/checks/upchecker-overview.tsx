@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { GlobalCheckDialog } from "@/components/checks/global-check-dialog";
 import { EditCheckDialog } from "@/components/checks/edit-check-dialog";
+import { CheckNotifyDialog } from "@/components/checks/check-notify-dialog";
 import { Trash2, ExternalLink } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
@@ -116,6 +117,7 @@ export function UpcheckerOverview() {
                     <StatusBadge status={c.lastStatus} />
                     {canEdit && (
                       <>
+                        <CheckNotifyDialog check={c} />
                         <EditCheckDialog check={c} onSaved={load} />
                         <Button
                           variant="ghost"

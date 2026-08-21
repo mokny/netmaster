@@ -5,6 +5,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +32,23 @@ export function ServiceCheckDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [notifyMe, setNotifyMe] = useState(false);
   const [form, setForm] = useState({
     name: "",
     url: "https://",
+    checkType: "HTTP" as "HTTP" | "PING",
     expectedStatus: 200,
     intervalSec: 30,
     timeoutMs: 5000,
   });
+
+  function setCheckType(checkType: "HTTP" | "PING") {
+    setForm((f) => ({
+      ...f,
+      checkType,
+      url: checkType === "PING" && f.url === "https://" ? "" : f.url,
+    }));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +57,7 @@ export function ServiceCheckDialog({
       const res = await fetch(`/api/servers/${serverId}/checks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, notifyMe }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -70,6 +88,18 @@ export function ServiceCheckDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
+            <Label>Typ</Label>
+            <Select value={form.checkType} onValueChange={(v) => setCheckType(v as "HTTP" | "PING")}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HTTP">HTTP</SelectItem>
+                <SelectItem value="PING">Ping</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label>Name</Label>
             <Input
               required
@@ -79,25 +109,28 @@ export function ServiceCheckDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>URL</Label>
+            <Label>{form.checkType === "PING" ? "Host" : "URL"}</Label>
             <Input
               required
-              type="url"
+              type={form.checkType === "PING" ? "text" : "url"}
               value={form.url}
               onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+              placeholder={form.checkType === "PING" ? "192.168.1.1" : undefined}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Erw. Status</Label>
-              <Input
-                type="number"
-                value={form.expectedStatus}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
-                }
-              />
-            </div>
+            {form.checkType === "HTTP" && (
+              <div className="space-y-2">
+                <Label>Erw. Status</Label>
+                <Input
+                  type="number"
+                  value={form.expectedStatus}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
+                  }
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Intervall (s)</Label>
               <Input
@@ -118,6 +151,10 @@ export function ServiceCheckDialog({
                 }
               />
             </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border px-3 py-2">
+            <Label className="font-normal">Mich bei Ausfall benachrichtigen</Label>
+            <Switch checked={notifyMe} onCheckedChange={(c) => setNotifyMe(!!c)} />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>

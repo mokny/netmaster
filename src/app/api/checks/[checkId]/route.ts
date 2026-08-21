@@ -14,18 +14,13 @@ export async function PATCH(
     const data: Record<string, unknown> = {};
     if (typeof body.name === "string") data.name = body.name;
     if (typeof body.url === "string") data.url = body.url;
+    if (body.checkType === "HTTP" || body.checkType === "PING") data.checkType = body.checkType;
     for (const f of ["expectedStatus", "intervalSec", "timeoutMs"]) {
       if (body[f] !== undefined) data[f] = Number(body[f]);
     }
-
-    if (Array.isArray(body.subscriberUserIds)) {
-      const ids = body.subscriberUserIds.filter((id: unknown) => typeof id === "string");
-      await prisma.serviceCheckSubscriber.deleteMany({ where: { serviceCheckId: checkId } });
-      if (ids.length > 0) {
-        await prisma.serviceCheckSubscriber.createMany({
-          data: ids.map((userId: string) => ({ serviceCheckId: checkId, userId })),
-        });
-      }
+    if ("latencyWarnMs" in body) {
+      data.latencyWarnMs =
+        body.latencyWarnMs === null || body.latencyWarnMs === "" ? null : Number(body.latencyWarnMs);
     }
 
     const check = await prisma.serviceCheck.update({ where: { id: checkId }, data });

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
+import { requireRole, requireSession, handleApiError } from "@/lib/api-helpers";
+import { validateCheckInput } from "@/lib/check-validation";
 
-// Listet alle HTTP-Health-Checks (frei stehende und serverbezogene) für die
-// zentrale "Upchecker"-Übersicht.
+// Listet alle Health-Checks (frei stehende und serverbezogene, HTTP und
+// Ping) für die zentrale "Upchecker"-Übersicht.
 export async function GET() {
   try {
     await requireSession();
@@ -11,7 +12,6 @@ export async function GET() {
       orderBy: { name: "asc" },
       include: {
         server: { select: { name: true } },
-        subscribers: { select: { userId: true } },
       },
     });
     return NextResponse.json({
@@ -19,8 +19,6 @@ export async function GET() {
         ...c,
         server: undefined,
         serverName: c.server?.name ?? null,
-        subscriberUserIds: c.subscribers.map((s) => s.userId),
-        subscribers: undefined,
       })),
     });
   } catch (err) {
@@ -34,29 +32,24 @@ export async function POST(req: Request) {
   try {
     const session = await requireRole("EDITOR");
     const body = await req.json();
-
-    const name = String(body.name ?? "").trim();
-    const url = String(body.url ?? "").trim();
-    if (!name || !url) throw new ApiError(400, "Name und URL sind erforderlich");
-    if (!/^https?:\/\//i.test(url)) {
-      throw new ApiError(400, "URL muss mit http:// oder https:// beginnen");
-    }
-
-    const subscriberUserIds: string[] = Array.isArray(body.subscriberUserIds)
-      ? body.subscriberUserIds.filter((id: unknown) => typeof id === "string")
-      : [session.userId];
+    const { name, url, checkType, latencyWarnMs } = validateCheckInput(body);
+    const notifyMe = body.notifyMe !== false;
 
     const check = await prisma.serviceCheck.create({
       data: {
         serverId: null,
         name,
         url,
+        checkType,
         expectedStatus: Number(body.expectedStatus ?? 200),
         intervalSec: Number(body.intervalSec ?? 30),
         timeoutMs: Number(body.timeoutMs ?? 5000),
-        subscribers: {
-          create: subscriberUserIds.map((userId) => ({ userId })),
-        },
+        latencyWarnMs,
+        ...(notifyMe && {
+          subscribers: {
+            create: [{ userId: session.userId, downEnabled: true }],
+          },
+        }),
       },
     });
 

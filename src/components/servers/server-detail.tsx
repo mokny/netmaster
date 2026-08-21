@@ -376,7 +376,10 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <FileManagerTab serverId={serverId} />
+            <FileManagerTab
+              wsPath={`/api/ws/files?serverId=${encodeURIComponent(serverId)}`}
+              restBasePath={`/api/servers/${serverId}/files`}
+            />
           </CardContent>
         </Card>
       )}

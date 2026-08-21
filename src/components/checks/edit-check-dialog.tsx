@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -28,6 +35,7 @@ export function EditCheckDialog({
   const [form, setForm] = useState({
     name: check.name,
     url: check.url,
+    checkType: check.checkType,
     expectedStatus: check.expectedStatus,
     intervalSec: check.intervalSec,
     timeoutMs: check.timeoutMs,
@@ -70,6 +78,21 @@ export function EditCheckDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
+            <Label>Typ</Label>
+            <Select
+              value={form.checkType}
+              onValueChange={(v) => setForm((f) => ({ ...f, checkType: v as "HTTP" | "PING" }))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HTTP">HTTP</SelectItem>
+                <SelectItem value="PING">Ping</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label>Name</Label>
             <Input
               required
@@ -78,25 +101,27 @@ export function EditCheckDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>URL</Label>
+            <Label>{form.checkType === "PING" ? "Host" : "URL"}</Label>
             <Input
               required
-              type="url"
+              type={form.checkType === "PING" ? "text" : "url"}
               value={form.url}
               onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Erw. Status</Label>
-              <Input
-                type="number"
-                value={form.expectedStatus}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
-                }
-              />
-            </div>
+            {form.checkType === "HTTP" && (
+              <div className="space-y-2">
+                <Label>Erw. Status</Label>
+                <Input
+                  type="number"
+                  value={form.expectedStatus}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
+                  }
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Intervall (s)</Label>
               <Input

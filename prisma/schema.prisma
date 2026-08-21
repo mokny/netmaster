@@ -28,6 +28,11 @@ enum Status {
   CRITICAL
 }
 
+enum CheckType {
+  HTTP
+  PING
+}
+
 enum VmType {
   QEMU
   LXC
@@ -105,19 +110,42 @@ model NotificationPreference {
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   serverId             String
   server               Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  offlineEnabled       Boolean  @default(true)
+  offlineEnabled       Boolean  @default(false)
+  offlineDelayMin      Int      @default(0)
+  offlineRecoveryEnabled Boolean @default(false)
   dockerStoppedEnabled Boolean  @default(false)
+  dockerStoppedDelayMin Int     @default(0)
+  dockerStoppedRecoveryEnabled Boolean @default(false)
 
   // Pro Metrik getrennte Warn-/Kritisch-Toggles, statt eines generischen
-  // Warning/Critical-Schalters für den gesamten Server-Status.
+  // Warning/Critical-Schalters für den gesamten Server-Status. Verzögerung
+  // (Min bis Alarm) und Recovery-Toggle ("wieder normal") sind je Ereignis
+  // separat konfigurierbar - siehe src/lib/monitor/alert-delay.ts für die
+  // Auswertung.
   cpuWarnEnabled  Boolean @default(false)
-  cpuCritEnabled  Boolean @default(true)
+  cpuWarnDelayMin Int     @default(0)
+  cpuWarnRecoveryEnabled Boolean @default(false)
+  cpuCritEnabled  Boolean @default(false)
+  cpuCritDelayMin Int     @default(0)
+  cpuCritRecoveryEnabled Boolean @default(false)
   memWarnEnabled  Boolean @default(false)
-  memCritEnabled  Boolean @default(true)
+  memWarnDelayMin Int     @default(0)
+  memWarnRecoveryEnabled Boolean @default(false)
+  memCritEnabled  Boolean @default(false)
+  memCritDelayMin Int     @default(0)
+  memCritRecoveryEnabled Boolean @default(false)
   diskWarnEnabled Boolean @default(false)
-  diskCritEnabled Boolean @default(true)
+  diskWarnDelayMin Int    @default(0)
+  diskWarnRecoveryEnabled Boolean @default(false)
+  diskCritEnabled Boolean @default(false)
+  diskCritDelayMin Int    @default(0)
+  diskCritRecoveryEnabled Boolean @default(false)
   netWarnEnabled  Boolean @default(false)
-  netCritEnabled  Boolean @default(true)
+  netWarnDelayMin Int     @default(0)
+  netWarnRecoveryEnabled Boolean @default(false)
+  netCritEnabled  Boolean @default(false)
+  netCritDelayMin Int     @default(0)
+  netCritRecoveryEnabled Boolean @default(false)
 
   updatedAt DateTime @updatedAt
 
@@ -232,6 +260,21 @@ model Server {
   lastDiskStatus Status @default(UNKNOWN)
   lastNetStatus  Status @default(UNKNOWN)
 
+  // Zeitpunkt, seit dem der jeweilige Zustand ununterbrochen besteht - Basis
+  // für die verzögerte ("erst nach X Minuten") Alarmierung und dafür, ob bei
+  // Erholung eine Recovery-Nachricht fällig ist (siehe alert-delay.ts). Wird
+  // beim Eintritt in den Zustand gesetzt, beim Verlassen wieder auf null
+  // gesetzt.
+  offlineSince   DateTime?
+  cpuWarnSince   DateTime?
+  cpuCritSince   DateTime?
+  memWarnSince   DateTime?
+  memCritSince   DateTime?
+  diskWarnSince  DateTime?
+  diskCritSince  DateTime?
+  netWarnSince   DateTime?
+  netCritSince   DateTime?
+
   // Statische Host-Eigenschaften, bei jedem erfolgreichen Poll aktualisiert
   // (ändern sich quasi nie, daher kein eigener Zeitverlauf).
   cpuCores      Int?
@@ -249,6 +292,24 @@ model Server {
   proxmoxVms    ProxmoxVm[]
   auditLogs     AuditLog[]
   notificationPreferences NotificationPreference[]
+  dockerContainerStates DockerContainerState[]
+}
+
+// Persistierter Laufzustand je Docker-Container (unabhängig von den nur 24h
+// gehaltenen DockerContainerSnapshot-Zeilen), um die Dauer eines Stopps für
+// die verzögerte Benachrichtigung sowie Recovery-Nachrichten zu verfolgen.
+model DockerContainerState {
+  id          String    @id @default(cuid())
+  serverId    String
+  server      Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  containerId String
+  name        String
+  running     Boolean   @default(true)
+  stoppedSince DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([serverId, containerId])
+  @@index([serverId])
 }
 
 model MetricSample {
@@ -288,19 +349,28 @@ model DiskSample {
 // zusätzlich in dessen Detailansicht sichtbar) oder frei/global stehen (z.B.
 // eine eigene Domain ohne zugehörigen Server in NetMaster).
 model ServiceCheck {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   serverId       String?
-  server         Server?  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server         Server?   @relation(fields: [serverId], references: [id], onDelete: Cascade)
   name           String
   url            String
-  expectedStatus Int      @default(200)
-  intervalSec    Int      @default(30)
-  timeoutMs      Int      @default(5000)
+  checkType      CheckType @default(HTTP)
+  expectedStatus Int       @default(200)
+  intervalSec    Int       @default(30)
+  timeoutMs      Int       @default(5000)
+
+  // Latenz-Schwelle (ms) für die WARNING-Stufe bei PING/HTTP - null
+  // deaktiviert die Latenz-Überwachung für diesen Check.
+  latencyWarnMs Int?
 
   lastStatus    Status    @default(UNKNOWN)
   lastLatencyMs Float?
   lastCheckedAt DateTime?
   lastError     String?
+
+  // Siehe Server.cpuCritSince etc. - Basis für verzögerte Down-/Slow-Alarme.
+  downSince DateTime?
+  slowSince DateTime?
 
   createdAt DateTime @default(now())
 
@@ -331,6 +401,14 @@ model ServiceCheckSubscriber {
   serviceCheck   ServiceCheck @relation(fields: [serviceCheckId], references: [id], onDelete: Cascade)
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  downEnabled         Boolean @default(false)
+  downDelayMin        Int     @default(0)
+  downRecoveryEnabled Boolean @default(false)
+  slowEnabled         Boolean @default(false)
+  slowDelayMin        Int     @default(0)
+  slowRecoveryEnabled Boolean @default(false)
+
   createdAt      DateTime     @default(now())
 
   @@unique([serviceCheckId, userId])

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
 import { MetricChart, type ChartPoint } from "@/components/servers/metric-chart";
+import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
@@ -252,6 +253,23 @@ export function DockerDetail({
           </CardContent>
         </Card>
       </div>
+
+      {canControl && running && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dateien</CardTitle>
+            <CardDescription>
+              Zugriff über `docker exec` auf die Host-Verbindung - kein echtes SFTP.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FileManagerTab
+              wsPath={`/api/ws/docker-files?serverId=${encodeURIComponent(serverId)}&containerId=${encodeURIComponent(containerId)}`}
+              restBasePath={`/api/docker/${serverId}/${containerId}/files`}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

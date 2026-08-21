@@ -77,15 +77,35 @@ export interface NotificationPreferenceDTO {
   serverId: string;
   serverName: string;
   offlineEnabled: boolean;
+  offlineDelayMin: number;
+  offlineRecoveryEnabled: boolean;
   dockerStoppedEnabled: boolean;
+  dockerStoppedDelayMin: number;
+  dockerStoppedRecoveryEnabled: boolean;
   cpuWarnEnabled: boolean;
+  cpuWarnDelayMin: number;
+  cpuWarnRecoveryEnabled: boolean;
   cpuCritEnabled: boolean;
+  cpuCritDelayMin: number;
+  cpuCritRecoveryEnabled: boolean;
   memWarnEnabled: boolean;
+  memWarnDelayMin: number;
+  memWarnRecoveryEnabled: boolean;
   memCritEnabled: boolean;
+  memCritDelayMin: number;
+  memCritRecoveryEnabled: boolean;
   diskWarnEnabled: boolean;
+  diskWarnDelayMin: number;
+  diskWarnRecoveryEnabled: boolean;
   diskCritEnabled: boolean;
+  diskCritDelayMin: number;
+  diskCritRecoveryEnabled: boolean;
   netWarnEnabled: boolean;
+  netWarnDelayMin: number;
+  netWarnRecoveryEnabled: boolean;
   netCritEnabled: boolean;
+  netCritDelayMin: number;
+  netCritRecoveryEnabled: boolean;
 }
 
 export interface ServiceCheckDTO {
@@ -94,14 +114,24 @@ export interface ServiceCheckDTO {
   serverName?: string | null;
   name: string;
   url: string;
+  checkType: "HTTP" | "PING";
   expectedStatus: number;
   intervalSec: number;
   timeoutMs: number;
+  latencyWarnMs: number | null;
   lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
   lastLatencyMs: number | null;
   lastCheckedAt: string | null;
   lastError: string | null;
-  subscriberUserIds?: string[];
+}
+
+export interface ServiceCheckSubscriberDTO {
+  downEnabled: boolean;
+  downDelayMin: number;
+  downRecoveryEnabled: boolean;
+  slowEnabled: boolean;
+  slowDelayMin: number;
+  slowRecoveryEnabled: boolean;
 }
 
 export interface ContainerSnapshotDTO {

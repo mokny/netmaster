@@ -173,7 +173,7 @@ export function AppShell({
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b px-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background px-4">
           <div className="flex items-center gap-1 md:hidden">
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
               <SheetTrigger

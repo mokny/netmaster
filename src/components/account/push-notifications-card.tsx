@@ -5,8 +5,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bell, BellOff, Loader2, Send, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Bell, BellOff, Loader2, Send, Settings, Trash2 } from "lucide-react";
 import type { PushSubscriptionDTO, NotificationPreferenceDTO } from "@/lib/types";
 
 function urlBase64ToUint8Array(base64: string) {
@@ -17,24 +27,101 @@ function urlBase64ToUint8Array(base64: string) {
 }
 
 type PrefKey = keyof Omit<NotificationPreferenceDTO, "serverId" | "serverName">;
+type BoolPrefKey = { [K in PrefKey]: NotificationPreferenceDTO[K] extends boolean ? K : never }[PrefKey];
+type NumPrefKey = { [K in PrefKey]: NotificationPreferenceDTO[K] extends number ? K : never }[PrefKey];
 
-const EVENT_LABELS: { key: PrefKey; label: string }[] = [
+const EVENT_LABELS: { key: BoolPrefKey; label: string }[] = [
   { key: "offlineEnabled", label: "Offline" },
   { key: "dockerStoppedEnabled", label: "Docker gestoppt" },
 ];
 
 // Pro Metrik zwei Spalten (Warnung/Kritisch), statt eines generischen
 // Warning/Critical-Schalters für den gesamten Server-Status.
-const METRIC_EVENT_LABELS: { warnKey: PrefKey; critKey: PrefKey; label: string }[] = [
+const METRIC_EVENT_LABELS: { warnKey: BoolPrefKey; critKey: BoolPrefKey; label: string }[] = [
   { warnKey: "cpuWarnEnabled", critKey: "cpuCritEnabled", label: "CPU" },
   { warnKey: "memWarnEnabled", critKey: "memCritEnabled", label: "RAM" },
   { warnKey: "diskWarnEnabled", critKey: "diskCritEnabled", label: "Disk" },
   { warnKey: "netWarnEnabled", critKey: "netCritEnabled", label: "Netzwerk" },
 ];
 
+// Alle 10 Ereignisse mit ihren zugehörigen Verzögerung-/Recovery-Feldern -
+// Basis für den Konfigurieren-Dialog pro Server.
+const ALL_EVENTS: { enabledKey: BoolPrefKey; delayKey: NumPrefKey; recoveryKey: BoolPrefKey; label: string }[] = [
+  { enabledKey: "offlineEnabled", delayKey: "offlineDelayMin", recoveryKey: "offlineRecoveryEnabled", label: "Offline" },
+  { enabledKey: "dockerStoppedEnabled", delayKey: "dockerStoppedDelayMin", recoveryKey: "dockerStoppedRecoveryEnabled", label: "Docker gestoppt" },
+  { enabledKey: "cpuWarnEnabled", delayKey: "cpuWarnDelayMin", recoveryKey: "cpuWarnRecoveryEnabled", label: "CPU Warnung" },
+  { enabledKey: "cpuCritEnabled", delayKey: "cpuCritDelayMin", recoveryKey: "cpuCritRecoveryEnabled", label: "CPU Kritisch" },
+  { enabledKey: "memWarnEnabled", delayKey: "memWarnDelayMin", recoveryKey: "memWarnRecoveryEnabled", label: "RAM Warnung" },
+  { enabledKey: "memCritEnabled", delayKey: "memCritDelayMin", recoveryKey: "memCritRecoveryEnabled", label: "RAM Kritisch" },
+  { enabledKey: "diskWarnEnabled", delayKey: "diskWarnDelayMin", recoveryKey: "diskWarnRecoveryEnabled", label: "Disk Warnung" },
+  { enabledKey: "diskCritEnabled", delayKey: "diskCritDelayMin", recoveryKey: "diskCritRecoveryEnabled", label: "Disk Kritisch" },
+  { enabledKey: "netWarnEnabled", delayKey: "netWarnDelayMin", recoveryKey: "netWarnRecoveryEnabled", label: "Netz Warnung" },
+  { enabledKey: "netCritEnabled", delayKey: "netCritDelayMin", recoveryKey: "netCritRecoveryEnabled", label: "Netz Kritisch" },
+];
+
 function pushSupported() {
   return (
     typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window
+  );
+}
+
+function NotificationSettingsDialog({
+  pref,
+  onUpdate,
+}: {
+  pref: NotificationPreferenceDTO;
+  onUpdate: (serverId: string, patch: Partial<NotificationPreferenceDTO>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button variant="ghost" size="icon" className="size-7">
+            <Settings className="size-3.5" />
+          </Button>
+        }
+      />
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Benachrichtigungen: {pref.serverName}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {ALL_EVENTS.map((e) => (
+            <div key={e.enabledKey} className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">{e.label}</p>
+                <Switch
+                  checked={pref[e.enabledKey]}
+                  onCheckedChange={(c) => onUpdate(pref.serverId, { [e.enabledKey]: !!c })}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <Label className="font-normal text-muted-foreground">Verzögerung (Min)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="w-24"
+                  value={pref[e.delayKey]}
+                  onChange={(ev) => onUpdate(pref.serverId, { [e.delayKey]: Number(ev.target.value) })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="font-normal text-muted-foreground">Wieder normal benachrichtigen</Label>
+                <Switch
+                  checked={pref[e.recoveryKey]}
+                  onCheckedChange={(c) => onUpdate(pref.serverId, { [e.recoveryKey]: !!c })}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setOpen(false)}>Fertig</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -282,6 +369,9 @@ export function PushNotificationsCard() {
                         {m.label}
                       </th>
                     ))}
+                    <th rowSpan={2} className="p-2 text-center font-medium align-bottom">
+                      Details
+                    </th>
                   </tr>
                   <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
                     {METRIC_EVENT_LABELS.map((m) => (
@@ -320,6 +410,9 @@ export function PushNotificationsCard() {
                           </td>
                         </Fragment>
                       ))}
+                      <td className="p-2 text-center">
+                        <NotificationSettingsDialog pref={p} onUpdate={updatePref} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

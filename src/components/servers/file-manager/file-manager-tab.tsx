@@ -8,9 +8,17 @@ import type { FileNodeDTO } from "@/lib/file-manager-types";
 import type { FileManagerConnection } from "@/hooks/use-file-manager-connection";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
-// Dateimanager im MC-Stil: zwei unabhängige Panels auf demselben Server,
-// darunter ein Editor-Bereich mit Tabs für geöffnete Textdateien.
-export function FileManagerTab({ serverId }: { serverId: string }) {
+// Dateimanager im MC-Stil: zwei unabhängige Panels auf demselben Ziel (Server,
+// Docker-Container oder Proxmox-VM/LXC), darunter ein Editor-Bereich mit Tabs
+// für geöffnete Textdateien. `wsPath` und `restBasePath` bestimmen das Ziel -
+// siehe use-file-manager-connection.ts.
+export function FileManagerTab({
+  wsPath,
+  restBasePath,
+}: {
+  wsPath: string;
+  restBasePath: string;
+}) {
   const confirm = useConfirm();
   const [tabs, setTabs] = useState<EditorTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -100,8 +108,8 @@ export function FileManagerTab({ serverId }: { serverId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <FilePanel serverId={serverId} side="left" onOpenFile={openFile} />
-        <FilePanel serverId={serverId} side="right" onOpenFile={openFile} />
+        <FilePanel wsPath={wsPath} restBasePath={restBasePath} side="left" onOpenFile={openFile} />
+        <FilePanel wsPath={wsPath} restBasePath={restBasePath} side="right" onOpenFile={openFile} />
       </div>
       <EditorArea
         tabs={tabs}

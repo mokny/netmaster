@@ -16,6 +16,7 @@ import { VmPowerDialog } from "@/components/vms/vm-power-dialog";
 import { VmTerminalMenu } from "@/components/vms/vm-terminal-menu";
 import { VmSnapshotsTab } from "@/components/vms/vm-snapshots-tab";
 import { VmBackupsTab } from "@/components/vms/vm-backups-tab";
+import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import {
   CombinedMetricChart,
   DISK_KEY_PREFIX,
@@ -185,6 +186,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="backups">Backups</TabsTrigger>
+          {canControl && running && <TabsTrigger value="files">Dateien</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">
           <Card>
@@ -219,6 +221,14 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
         <TabsContent value="backups">
           <VmBackupsTab serverId={serverId} vmid={vmid} canControl={canControl} />
         </TabsContent>
+        {canControl && running && (
+          <TabsContent value="files">
+            <FileManagerTab
+              wsPath={`/api/ws/proxmox-files?serverId=${encodeURIComponent(serverId)}&vmid=${vmid}`}
+              restBasePath={`/api/proxmox/${serverId}/${vmid}/files`}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

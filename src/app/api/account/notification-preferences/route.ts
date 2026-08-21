@@ -3,6 +3,55 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
 import { NOTIFICATION_DEFAULTS as DEFAULTS } from "@/lib/push";
 
+const BOOL_FIELDS = [
+  "offlineEnabled",
+  "offlineRecoveryEnabled",
+  "dockerStoppedEnabled",
+  "dockerStoppedRecoveryEnabled",
+  "cpuWarnEnabled",
+  "cpuWarnRecoveryEnabled",
+  "cpuCritEnabled",
+  "cpuCritRecoveryEnabled",
+  "memWarnEnabled",
+  "memWarnRecoveryEnabled",
+  "memCritEnabled",
+  "memCritRecoveryEnabled",
+  "diskWarnEnabled",
+  "diskWarnRecoveryEnabled",
+  "diskCritEnabled",
+  "diskCritRecoveryEnabled",
+  "netWarnEnabled",
+  "netWarnRecoveryEnabled",
+  "netCritEnabled",
+  "netCritRecoveryEnabled",
+] as const;
+
+const DELAY_FIELDS = [
+  "offlineDelayMin",
+  "dockerStoppedDelayMin",
+  "cpuWarnDelayMin",
+  "cpuCritDelayMin",
+  "memWarnDelayMin",
+  "memCritDelayMin",
+  "diskWarnDelayMin",
+  "diskCritDelayMin",
+  "netWarnDelayMin",
+  "netCritDelayMin",
+] as const;
+
+const ENABLED_FIELDS = [
+  "offlineEnabled",
+  "dockerStoppedEnabled",
+  "cpuWarnEnabled",
+  "cpuCritEnabled",
+  "memWarnEnabled",
+  "memCritEnabled",
+  "diskWarnEnabled",
+  "diskCritEnabled",
+  "netWarnEnabled",
+  "netCritEnabled",
+] as const;
+
 export async function GET() {
   try {
     const session = await requireSession();
@@ -14,24 +63,21 @@ export async function GET() {
       prisma.notificationPreference.findMany({ where: { userId: session.userId } }),
     ]);
 
-    const prefByServer = new Map(prefs.map((p) => [p.serverId, p]));
+    const prefByServer = new Map(prefs.map((p) => [p.serverId, p as Record<string, unknown>]));
     return NextResponse.json({
       servers: servers.map((s) => {
         const pref = prefByServer.get(s.id);
-        return {
-          serverId: s.id,
-          serverName: s.name,
-          offlineEnabled: pref?.offlineEnabled ?? DEFAULTS.offlineEnabled,
-          dockerStoppedEnabled: pref?.dockerStoppedEnabled ?? DEFAULTS.dockerStoppedEnabled,
-          cpuWarnEnabled: pref?.cpuWarnEnabled ?? DEFAULTS.cpuWarnEnabled,
-          cpuCritEnabled: pref?.cpuCritEnabled ?? DEFAULTS.cpuCritEnabled,
-          memWarnEnabled: pref?.memWarnEnabled ?? DEFAULTS.memWarnEnabled,
-          memCritEnabled: pref?.memCritEnabled ?? DEFAULTS.memCritEnabled,
-          diskWarnEnabled: pref?.diskWarnEnabled ?? DEFAULTS.diskWarnEnabled,
-          diskCritEnabled: pref?.diskCritEnabled ?? DEFAULTS.diskCritEnabled,
-          netWarnEnabled: pref?.netWarnEnabled ?? DEFAULTS.netWarnEnabled,
-          netCritEnabled: pref?.netCritEnabled ?? DEFAULTS.netCritEnabled,
-        };
+        const out: Record<string, unknown> = { serverId: s.id, serverName: s.name };
+        for (const f of ENABLED_FIELDS) {
+          out[f] = pref ? Boolean(pref[f]) : DEFAULTS[f];
+        }
+        for (const f of BOOL_FIELDS) {
+          out[f] = pref ? Boolean(pref[f]) : false;
+        }
+        for (const f of DELAY_FIELDS) {
+          out[f] = pref ? Number(pref[f] ?? 0) : 0;
+        }
+        return out;
       }),
     });
   } catch (err) {
@@ -49,18 +95,10 @@ export async function PUT(req: Request) {
     const server = await prisma.server.findUnique({ where: { id: serverId } });
     if (!server) throw new ApiError(404, "Server nicht gefunden");
 
-    const data = {
-      offlineEnabled: Boolean(body.offlineEnabled),
-      dockerStoppedEnabled: Boolean(body.dockerStoppedEnabled),
-      cpuWarnEnabled: Boolean(body.cpuWarnEnabled),
-      cpuCritEnabled: Boolean(body.cpuCritEnabled),
-      memWarnEnabled: Boolean(body.memWarnEnabled),
-      memCritEnabled: Boolean(body.memCritEnabled),
-      diskWarnEnabled: Boolean(body.diskWarnEnabled),
-      diskCritEnabled: Boolean(body.diskCritEnabled),
-      netWarnEnabled: Boolean(body.netWarnEnabled),
-      netCritEnabled: Boolean(body.netCritEnabled),
-    };
+    const data: Record<string, unknown> = {};
+    for (const f of ENABLED_FIELDS) data[f] = Boolean(body[f]);
+    for (const f of BOOL_FIELDS) data[f] = Boolean(body[f]);
+    for (const f of DELAY_FIELDS) data[f] = Math.max(0, Number(body[f] ?? 0));
 
     await prisma.notificationPreference.upsert({
       where: { userId_serverId: { userId: session.userId, serverId } },

@@ -58,18 +58,20 @@ export interface FilePanelHandle {
 }
 
 export function FilePanel({
-  serverId,
+  wsPath,
+  restBasePath,
   side,
   onOpenFile,
 }: {
-  serverId: string;
+  wsPath: string;
+  restBasePath: string;
   side: "left" | "right";
   onOpenFile: (
     connection: ReturnType<typeof useFileManagerConnection>,
     node: FileNodeDTO
   ) => void;
 }) {
-  const connection = useFileManagerConnection(serverId);
+  const connection = useFileManagerConnection(wsPath);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState("");
   const [entries, setEntries] = useState<FileNodeDTO[]>([]);
@@ -217,8 +219,8 @@ export function FilePanel({
   function triggerDownload(path: string, isDirectory: boolean) {
     if (!anchorRef.current) return;
     const url = isDirectory
-      ? `/api/servers/${serverId}/files/zip?path=${encodeURIComponent(path)}`
-      : `/api/servers/${serverId}/files/download?path=${encodeURIComponent(path)}`;
+      ? `${restBasePath}/zip?path=${encodeURIComponent(path)}`
+      : `${restBasePath}/download?path=${encodeURIComponent(path)}`;
     anchorRef.current.href = url;
     anchorRef.current.click();
   }
@@ -307,7 +309,7 @@ export function FilePanel({
         form.append("files", f.file);
         form.append("relPaths", f.relPath);
       }
-      const res = await fetch(`/api/servers/${serverId}/files/upload`, {
+      const res = await fetch(`${restBasePath}/upload`, {
         method: "POST",
         body: form,
       });
@@ -322,7 +324,7 @@ export function FilePanel({
             form2.append("files", f.file);
             form2.append("relPaths", f.relPath);
           }
-          await fetch(`/api/servers/${serverId}/files/upload`, { method: "POST", body: form2 });
+          await fetch(`${restBasePath}/upload`, { method: "POST", body: form2 });
         } else if (choice === "rename") {
           const form2 = new FormData();
           form2.set("targetDir", currentPath);
@@ -331,7 +333,7 @@ export function FilePanel({
             form2.append("files", f.file);
             form2.append("relPaths", `${f.relPath} (Kopie)`);
           }
-          await fetch(`/api/servers/${serverId}/files/upload`, { method: "POST", body: form2 });
+          await fetch(`${restBasePath}/upload`, { method: "POST", body: form2 });
         }
       } else if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -510,8 +512,8 @@ export function FilePanel({
                   e.dataTransfer.setData(INTERNAL_DND_MIME, JSON.stringify(payload));
                   if (targets.length === 1) {
                     const url = node.isDirectory
-                      ? `${window.location.origin}/api/servers/${serverId}/files/zip?path=${encodeURIComponent(node.path)}`
-                      : `${window.location.origin}/api/servers/${serverId}/files/download?path=${encodeURIComponent(node.path)}`;
+                      ? `${window.location.origin}${restBasePath}/zip?path=${encodeURIComponent(node.path)}`
+                      : `${window.location.origin}${restBasePath}/download?path=${encodeURIComponent(node.path)}`;
                     const name = node.isDirectory ? `${node.name}.zip` : node.name;
                     e.dataTransfer.setData(
                       "DownloadURL",

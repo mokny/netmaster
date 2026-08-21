@@ -16,6 +16,8 @@ import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
 import { handleDockerTerminalSocket } from "./src/lib/ws/docker-terminal-handler";
 import { handleProcessesSocket } from "./src/lib/ws/processes-handler";
 import { handleFilesSocket } from "./src/lib/ws/files-handler";
+import { handleExecFilesSocket } from "./src/lib/ws/exec-files-handler";
+import { resolveDockerFileBackend, resolveProxmoxFileBackend } from "./src/lib/exec-file-target";
 
 const roleRank: Record<SessionPayload["role"], number> = {
   VIEWER: 0,
@@ -51,6 +53,8 @@ app.prepare().then(() => {
   const dockerTerminalWss = new WebSocketServer({ noServer: true });
   const processesWss = new WebSocketServer({ noServer: true });
   const filesWss = new WebSocketServer({ noServer: true });
+  const dockerFilesWss = new WebSocketServer({ noServer: true });
+  const proxmoxFilesWss = new WebSocketServer({ noServer: true });
   const clients = new Set<WebSocket>();
 
   const nextUpgradeHandler = app.getUpgradeHandler();
@@ -65,7 +69,9 @@ app.prepare().then(() => {
       pathname !== "/api/ws/vm-vnc" &&
       pathname !== "/api/ws/docker-terminal" &&
       pathname !== "/api/ws/processes" &&
-      pathname !== "/api/ws/files"
+      pathname !== "/api/ws/files" &&
+      pathname !== "/api/ws/docker-files" &&
+      pathname !== "/api/ws/proxmox-files"
     ) {
       nextUpgradeHandler(req, socket, head);
       return;
@@ -153,6 +159,46 @@ app.prepare().then(() => {
     if (pathname === "/api/ws/processes") {
       processesWss.handleUpgrade(req, socket, head, (ws) => {
         void handleProcessesSocket(ws, serverId);
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/docker-files") {
+      const containerId = typeof query.containerId === "string" ? query.containerId : "";
+      if (!containerId) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      dockerFilesWss.handleUpgrade(req, socket, head, (ws) => {
+        void (async () => {
+          try {
+            const { backend, detail } = await resolveDockerFileBackend(serverId, containerId);
+            void handleExecFilesSocket(ws, backend, session, { serverId, detail });
+          } catch {
+            ws.close();
+          }
+        })();
+      });
+      return;
+    }
+
+    if (pathname === "/api/ws/proxmox-files") {
+      const vmid = Number(query.vmid);
+      if (!Number.isInteger(vmid)) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      proxmoxFilesWss.handleUpgrade(req, socket, head, (ws) => {
+        void (async () => {
+          try {
+            const { backend, detail } = await resolveProxmoxFileBackend(serverId, vmid);
+            void handleExecFilesSocket(ws, backend, session, { serverId, detail });
+          } catch {
+            ws.close();
+          }
+        })();
       });
       return;
     }

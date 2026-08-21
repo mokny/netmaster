@@ -14,7 +14,9 @@ import {
 } from "./parse";
 import { computeServerStatus, type MetricKey, type StatusValue } from "./status";
 import { publish } from "./events";
-import { notifyServerEvent, sendPushToUser, type NotificationEvent } from "@/lib/push";
+import { notifyServerEvent, notifyServerRecovery, sendPushToUser, type NotificationEvent } from "@/lib/push";
+import { shouldFireDelayedAlert, shouldFireRecovery } from "./alert-delay";
+import { runPingCheck } from "@/lib/ping";
 import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/client";
 
 // Rate = Delta der kumulativen Byte-Zähler / Delta der Zeit zum letzten Poll,
@@ -73,6 +75,10 @@ export async function collectServerMetrics(server: ServerModel) {
       },
     });
 
+    const sinceUpdates = computeMetricSinceUpdates(server, result.metrics, now);
+    const wasOffline = Boolean(server.lastError);
+    const offlineSinceBeforeClear = server.offlineSince;
+
     // Statische Host-Eigenschaften nur überschreiben, wenn dieser Poll sie
     // liefern konnte - ein einzelner Parse-Aussetzer soll nicht den zuletzt
     // bekannten Wert löschen.
@@ -86,6 +92,8 @@ export async function collectServerMetrics(server: ServerModel) {
         lastMemStatus: result.metrics.mem,
         lastDiskStatus: result.metrics.disk,
         lastNetStatus: result.metrics.net,
+        offlineSince: null,
+        ...sinceUpdates.dbFields,
         ...(metrics.cpuCores !== null && { cpuCores: metrics.cpuCores }),
         ...(metrics.memTotalMb !== null && { memTotalMb: metrics.memTotalMb }),
         ...(metrics.osName !== null && { osName: metrics.osName }),
@@ -95,6 +103,19 @@ export async function collectServerMetrics(server: ServerModel) {
         }),
       },
     });
+
+    if (wasOffline) {
+      void notifyServerRecovery(
+        server.id,
+        "offlineEnabled",
+        {
+          title: `${server.name}: wieder erreichbar`,
+          body: `${server.name} antwortet wieder.`,
+          url: `/servers/${server.id}`,
+        },
+        offlineSinceBeforeClear
+      );
+    }
 
     if (metrics.disks.length > 0) {
       await prisma.diskSample.createMany({
@@ -135,7 +156,7 @@ export async function collectServerMetrics(server: ServerModel) {
       })),
     });
     publish({ type: "server-status", serverId: server.id, status });
-    void notifyMetricTransitions(server, result.metrics);
+    void notifyMetricAlerts(server, result.metrics, sinceUpdates);
 
     const cutoff = new Date(
       Date.now() - server.retentionDays * 24 * 60 * 60 * 1000
@@ -149,12 +170,14 @@ export async function collectServerMetrics(server: ServerModel) {
   } catch (err) {
     invalidatePooledConnection(server.id);
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+    const offlineSince = server.offlineSince ?? new Date();
     await prisma.server.update({
       where: { id: server.id },
       data: {
         lastStatus: "CRITICAL",
         lastError: message,
         lastCheckedAt: new Date(),
+        offlineSince,
       },
     });
     publish({
@@ -163,13 +186,17 @@ export async function collectServerMetrics(server: ServerModel) {
       status: "CRITICAL",
       error: message,
     });
-    if (!server.lastError) {
-      void notifyServerEvent(server.id, "offlineEnabled", {
+    void notifyServerEvent(
+      server.id,
+      "offlineEnabled",
+      {
         title: `${server.name}: nicht erreichbar`,
         body: message,
         url: `/servers/${server.id}`,
-      });
-    }
+      },
+      offlineSince,
+      server.pollIntervalSec
+    );
   }
 }
 
@@ -187,6 +214,16 @@ const METRIC_PREV_FIELD: Record<MetricKey, "lastCpuStatus" | "lastMemStatus" | "
   net: "lastNetStatus",
 };
 
+const METRIC_SINCE_FIELDS: Record<
+  MetricKey,
+  { warn: "cpuWarnSince" | "memWarnSince" | "diskWarnSince" | "netWarnSince"; crit: "cpuCritSince" | "memCritSince" | "diskCritSince" | "netCritSince" }
+> = {
+  cpu: { warn: "cpuWarnSince", crit: "cpuCritSince" },
+  mem: { warn: "memWarnSince", crit: "memCritSince" },
+  disk: { warn: "diskWarnSince", crit: "diskCritSince" },
+  net: { warn: "netWarnSince", crit: "netCritSince" },
+};
+
 const METRIC_EVENTS: Record<MetricKey, { warn: NotificationEvent; crit: NotificationEvent }> = {
   cpu: { warn: "cpuWarnEnabled", crit: "cpuCritEnabled" },
   mem: { warn: "memWarnEnabled", crit: "memCritEnabled" },
@@ -194,39 +231,120 @@ const METRIC_EVENTS: Record<MetricKey, { warn: NotificationEvent; crit: Notifica
   net: { warn: "netWarnEnabled", crit: "netCritEnabled" },
 };
 
-// Löst Push-Benachrichtigungen pro Einzelmetrik bei Statuswechseln aus
-// (Flanken-getriggert, nicht bei jedem Poll) - sowohl beim Verschlechtern als
-// auch beim Erholen. Jede Metrik hat ihr eigenes Warn-/Kritisch-Toggle in den
-// NotificationPreference (z.B. cpuCritEnabled), damit z.B. Disk-Warnungen
-// unabhängig von CPU-Warnungen an/aus geschaltet werden können.
-async function notifyMetricTransitions(server: ServerModel, newStatuses: Record<MetricKey, StatusValue>) {
+interface MetricSinceUpdate {
+  warnSince: Date | null;
+  critSince: Date | null;
+  recovery: { event: NotificationEvent; since: Date | null } | null;
+}
+
+// Berechnet für jede Metrik die neuen "seit wann"-Zeitstempel (Basis für die
+// Verzögerung, siehe alert-delay.ts) sowie ob bei diesem Poll eine Recovery
+// fällig sein könnte (nur beim Übergang zurück nach OK). Läuft synchron vor
+// dem Server.update, damit die *Since-Felder in derselben Schreiboperation
+// landen wie lastStatus.
+interface MetricSinceComputation {
+  dbFields: Partial<
+    Record<
+      | "cpuWarnSince"
+      | "cpuCritSince"
+      | "memWarnSince"
+      | "memCritSince"
+      | "diskWarnSince"
+      | "diskCritSince"
+      | "netWarnSince"
+      | "netCritSince",
+      Date | null
+    >
+  >;
+  perMetric: Record<MetricKey, MetricSinceUpdate>;
+}
+
+function computeMetricSinceUpdates(
+  server: ServerModel,
+  newStatuses: Record<MetricKey, StatusValue>,
+  now: Date
+): MetricSinceComputation {
+  const dbFields: MetricSinceComputation["dbFields"] = {};
+  const perMetric = {} as Record<MetricKey, MetricSinceUpdate>;
   for (const key of Object.keys(newStatuses) as MetricKey[]) {
     const oldStatus = server[METRIC_PREV_FIELD[key]] as StatusValue;
     const newStatus = newStatuses[key];
-    if (newStatus === oldStatus) continue;
+    const fields = METRIC_SINCE_FIELDS[key];
+    const events = METRIC_EVENTS[key];
+    const oldWarnSince = server[fields.warn] as Date | null;
+    const oldCritSince = server[fields.crit] as Date | null;
 
+    let warnSince: Date | null = null;
+    let critSince: Date | null = null;
+    let recovery: MetricSinceUpdate["recovery"] = null;
+
+    if (newStatus === "CRITICAL") {
+      critSince = oldCritSince ?? now;
+    } else if (newStatus === "WARNING") {
+      warnSince = oldWarnSince ?? now;
+    } else if (newStatus === "OK" && (oldStatus === "WARNING" || oldStatus === "CRITICAL")) {
+      recovery = {
+        event: oldStatus === "CRITICAL" ? events.crit : events.warn,
+        since: oldStatus === "CRITICAL" ? oldCritSince : oldWarnSince,
+      };
+    }
+
+    dbFields[fields.warn] = warnSince;
+    dbFields[fields.crit] = critSince;
+    perMetric[key] = { warnSince, critSince, recovery };
+  }
+  return { dbFields, perMetric };
+}
+
+// Löst (verzögerte) Push-Benachrichtigungen pro Einzelmetrik aus - läuft bei
+// jedem Poll, nicht nur beim Statuswechsel, damit die Verzögerung (siehe
+// alert-delay.ts) je User geprüft werden kann, solange der Zustand anhält.
+// Recovery-Nachrichten feuern dagegen nur exakt auf dem Übergangs-Poll nach OK.
+async function notifyMetricAlerts(
+  server: ServerModel,
+  newStatuses: Record<MetricKey, StatusValue>,
+  sinceUpdates: MetricSinceComputation
+) {
+  for (const key of Object.keys(newStatuses) as MetricKey[]) {
     const label = METRIC_LABELS[key];
     const events = METRIC_EVENTS[key];
+    const { warnSince, critSince, recovery } = sinceUpdates.perMetric[key];
 
-    if (newStatus === "CRITICAL" && oldStatus !== "CRITICAL") {
-      void notifyServerEvent(server.id, events.crit, {
-        title: `${server.name}: ${label} kritisch`,
-        body: `${label} liegt im kritischen Bereich.`,
-        url: `/servers/${server.id}`,
-      });
-    } else if (newStatus === "WARNING" && oldStatus !== "WARNING" && oldStatus !== "CRITICAL") {
-      void notifyServerEvent(server.id, events.warn, {
-        title: `${server.name}: ${label} Warnung`,
-        body: `${label} liegt im Warnbereich.`,
-        url: `/servers/${server.id}`,
-      });
-    } else if (newStatus === "OK" && (oldStatus === "WARNING" || oldStatus === "CRITICAL")) {
-      const event = oldStatus === "CRITICAL" ? events.crit : events.warn;
-      void notifyServerEvent(server.id, event, {
-        title: `${server.name}: ${label} wieder normal`,
-        body: `${label} ist wieder im Normalbereich.`,
-        url: `/servers/${server.id}`,
-      });
+    if (critSince) {
+      void notifyServerEvent(
+        server.id,
+        events.crit,
+        {
+          title: `${server.name}: ${label} kritisch`,
+          body: `${label} liegt im kritischen Bereich.`,
+          url: `/servers/${server.id}`,
+        },
+        critSince,
+        server.pollIntervalSec
+      );
+    } else if (warnSince) {
+      void notifyServerEvent(
+        server.id,
+        events.warn,
+        {
+          title: `${server.name}: ${label} Warnung`,
+          body: `${label} liegt im Warnbereich.`,
+          url: `/servers/${server.id}`,
+        },
+        warnSince,
+        server.pollIntervalSec
+      );
+    } else if (recovery) {
+      void notifyServerRecovery(
+        server.id,
+        recovery.event,
+        {
+          title: `${server.name}: ${label} wieder normal`,
+          body: `${label} ist wieder im Normalbereich.`,
+          url: `/servers/${server.id}`,
+        },
+        recovery.since
+      );
     }
   }
 }
@@ -236,8 +354,7 @@ export async function collectDockerContainers(server: ServerModel) {
   try {
     const { stdout } = await execPooled(server, DOCKER_COMMAND);
     const containers = parseDockerOutput(stdout);
-
-    const previousStates = await lastKnownContainerStates(server.id);
+    const now = new Date();
 
     if (containers.length > 0) {
       await prisma.dockerContainerSnapshot.createMany({
@@ -257,16 +374,90 @@ export async function collectDockerContainers(server: ServerModel) {
 
     publish({ type: "docker", serverId: server.id, containers });
 
+    const previousStates = await prisma.dockerContainerState.findMany({
+      where: { serverId: server.id },
+    });
+    const prevByContainer = new Map(previousStates.map((s) => [s.containerId, s]));
+    const seenContainerIds = new Set(containers.map((c) => c.containerId));
+
     for (const c of containers) {
-      const wasRunning = previousStates.get(c.containerId);
       const isRunning = c.state.toLowerCase() === "running";
-      if (wasRunning === true && !isRunning) {
-        void notifyServerEvent(server.id, "dockerStoppedEnabled", {
-          title: `${server.name}: Container gestoppt`,
-          body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
-          url: `/servers/${server.id}`,
+      const prev = prevByContainer.get(c.containerId);
+
+      if (!prev) {
+        await prisma.dockerContainerState.create({
+          data: {
+            serverId: server.id,
+            containerId: c.containerId,
+            name: c.name,
+            running: isRunning,
+            stoppedSince: isRunning ? null : now,
+          },
+        });
+        continue;
+      }
+
+      if (prev.running && !isRunning) {
+        const stoppedSince = now;
+        await prisma.dockerContainerState.update({
+          where: { id: prev.id },
+          data: { running: false, name: c.name, stoppedSince },
+        });
+        void notifyServerEvent(
+          server.id,
+          "dockerStoppedEnabled",
+          {
+            title: `${server.name}: Container gestoppt`,
+            body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
+            url: `/servers/${server.id}`,
+          },
+          stoppedSince,
+          server.pollIntervalSec
+        );
+      } else if (!prev.running && !isRunning) {
+        await prisma.dockerContainerState.update({
+          where: { id: prev.id },
+          data: { name: c.name },
+        });
+        void notifyServerEvent(
+          server.id,
+          "dockerStoppedEnabled",
+          {
+            title: `${server.name}: Container gestoppt`,
+            body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
+            url: `/servers/${server.id}`,
+          },
+          prev.stoppedSince,
+          server.pollIntervalSec
+        );
+      } else if (!prev.running && isRunning) {
+        await prisma.dockerContainerState.update({
+          where: { id: prev.id },
+          data: { running: true, name: c.name, stoppedSince: null },
+        });
+        void notifyServerRecovery(
+          server.id,
+          "dockerStoppedEnabled",
+          {
+            title: `${server.name}: Container wieder gestartet`,
+            body: `Container "${c.name}" läuft wieder.`,
+            url: `/servers/${server.id}`,
+          },
+          prev.stoppedSince
+        );
+      } else if (prev.name !== c.name) {
+        await prisma.dockerContainerState.update({
+          where: { id: prev.id },
+          data: { name: c.name },
         });
       }
+    }
+
+    const staleIds = previousStates
+      .filter((s) => !seenContainerIds.has(s.containerId))
+      .map((s) => s.id);
+    if (staleIds.length > 0) {
+      await prisma.dockerContainerState.deleteMany({ where: { id: { in: staleIds } } });
     }
 
     // Nur die letzte Momentaufnahme pro Server behalten, um die DB schlank zu halten.
@@ -277,23 +468,6 @@ export async function collectDockerContainers(server: ServerModel) {
   } catch {
     // Server hat evtl. kein Docker installiert – kein harter Fehler.
   }
-}
-
-// Liest den Zustand (läuft/läuft nicht) jedes Containers aus der jeweils
-// letzten Momentaufnahme vor diesem Poll, um Stopp-Übergänge zu erkennen.
-async function lastKnownContainerStates(serverId: string): Promise<Map<string, boolean>> {
-  const latest = await prisma.dockerContainerSnapshot.findFirst({
-    where: { serverId },
-    orderBy: { timestamp: "desc" },
-    select: { timestamp: true },
-  });
-  if (!latest) return new Map();
-
-  const rows = await prisma.dockerContainerSnapshot.findMany({
-    where: { serverId, timestamp: latest.timestamp },
-    select: { containerId: true, state: true },
-  });
-  return new Map(rows.map((r) => [r.containerId, r.state.toLowerCase() === "running"]));
 }
 
 export async function collectDockerImages(server: ServerModel) {
@@ -418,30 +592,129 @@ export async function collectProxmoxVms(server: ServerModel) {
   }
 }
 
-// Benachrichtigt bei einem Statuswechsel nach CRITICAL alle Abonnenten eines
-// freistehenden (serverId=null) Checks. Serverbezogene Checks lösen bewusst
-// keine eigene Push-Benachrichtigung aus - dafür gibt es die Server-Events.
-async function notifyServiceCheckDown(check: ServiceCheck, previousStatus: string) {
-  if (check.serverId || previousStatus === "CRITICAL") return;
+function computeCheckStatus(
+  check: ServiceCheck,
+  success: boolean,
+  latencyMs: number | null
+): StatusValue {
+  if (!success) return "CRITICAL";
+  if (check.latencyWarnMs != null && latencyMs != null && latencyMs > check.latencyWarnMs) {
+    return "WARNING";
+  }
+  return "OK";
+}
+
+interface CheckSinceUpdate {
+  downSince: Date | null;
+  slowSince: Date | null;
+  recovery: { which: "down" | "slow"; since: Date | null } | null;
+}
+
+function computeCheckSinceUpdate(check: ServiceCheck, newStatus: StatusValue, now: Date): CheckSinceUpdate {
+  if (newStatus === "CRITICAL") {
+    return { downSince: check.downSince ?? now, slowSince: null, recovery: null };
+  }
+  if (newStatus === "WARNING") {
+    return { downSince: null, slowSince: check.slowSince ?? now, recovery: null };
+  }
+  if (check.downSince) {
+    return { downSince: null, slowSince: null, recovery: { which: "down", since: check.downSince } };
+  }
+  if (check.slowSince) {
+    return { downSince: null, slowSince: null, recovery: { which: "slow", since: check.slowSince } };
+  }
+  return { downSince: null, slowSince: null, recovery: null };
+}
+
+// Benachrichtigt die (opt-in) Abonnenten eines Checks - egal ob frei stehend
+// oder servergebunden. Verzögerung und Recovery sind je Abonnent eigen
+// konfigurierbar (ServiceCheckSubscriber.down*/slow*), siehe alert-delay.ts.
+async function notifyServiceCheckAlerts(check: ServiceCheck, since: CheckSinceUpdate) {
+  if (!since.downSince && !since.slowSince && !since.recovery) return;
   const subscribers = await prisma.serviceCheckSubscriber.findMany({
     where: { serviceCheckId: check.id },
-    select: { userId: true },
   });
+  if (subscribers.length === 0) return;
+
+  const url = "/upchecker";
+
   await Promise.all(
-    subscribers.map((s) =>
-      sendPushToUser(s.userId, {
-        title: `${check.name} nicht erreichbar`,
-        body: check.lastError || `${check.url} antwortet nicht wie erwartet`,
-      })
-    )
+    subscribers.map((s) => {
+      if (since.downSince) {
+        if (!s.downEnabled) return Promise.resolve();
+        if (!shouldFireDelayedAlert(since.downSince, s.downDelayMin, check.intervalSec)) return Promise.resolve();
+        return sendPushToUser(s.userId, {
+          title: `${check.name} nicht erreichbar`,
+          body: check.lastError || `${check.url} antwortet nicht wie erwartet`,
+          url,
+        });
+      }
+      if (since.slowSince) {
+        if (!s.slowEnabled) return Promise.resolve();
+        if (!shouldFireDelayedAlert(since.slowSince, s.slowDelayMin, check.intervalSec)) return Promise.resolve();
+        return sendPushToUser(s.userId, {
+          title: `${check.name}: langsame Antwort`,
+          body: `Antwortzeit liegt über dem konfigurierten Schwellwert (${check.latencyWarnMs}ms).`,
+          url,
+        });
+      }
+      if (since.recovery) {
+        const { which, since: recSince } = since.recovery;
+        if (which === "down") {
+          if (!s.downRecoveryEnabled || !shouldFireRecovery(recSince, s.downDelayMin)) return Promise.resolve();
+          return sendPushToUser(s.userId, {
+            title: `${check.name}: wieder erreichbar`,
+            body: `${check.url} antwortet wieder wie erwartet.`,
+            url,
+          });
+        }
+        if (!s.slowRecoveryEnabled || !shouldFireRecovery(recSince, s.slowDelayMin)) return Promise.resolve();
+        return sendPushToUser(s.userId, {
+          title: `${check.name}: wieder schnell`,
+          body: `Antwortzeit ist wieder im normalen Bereich.`,
+          url,
+        });
+      }
+      return Promise.resolve();
+    })
   );
 }
 
 export async function runServiceCheck(check: ServiceCheck) {
+  const now = new Date();
+
+  if (check.checkType === "PING") {
+    const result = await runPingCheck(check.url, check.timeoutMs);
+    await prisma.serviceCheckResult.create({
+      data: {
+        serviceCheckId: check.id,
+        success: result.success,
+        statusCode: null,
+        latencyMs: result.latencyMs,
+      },
+    });
+
+    const status = computeCheckStatus(check, result.success, result.latencyMs);
+    const since = computeCheckSinceUpdate(check, status, now);
+    const updated = await prisma.serviceCheck.update({
+      where: { id: check.id },
+      data: {
+        lastStatus: status,
+        lastLatencyMs: result.latencyMs,
+        lastCheckedAt: now,
+        lastError: result.success ? null : result.error || "Host nicht erreichbar",
+        downSince: since.downSince,
+        slowSince: since.slowSince,
+      },
+    });
+
+    publish({ type: "service-check", serviceCheckId: check.id, serverId: check.serverId, status });
+    void notifyServiceCheckAlerts(updated, since);
+    return;
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), check.timeoutMs);
-  const start = Date.now();
-  const previousStatus = check.lastStatus;
 
   try {
     const res = await fetch(check.url, {
@@ -449,7 +722,7 @@ export async function runServiceCheck(check: ServiceCheck) {
       signal: controller.signal,
       redirect: "follow",
     });
-    const latencyMs = Date.now() - start;
+    const latencyMs = Date.now() - now.getTime();
     const success = res.status === check.expectedStatus;
 
     await prisma.serviceCheckResult.create({
@@ -461,14 +734,17 @@ export async function runServiceCheck(check: ServiceCheck) {
       },
     });
 
-    const status = success ? "OK" : "CRITICAL";
+    const status = computeCheckStatus(check, success, latencyMs);
+    const since = computeCheckSinceUpdate(check, status, now);
     const updated = await prisma.serviceCheck.update({
       where: { id: check.id },
       data: {
         lastStatus: status,
         lastLatencyMs: latencyMs,
-        lastCheckedAt: new Date(),
+        lastCheckedAt: now,
         lastError: success ? null : `Unerwarteter Status-Code: ${res.status}`,
+        downSince: since.downSince,
+        slowSince: since.slowSince,
       },
     });
 
@@ -478,18 +754,21 @@ export async function runServiceCheck(check: ServiceCheck) {
       serverId: check.serverId,
       status,
     });
-    if (!success) void notifyServiceCheckDown(updated, previousStatus);
+    void notifyServiceCheckAlerts(updated, since);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
     await prisma.serviceCheckResult.create({
       data: { serviceCheckId: check.id, success: false, latencyMs: null },
     });
+    const since = computeCheckSinceUpdate(check, "CRITICAL", now);
     const updated = await prisma.serviceCheck.update({
       where: { id: check.id },
       data: {
         lastStatus: "CRITICAL",
-        lastCheckedAt: new Date(),
+        lastCheckedAt: now,
         lastError: message,
+        downSince: since.downSince,
+        slowSince: since.slowSince,
       },
     });
     publish({
@@ -498,7 +777,7 @@ export async function runServiceCheck(check: ServiceCheck) {
       serverId: check.serverId,
       status: "CRITICAL",
     });
-    void notifyServiceCheckDown(updated, previousStatus);
+    void notifyServiceCheckAlerts(updated, since);
   } finally {
     clearTimeout(timer);
   }
