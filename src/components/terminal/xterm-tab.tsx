@@ -137,11 +137,25 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
         if (cancelled || !wsRef.current) break;
 
         const marker = `__SNIPPET_DONE_${Math.random().toString(36).slice(2)}__`;
+        // Der Marker taucht zweimal im Output auf: einmal als PTY-Echo der
+        // gesendeten Zeile selbst (praktisch sofort), einmal als tatsächliche
+        // Ausgabe von "echo <marker>" nach Befehlsende. Erst das zweite
+        // Auftauchen zählt als "fertig" - sonst würde bei einem Befehl, der
+        // auf eine Nutzereingabe wartet (z.B. ein Bestätigungs-Prompt), schon
+        // beim Echo weitergesprungen und die nächste Zeile blind in den noch
+        // offenen Prompt getippt.
         const done = new Promise<void>((resolve) => {
           let buffer = "";
+          let occurrences = 0;
+          let searchFrom = 0;
           const listener = (chunk: string) => {
             buffer += chunk;
-            if (buffer.includes(marker)) {
+            let idx: number;
+            while ((idx = buffer.indexOf(marker, searchFrom)) !== -1) {
+              occurrences++;
+              searchFrom = idx + marker.length;
+            }
+            if (occurrences >= 2) {
               outputListeners.current.delete(listener);
               resolve();
             }
