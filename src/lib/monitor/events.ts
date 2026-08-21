@@ -17,7 +17,17 @@ export type MonitorEvent =
   | { type: "docker"; serverId: string; containers: unknown[] }
   | { type: "docker-images"; serverId: string; images: unknown[] }
   | { type: "proxmox"; serverId: string; vms: unknown[] }
-  | { type: "router-device"; routerDeviceId: string; status: string };
+  | { type: "router-device"; routerDeviceId: string; status: string }
+  | {
+      type: "explore-scan";
+      status: "idle" | "running" | "error";
+      startedAt: string | null;
+      progress: { phase: "hosts" | "ports"; current: number; total: number } | null;
+      error: string | null;
+      lastCompletedAt: string | null;
+    }
+  | { type: "explore-hosts" }
+  | { type: "explore-ranges" };
 
 export function publish(event: MonitorEvent) {
   monitorEvents.emit("event", event);

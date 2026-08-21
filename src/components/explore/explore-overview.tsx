@@ -36,11 +36,10 @@ import {
 } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
+import { useLiveEvents, type LiveEvent } from "@/hooks/use-live-events";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
 import { SshConnectDialog } from "@/components/explore/ssh-connect-dialog";
-
-const STATUS_POLL_MS = 3_000;
 
 interface OpenPort {
   port: number;
@@ -183,51 +182,52 @@ export function ExploreOverview() {
     if (res.ok) setRanges((await res.json()).ranges);
   }, []);
 
+  // Initialer Ladezustand - danach übernehmen die Live-Events unten alle
+  // weiteren Aktualisierungen (auch von Scans, die eine andere Session oder
+  // der automatische Hintergrund-Scan ausgelöst hat).
   useEffect(() => {
     let active = true;
     Promise.all([
       fetch("/api/explore/hosts").then((res) => (res.ok ? res.json() : { hosts: [] })),
       fetch("/api/explore/settings").then((res) => (res.ok ? res.json() : { settings: null })),
       fetch("/api/explore/ranges").then((res) => (res.ok ? res.json() : { ranges: [] })),
-    ]).then(([hostsData, settingsData, rangesData]) => {
+      fetch("/api/explore/scan/status").then((res) => (res.ok ? res.json() : null)),
+    ]).then(([hostsData, settingsData, rangesData, statusData]) => {
       if (!active) return;
       setHosts(hostsData.hosts);
       if (settingsData.settings) setSettings(settingsData.settings);
       setRanges(rangesData.ranges);
+      if (statusData) setScanStatus(statusData);
     });
     return () => {
       active = false;
     };
   }, []);
 
-  // Scan-Fortschritt pollen, solange ein Scan läuft (auch wenn er von einer
-  // anderen Session/Ansicht gestartet wurde oder nach Reload noch läuft).
-  useEffect(() => {
-    let stopped = false;
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    async function pollOnce() {
-      const res = await fetch("/api/explore/scan/status");
-      if (stopped || !res.ok) return;
-      const data: ScanStatusDTO = await res.json();
-      setScanStatus(data);
-      if (data.status !== "running" && interval) {
-        clearInterval(interval);
-        interval = null;
+  // Live-Updates über den bestehenden WebSocket-Event-Bus (/api/ws), statt
+  // die Liste zu pollen: Scan-Fortschritt kommt bei jedem Statuswechsel,
+  // die Hostliste/Range-Liste aktualisiert sich, sobald sich am Server etwas
+  // geändert hat (eigener Scan, Scan aus einer anderen Session, automatischer
+  // Hintergrund-Scan, VPN-Interface kommt/geht).
+  const handleLiveEvent = useCallback(
+    (event: LiveEvent) => {
+      if (event.type === "explore-scan") {
+        setScanStatus({
+          status: event.status,
+          startedAt: event.startedAt,
+          progress: event.progress,
+          error: event.error,
+          lastCompletedAt: event.lastCompletedAt,
+        });
+      } else if (event.type === "explore-hosts") {
         loadHosts();
+      } else if (event.type === "explore-ranges") {
+        loadRanges();
       }
-    }
-
-    pollOnce().then(() => {
-      if (stopped) return;
-      interval = setInterval(pollOnce, STATUS_POLL_MS);
-    });
-
-    return () => {
-      stopped = true;
-      if (interval) clearInterval(interval);
-    };
-  }, [loadHosts]);
+    },
+    [loadHosts, loadRanges]
+  );
+  useLiveEvents(handleLiveEvent);
 
   async function startScan() {
     const res = await fetch("/api/explore/scan", { method: "POST" });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { detectLocalRanges, ipInCidr } from "./range";
 import { detectGatewayForInterface, readSystemDnsServers } from "./gateway";
 import { DEFAULT_SCAN_PORTS, resolveNetbiosName, runHostDiscovery, runPortScan } from "./nmap";
+import { publish } from "@/lib/monitor/events";
 import type { ExploreRange } from "@/generated/prisma/client";
 
 export type ScanStatus = "idle" | "running" | "error";
@@ -32,6 +33,12 @@ export function getScanStatus(): ScanState {
   return { ...state };
 }
 
+// Sendet den aktuellen Scan-Status über den Live-Event-Bus (WebSocket
+// /api/ws), damit die Explore-Seite ihn ohne Polling live anzeigen kann.
+function publishScanStatus() {
+  publish({ type: "explore-scan", ...state });
+}
+
 export async function getOrCreateExploreSettings() {
   const existing = await prisma.exploreSettings.findFirst();
   if (existing) return existing;
@@ -51,11 +58,13 @@ export async function reconcileRanges(): Promise<void> {
   });
 
   const detectedByInterface = new Map(detected.map((d) => [d.interfaceName, d]));
+  let changed = false;
 
   for (const range of existing) {
     const stillPresent = range.interfaceName && detectedByInterface.get(range.interfaceName);
     if (!stillPresent) {
       await prisma.exploreRange.delete({ where: { id: range.id } });
+      changed = true;
       continue;
     }
     if (stillPresent.cidr !== range.cidr || stillPresent.source !== range.source) {
@@ -63,6 +72,7 @@ export async function reconcileRanges(): Promise<void> {
         where: { id: range.id },
         data: { cidr: stillPresent.cidr, source: stillPresent.source },
       });
+      changed = true;
     }
     detectedByInterface.delete(range.interfaceName as string);
   }
@@ -71,7 +81,10 @@ export async function reconcileRanges(): Promise<void> {
     await prisma.exploreRange.create({
       data: { cidr: d.cidr, source: d.source, interfaceName: d.interfaceName, enabled: true },
     });
+    changed = true;
   }
+
+  if (changed) publish({ type: "explore-ranges" });
 }
 
 async function resolveEnabledRanges(): Promise<ExploreRange[]> {
@@ -138,6 +151,7 @@ export async function runDiscoveryScan(): Promise<void> {
   state.startedAt = new Date().toISOString();
   state.error = null;
   state.progress = { phase: "hosts", current: 0, total: 0 };
+  publishScanStatus();
 
   try {
     const [ranges, settings] = await Promise.all([
@@ -152,6 +166,7 @@ export async function runDiscoveryScan(): Promise<void> {
     );
 
     state.progress = { phase: "ports", current: 0, total: hosts.length };
+    publishScanStatus();
 
     const touchedIds: string[] = [];
     let completed = 0;
@@ -204,6 +219,10 @@ export async function runDiscoveryScan(): Promise<void> {
       touchedIds.push(id);
       completed += 1;
       state.progress = { phase: "ports", current: completed, total: hosts.length };
+      publishScanStatus();
+      // Jeder fertig gescannte Host lässt die Liste live wachsen, statt erst
+      // am Ende des gesamten Scans sichtbar zu werden.
+      publish({ type: "explore-hosts" });
     });
 
     if (touchedIds.length > 0) {
@@ -211,6 +230,7 @@ export async function runDiscoveryScan(): Promise<void> {
         where: { id: { notIn: touchedIds } },
         data: { lastSeenOnline: false },
       });
+      publish({ type: "explore-hosts" });
     }
 
     state.lastCompletedAt = new Date().toISOString();
@@ -220,5 +240,6 @@ export async function runDiscoveryScan(): Promise<void> {
     return;
   } finally {
     if (state.status !== "error") state.status = "idle";
+    publishScanStatus();
   }
 }
