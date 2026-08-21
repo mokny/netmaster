@@ -109,7 +109,9 @@ async function sendPushToSubscription(
     );
     return {
       ok: false,
-      error: statusCode ? `Push-Versand fehlgeschlagen (HTTP ${statusCode}): ${message}` : message,
+      error: statusCode
+        ? `Push-Versand fehlgeschlagen (HTTP ${statusCode}): ${message}${body ? ` — ${body}` : ""}`
+        : message,
     };
   }
 }
