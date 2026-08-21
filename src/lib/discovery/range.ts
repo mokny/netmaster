@@ -13,8 +13,30 @@ export interface DetectedRange {
 // normales LAN-Interface.
 const VPN_PREFIXES = ["wg", "tun", "tap", "ppp"];
 
+// Virtuelle Bridge-/Container-Interfaces, die kein reales Netzwerk sind und
+// daher nie als Scan-Range erkannt werden sollen - z.B. Dockers docker0
+// (172.17.0.0/16, ein /16!), Compose-Bridges (br-*), veth-Paare einzelner
+// Container, CNI/Podman/Calico/libvirt-Bridges. Da netmaster im Docker-Host-
+// Networking läuft, sieht os.networkInterfaces() diese Interfaces des Hosts
+// mit - ohne Ausschluss würde z.B. docker0 als 65536 Adressen großes "LAN"
+// gescannt und den Sweep in einen Timeout laufen lassen.
+const VIRTUAL_INTERFACE_PREFIXES = [
+  "docker",
+  "br-",
+  "veth",
+  "cni",
+  "flannel",
+  "cali",
+  "virbr",
+  "podman",
+];
+
 function isVpnInterfaceName(name: string): boolean {
   return VPN_PREFIXES.some((prefix) => name.toLowerCase().startsWith(prefix));
+}
+
+function isVirtualInterfaceName(name: string): boolean {
+  return VIRTUAL_INTERFACE_PREFIXES.some((prefix) => name.toLowerCase().startsWith(prefix));
 }
 
 function ipToInt(ip: string): number {
@@ -73,11 +95,19 @@ export function detectLocalRanges(): DetectedRange[] {
   const results: DetectedRange[] = [];
 
   for (const name of Object.keys(interfaces)) {
+    if (isVirtualInterfaceName(name)) continue;
     const entries = interfaces[name] ?? [];
     for (const entry of entries) {
       if (entry.internal || entry.family !== "IPv4") continue;
+      const cidr = rangeFromInterface(entry.address, entry.netmask);
+      // Sicherheitsnetz: größer als /16 wird nie automatisch übernommen,
+      // egal welches Interface es meldet - ein Sweep über mehr als 65536
+      // Adressen ist nie beabsichtigt und würde den Scan in einen Timeout
+      // laufen lassen.
+      const prefixLength = Number(cidr.split("/")[1]);
+      if (prefixLength < 16) continue;
       results.push({
-        cidr: rangeFromInterface(entry.address, entry.netmask),
+        cidr,
         source: isVpnInterfaceName(name) ? "VPN_AUTO" : "LAN_AUTO",
         interfaceName: name,
       });
