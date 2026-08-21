@@ -73,6 +73,20 @@ function rangeFromInterface(address: string, netmask: string): string {
   return `${intToIp(network)}/${effectivePrefix}`;
 }
 
+// Erste Host-Adresse einer CIDR-Range (Netzwerkadresse + 1) - bei
+// Heimroutern (Fritzbox, aber auch die meisten anderen) so gut wie immer
+// die Adresse des Routers selbst. Dient als Fallback-DNS-Server, wenn sich
+// das tatsächliche Gateway eines Interfaces nicht per Routing-Tabelle
+// ermitteln lässt (siehe gateway.ts).
+export function firstHostOfCidr(cidr: string): string | null {
+  const [address, prefixStr] = cidr.split("/");
+  const prefixLength = Number(prefixStr);
+  if (!address || Number.isNaN(prefixLength) || prefixLength >= 31) return null;
+  const mask = prefixLength === 0 ? 0 : (0xffffffff << (32 - prefixLength)) >>> 0;
+  const network = ipToInt(address) & mask;
+  return intToIp((network + 1) >>> 0);
+}
+
 // Prüft, ob eine IPv4-Adresse innerhalb einer CIDR-Range liegt (für die
 // Zuordnung eines gefundenen Hosts zur Range, aus der er stammt).
 export function ipInCidr(ip: string, cidr: string): boolean {

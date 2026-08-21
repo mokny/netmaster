@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { detectLocalRanges, ipInCidr } from "./range";
+import { detectLocalRanges, firstHostOfCidr, ipInCidr } from "./range";
 import { detectGatewayForInterface, readSystemDnsServers } from "./gateway";
 import { DEFAULT_SCAN_PORTS, resolveNetbiosName, runHostDiscovery, runPortScan } from "./nmap";
 import { publish } from "@/lib/monitor/events";
@@ -118,14 +118,23 @@ function findRangeForIp(ip: string, ranges: ExploreRange[]): ExploreRange | unde
 // LAN-Ranges (die als Router meist die DHCP-Hostnamen kennen) plus die
 // ohnehin konfigurierten System-Nameserver. Wird an nmap --dns-servers
 // übergeben, damit lokale Hostnamen auch dann aufgelöst werden, wenn der
-// System-Resolver primär einen anderen Server (z.B. Pi-hole/AdGuard)
-// anspricht, der keine lokalen PTR-Einträge kennt.
+// System-Resolver primär einen anderen Server (z.B. Pi-hole/AdGuard, oder -
+// während eine VPN-Verbindung aktiv ist - der von dieser gepushte DNS-
+// Server) anspricht, der keine lokalen PTR-Einträge dieser Range kennt.
+// Lässt sich das tatsächliche Gateway eines LAN-Interfaces nicht per
+// Routing-Tabelle ermitteln (z.B. weil eine VPN-Route die Default-Route
+// überschrieben hat), wird ersatzweise die erste Host-Adresse der Range
+// angenommen - bei so gut wie jedem Heimrouter (Fritzbox u.a.) dessen
+// eigene Adresse.
 async function resolveDnsServers(ranges: ExploreRange[]): Promise<string[]> {
-  const lanInterfaces = ranges
-    .filter((r) => r.source === "LAN_AUTO" && r.interfaceName)
-    .map((r) => r.interfaceName as string);
+  const lanRanges = ranges.filter((r) => r.source === "LAN_AUTO" && r.interfaceName);
 
-  const gateways = await Promise.all(lanInterfaces.map(detectGatewayForInterface));
+  const gateways = await Promise.all(
+    lanRanges.map(async (r) => {
+      const detected = await detectGatewayForInterface(r.interfaceName as string);
+      return detected ?? firstHostOfCidr(r.cidr);
+    })
+  );
   const servers = [...readSystemDnsServers(), ...gateways.filter((g): g is string => g !== null)];
   return Array.from(new Set(servers));
 }
