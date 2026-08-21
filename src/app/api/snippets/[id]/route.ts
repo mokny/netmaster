@@ -11,14 +11,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const data: Record<string, unknown> = {};
     if (typeof body.name === "string") {
       const name = body.name.trim();
-      if (!name) throw new ApiError(400, "Name darf nicht leer sein");
+      if (!name) throw new ApiError(400, "NAME_EMPTY");
       data.name = name;
     }
     if (Array.isArray(body.commands)) {
       const commands: string[] = body.commands
         .map((c: unknown) => String(c).trim())
         .filter(Boolean);
-      if (commands.length === 0) throw new ApiError(400, "Mindestens ein Befehl ist erforderlich");
+      if (commands.length === 0) throw new ApiError(400, "AT_LEAST_ONE_COMMAND_REQUIRED");
       data.commandsJson = JSON.stringify(commands);
     }
     if (body.serverId !== undefined) {

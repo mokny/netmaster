@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,8 @@ export function UserFormDialog({
   trigger?: React.ReactElement;
 }) {
   const isEdit = Boolean(user);
+  const t = useTranslations("admin.userForm");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -53,10 +56,10 @@ export function UserFormDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
         return;
       }
-      toast.success(isEdit ? "Nutzer aktualisiert" : "Nutzer angelegt");
+      toast.success(isEdit ? t("updated") : t("created"));
       setOpen(false);
       onSaved();
     } finally {
@@ -71,18 +74,18 @@ export function UserFormDialog({
           trigger ?? (
             <Button size="sm">
               <Plus className="size-4" />
-              Nutzer anlegen
+              {t("createUser")}
             </Button>
           )
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Nutzer bearbeiten" : "Nutzer anlegen"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("editTitle") : t("createTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{t("name")}</Label>
             <Input
               required
               value={form.name}
@@ -90,7 +93,7 @@ export function UserFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>E-Mail</Label>
+            <Label>{t("email")}</Label>
             <Input
               required
               type="email"
@@ -101,10 +104,10 @@ export function UserFormDialog({
           </div>
           <div className="space-y-2">
             <Label>
-              Passwort
+              {t("password")}
               {isEdit && (
                 <span className="ml-1 font-normal text-muted-foreground">
-                  (leer lassen, um beizubehalten)
+                  {t("passwordKeepHint")}
                 </span>
               )}
             </Label>
@@ -117,7 +120,7 @@ export function UserFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Rolle</Label>
+            <Label>{t("role")}</Label>
             <Select
               value={form.role}
               onValueChange={(v) => setForm((f) => ({ ...f, role: v as UserDTO["role"] }))}
@@ -135,7 +138,7 @@ export function UserFormDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Speichern
+              {t("save")}
             </Button>
           </DialogFooter>
         </form>

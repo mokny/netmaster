@@ -11,10 +11,7 @@ export async function POST() {
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
     if (await prisma.webAuthnCredential.count({ where: { userId: session.userId } })) {
-      throw new ApiError(
-        400,
-        "TOTP kann nicht eingerichtet werden, solange ein Passkey hinterlegt ist."
-      );
+      throw new ApiError(400, "TOTP_BLOCKED_BY_PASSKEY");
     }
 
     const secret = generateTotpSecret();

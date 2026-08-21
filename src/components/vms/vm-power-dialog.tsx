@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,28 +24,16 @@ interface Props {
   onDone?: () => void;
 }
 
-const LABELS: Record<Props["action"], { title: string; verb: string; description: string }> = {
-  start: {
-    title: "VM starten?",
-    verb: "Starten",
-    description: "wird gestartet.",
-  },
-  stop: {
-    title: "VM stoppen?",
-    verb: "Stoppen",
-    description: "wird sofort gestoppt (kein sauberes Herunterfahren).",
-  },
-  reboot: {
-    title: "VM neu starten?",
-    verb: "Neu starten",
-    description: "wird neu gestartet.",
-  },
-};
-
 export function VmPowerDialog({ serverId, vmid, vmName, action, trigger, onDone }: Props) {
+  const t = useTranslations("vms.powerDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const labels = LABELS[action];
+  const labels = {
+    start: { title: t("startTitle"), verb: t("startVerb"), description: t("startDescription") },
+    stop: { title: t("stopTitle"), verb: t("stopVerb"), description: t("stopDescription") },
+    reboot: { title: t("rebootTitle"), verb: t("rebootVerb"), description: t("rebootDescription") },
+  }[action];
 
   async function run() {
     setLoading(true);
@@ -56,14 +45,14 @@ export function VmPowerDialog({ serverId, vmid, vmName, action, trigger, onDone 
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? `${labels.verb} fehlgeschlagen`);
+        toast.error(data.error ? tErrors(data.error) : t("actionFailed", { verb: labels.verb }));
         return;
       }
-      toast.success(`${labels.verb}-Befehl gesendet`);
+      toast.success(t("commandSent", { verb: labels.verb }));
       setOpen(false);
       onDone?.();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -76,7 +65,7 @@ export function VmPowerDialog({ serverId, vmid, vmName, action, trigger, onDone 
         <DialogHeader>
           <DialogTitle>{labels.title}</DialogTitle>
           <DialogDescription>
-            „{vmName}“ {labels.description}
+            &ldquo;{vmName}&rdquo; {labels.description}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

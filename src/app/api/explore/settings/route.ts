@@ -31,10 +31,10 @@ export async function PATCH(req: Request) {
         : current.portScanConcurrency;
 
     if (!Number.isFinite(autoScanIntervalHr) || autoScanIntervalHr < 1) {
-      throw new ApiError(400, "Scan-Intervall muss mindestens 1 Stunde betragen");
+      throw new ApiError(400, "SCAN_INTERVAL_TOO_SHORT");
     }
     if (!Number.isFinite(portScanConcurrency) || portScanConcurrency < 1 || portScanConcurrency > 50) {
-      throw new ApiError(400, "Port-Scan-Konkurrenz muss zwischen 1 und 50 liegen");
+      throw new ApiError(400, "INVALID_PORT_SCAN_CONCURRENCY");
     }
 
     const settings = await prisma.exploreSettings.update({

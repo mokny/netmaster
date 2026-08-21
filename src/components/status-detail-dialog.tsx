@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -41,13 +42,15 @@ export function StatusDetailDialog({
   onRecheck: () => Promise<void>;
 }) {
   const [rechecking, setRechecking] = useState(false);
+  const locale = useLocale();
+  const t = useTranslations("status");
 
   async function handleRecheck() {
     setRechecking(true);
     try {
       await onRecheck();
     } catch {
-      toast.error("Prüfung fehlgeschlagen");
+      toast.error(t("checkFailed"));
     } finally {
       setRechecking(false);
     }
@@ -84,14 +87,14 @@ export function StatusDetailDialog({
           )}
           {checkedAt && (
             <p className="text-xs text-muted-foreground">
-              Zuletzt geprüft: {new Date(checkedAt).toLocaleString("de-DE")}
+              {t("lastChecked", { time: new Date(checkedAt).toLocaleString(locale) })}
             </p>
           )}
         </div>
         <DialogFooter>
           <Button onClick={handleRecheck} disabled={rechecking}>
             <RotateCw className={cn("size-4", rechecking && "animate-spin")} />
-            Jetzt prüfen
+            {t("checkNow")}
           </Button>
         </DialogFooter>
       </DialogContent>

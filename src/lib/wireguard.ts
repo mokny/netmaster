@@ -7,7 +7,7 @@ const NET_IFACE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9.@_-]{0,31}$/;
 
 export function validateIfaceName(name: string) {
   if (!IFACE_NAME_PATTERN.test(name)) {
-    throw new Error("Ungültiger Interface-Name (max. 15 Zeichen, keine Sonderzeichen)");
+    throw new Error("Invalid interface name (max. 15 characters, no special characters)");
   }
 }
 
@@ -274,7 +274,7 @@ export function buildControlCommand(
 ): { command: string; stdin?: string } {
   validateIfaceName(name);
   if (!WG_ACTIONS.includes(action)) {
-    throw new Error("Ungültige Aktion");
+    throw new Error("Invalid action");
   }
   return buildRootCommand(server, `systemctl ${action} wg-quick@${shellQuote(name)}`);
 }
@@ -378,7 +378,7 @@ export async function generateKeypair(
   );
   const lines = res.stdout.trim().split("\n").filter(Boolean);
   if (res.code !== 0 || lines.length < 2) {
-    throw new Error(res.stderr.trim() || "Schlüsselerzeugung fehlgeschlagen");
+    throw new Error(res.stderr.trim() || "Key generation failed");
   }
   return { privateKey: lines[0], publicKey: lines[1] };
 }
@@ -421,7 +421,7 @@ export function buildNatRules(
 ): { postUp: string; postDown: string } {
   validateIfaceName(wgIface);
   if (!NET_IFACE_PATTERN.test(egressIface)) {
-    throw new Error("Ungültiger Netzwerk-Interface-Name");
+    throw new Error("Invalid network interface name");
   }
   const postUp = `sysctl -w net.ipv4.ip_forward=1; iptables -A FORWARD -i ${wgIface} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${egressIface} -j MASQUERADE`;
   const postDown = `iptables -D FORWARD -i ${wgIface} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${egressIface} -j MASQUERADE`;

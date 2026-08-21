@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ export function SnippetsMenu({
   serverName: string;
   size?: "sm" | "icon";
 }) {
+  const t = useTranslations("servers.snippets");
   const { runSnippet } = useTerminalManager();
   const [snippets, setSnippets] = useState<SnippetDTO[] | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -49,9 +51,9 @@ export function SnippetsMenu({
         />
         <DropdownMenuContent align="end">
           {snippets === null ? (
-            <DropdownMenuItem disabled>Lädt…</DropdownMenuItem>
+            <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
           ) : snippets.length === 0 ? (
-            <DropdownMenuItem disabled>Keine Snippets angelegt</DropdownMenuItem>
+            <DropdownMenuItem disabled>{t("noSnippetsYet")}</DropdownMenuItem>
           ) : (
             snippets.map((s) => (
               <DropdownMenuItem
@@ -66,7 +68,7 @@ export function SnippetsMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setManageOpen(true)}>
             <Settings2 className="size-4" />
-            Verwalten
+            {t("manage")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -13,11 +13,11 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
     if (!user.totpSecret) {
-      throw new ApiError(400, "Kein TOTP-Setup ausstehend");
+      throw new ApiError(400, "TOTP_SETUP_NOT_PENDING");
     }
 
     if (!(await verifyTotpSetupCode(user.totpSecret, code))) {
-      throw new ApiError(400, "Ungültiger Code");
+      throw new ApiError(400, "INVALID_CODE");
     }
 
     await prisma.user.update({

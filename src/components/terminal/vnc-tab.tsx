@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TerminalSession } from "@/hooks/use-terminal-manager";
+import { useTranslations } from "next-intl";
 
 function randomTicket(): string {
   const bytes = new Uint8Array(16);
@@ -10,6 +11,7 @@ function randomTicket(): string {
 }
 
 export function VncTab({ session }: { session: TerminalSession }) {
+  const t = useTranslations("terminal.vncTab");
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "error" | "closed">(
     "connecting"
@@ -48,17 +50,17 @@ export function VncTab({ session }: { session: TerminalSession }) {
     <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-black">
       {status === "connecting" && (
         <div className="absolute inset-x-0 top-0 z-10 bg-muted/90 px-3 py-1 text-xs text-muted-foreground">
-          verbinde…
+          {t("connecting")}
         </div>
       )}
       {status === "error" && (
         <div className="absolute inset-x-0 top-0 z-10 bg-red-950/90 px-3 py-1.5 text-xs text-red-200">
-          VNC-Verbindung fehlgeschlagen – ist die VM eingeschaltet und der SSH-User root/sudo-fähig?
+          {t("connectionFailed")}
         </div>
       )}
       {status === "closed" && (
         <div className="absolute inset-x-0 top-0 z-10 bg-muted/90 px-3 py-1 text-xs text-muted-foreground">
-          getrennt
+          {t("disconnected")}
         </div>
       )}
       <div ref={containerRef} className="h-full w-full min-h-0 min-w-0" />

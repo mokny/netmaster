@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import CodeMirror from "@uiw/react-codemirror";
 import { languages } from "@codemirror/language-data";
@@ -37,7 +38,8 @@ export function EditorArea({
   onChange: (id: string, content: string) => void;
   onSave: (id: string) => void;
 }) {
-  const active = tabs.find((t) => t.id === activeId) ?? null;
+  const t = useTranslations("servers.fileManager.editor");
+  const active = tabs.find((tab) => tab.id === activeId) ?? null;
   const { resolvedTheme } = useTheme();
   const [langExt, setLangExt] = useState<LanguageSupport | null>(null);
   const [langExtForId, setLangExtForId] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export function EditorArea({
   if (tabs.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Keine Datei geöffnet. Doppelklick auf eine Textdatei zum Bearbeiten.
+        {t("noFileOpen")}
       </div>
     );
   }
@@ -126,13 +128,13 @@ export function EditorArea({
               ) : (
                 <Save className="size-3.5" />
               )}
-              Speichern
+              {t("save")}
             </Button>
           </div>
           <div className="max-h-[420px] overflow-auto">
             {active.loading ? (
               <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 size-4 animate-spin" /> Lädt…
+                <Loader2 className="mr-2 size-4 animate-spin" /> {t("loading")}
               </div>
             ) : active.error ? (
               <div className="p-4 text-sm text-destructive">{active.error}</div>

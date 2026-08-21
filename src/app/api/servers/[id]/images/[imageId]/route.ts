@@ -23,18 +23,18 @@ export async function DELETE(
       where: { serverId: id, imageId },
       orderBy: { timestamp: "desc" },
     });
-    if (!latest) throw new ApiError(404, "Image nicht gefunden");
+    if (!latest) throw new ApiError(404, "IMAGE_NOT_FOUND");
 
     let command: string;
     try {
       command = buildDockerImageRemoveCommand(imageId, force);
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Image-ID");
+      throw new ApiError(400, "INVALID_IMAGE_ID", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 30_000);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Löschen fehlgeschlagen");
+      throw new ApiError(500, "DELETE_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "docker.image.remove", {

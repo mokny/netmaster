@@ -12,11 +12,11 @@ export async function POST(
     const session = await requireRole("EDITOR");
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
-    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
     const body = await req.json();
     if (body.action !== "start" && body.action !== "stop" && body.action !== "reboot") {
-      throw new ApiError(400, "Ungültige Aktion");
+      throw new ApiError(400, "INVALID_ACTION");
     }
     const action: VmPowerAction = body.action;
 
@@ -25,7 +25,7 @@ export async function POST(
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
     });
-    if (!vm) throw new ApiError(404, "VM nicht gefunden");
+    if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
 
     let command: string;
     let stdin: string | undefined;
@@ -37,12 +37,12 @@ export async function POST(
         action
       ));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Konfiguration");
+      throw new ApiError(400, "INVALID_CONFIG", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 20_000, stdin);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || `${action} fehlgeschlagen`);
+      throw new ApiError(500, "ACTION_FAILED", result.stderr.trim() || action);
     }
 
     await writeAuditLog(session, `vm.${action}`, {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Card,
@@ -41,6 +42,8 @@ interface FirewallState {
 }
 
 export function FirewallCard({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.firewall");
+  const tErrors = useTranslations("errors");
   const session = useSession();
   const confirm = useConfirm();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
@@ -63,13 +66,13 @@ export function FirewallCard({ serverId }: { serverId: string }) {
       const res = await fetch(`/api/servers/${serverId}/firewall`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Fehler beim Abrufen der Firewall-Regeln");
+        setError(data.error ? tErrors(data.error) : t("fetchFailed"));
         return;
       }
       setState(data);
       setError(null);
     } catch {
-      setError("Verbindung fehlgeschlagen");
+      setError(t("connectionFailed"));
     }
   }, [serverId]);
 
@@ -79,7 +82,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
 
   async function afterApply(rollbackTimeoutMs: number, pendingMsg: string) {
     toast.info(pendingMsg, {
-      description: `Automatische Bestätigung läuft (bis ${Math.round(rollbackTimeoutMs / 1000)}s) – bei Verbindungsverlust wird die Änderung automatisch zurückgerollt.`,
+      description: t("autoConfirmDescription", { seconds: Math.round(rollbackTimeoutMs / 1000) }),
     });
     await load();
     setTimeout(() => {
@@ -91,7 +94,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
     e.preventDefault();
     const port = Number(form.port);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      toast.error("Ungültiger Port");
+      toast.error(t("invalidPort"));
       return;
     }
     setApplying(true);
@@ -108,13 +111,13 @@ export function FirewallCard({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Regel konnte nicht angewendet werden");
+        toast.error(data.error ? tErrors(data.error) : t("ruleApplyFailed"));
         return;
       }
       setForm({ action: "allow", protocol: "tcp", port: "", source: "" });
-      await afterApply(data.rollbackTimeoutMs, "Regel wird angewendet…");
+      await afterApply(data.rollbackTimeoutMs, t("ruleApplying"));
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setApplying(false);
     }
@@ -123,9 +126,14 @@ export function FirewallCard({ serverId }: { serverId: string }) {
   async function deleteRule(rule: SimpleFirewallRule) {
     if (
       !(await confirm({
-        title: "Regel löschen",
-        description: `${rule.action === "allow" ? "Allow" : "Deny"} ${rule.protocol}/${rule.port}${rule.source ? ` von ${rule.source}` : ""} wirklich löschen?`,
-        confirmText: "Löschen",
+        title: t("deleteRuleTitle"),
+        description: t("deleteRuleDescription", {
+          action: rule.action === "allow" ? "Allow" : "Deny",
+          protocol: rule.protocol,
+          port: rule.port,
+          source: rule.source ? t("fromSource", { source: rule.source }) : "",
+        }),
+        confirmText: t("delete"),
         variant: "destructive",
       }))
     )
@@ -137,12 +145,12 @@ export function FirewallCard({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Löschen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("deleteFailed"));
         return;
       }
-      await afterApply(data.rollbackTimeoutMs, "Regel wird gelöscht…");
+      await afterApply(data.rollbackTimeoutMs, t("ruleDeleting"));
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setApplying(false);
     }
@@ -152,10 +160,9 @@ export function FirewallCard({ serverId }: { serverId: string }) {
     if (!rawScript.trim()) return;
     if (
       !(await confirm({
-        title: "Rohe Firewall-Befehle ausführen",
-        description:
-          "Diese Befehle werden ungeprüft mit root-Rechten ausgeführt. Bei Verbindungsverlust wird automatisch auf den vorherigen Zustand zurückgerollt.",
-        confirmText: "Ausführen",
+        title: t("rawTitle"),
+        description: t("rawDescription"),
+        confirmText: t("execute"),
         variant: "destructive",
       }))
     )
@@ -169,13 +176,13 @@ export function FirewallCard({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Ausführung fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("executionFailed"));
         return;
       }
       if (data.stderr) toast.warning(data.stderr.slice(0, 300));
-      await afterApply(data.rollbackTimeoutMs, "Skript wird angewendet…");
+      await afterApply(data.rollbackTimeoutMs, t("scriptApplying"));
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setApplying(false);
     }
@@ -185,11 +192,11 @@ export function FirewallCard({ serverId }: { serverId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>Firewall</CardTitle>
+          <CardTitle>{t("cardTitle")}</CardTitle>
           <CardDescription>
             {state?.backend && state.backend !== "none"
-              ? `Backend: ${state.backend}`
-              : "Regelverwaltung mit automatischem Lockout-Schutz"}
+              ? t("backendLabel", { backend: state.backend })
+              : t("cardDescription")}
           </CardDescription>
         </div>
         <ShieldCheck className="size-4 text-muted-foreground" />
@@ -198,13 +205,13 @@ export function FirewallCard({ serverId }: { serverId: string }) {
         {error && <p className="text-sm text-red-500">{error}</p>}
         {state?.backend === "none" && (
           <p className="text-sm text-muted-foreground">
-            Kein unterstütztes Firewall-Backend (nftables/iptables/ufw) auf diesem Server erkannt.
+            {t("noBackendDetected")}
           </p>
         )}
 
         <Tabs defaultValue="simple">
           <TabsList>
-            <TabsTrigger value="simple">Einfach</TabsTrigger>
+            <TabsTrigger value="simple">{t("simple")}</TabsTrigger>
             {isAdmin && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
 
@@ -213,10 +220,10 @@ export function FirewallCard({ serverId }: { serverId: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Aktion</TableHead>
-                    <TableHead>Proto</TableHead>
+                    <TableHead>{t("actionColumn")}</TableHead>
+                    <TableHead>{t("protoColumn")}</TableHead>
                     <TableHead>Port</TableHead>
-                    <TableHead>Quelle</TableHead>
+                    <TableHead>{t("sourceColumn")}</TableHead>
                     {canEdit && <TableHead className="w-8" />}
                   </TableRow>
                 </TableHeader>
@@ -224,7 +231,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                   {(state?.managedRules ?? []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                        Keine von NetMaster verwalteten Regeln.
+                        {t("noManagedRules")}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -237,7 +244,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                         </TableCell>
                         <TableCell className="uppercase text-xs">{rule.protocol}</TableCell>
                         <TableCell className="font-mono text-xs">{rule.port}</TableCell>
-                        <TableCell className="font-mono text-xs">{rule.source ?? "überall"}</TableCell>
+                        <TableCell className="font-mono text-xs">{rule.source ?? t("everywhere")}</TableCell>
                         {canEdit && (
                           <TableCell>
                             <Button
@@ -261,7 +268,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
             {canEdit && (
               <form onSubmit={addRule} className="grid grid-cols-2 gap-3 rounded-md border p-3 sm:grid-cols-5">
                 <div className="space-y-1">
-                  <Label className="text-xs">Aktion</Label>
+                  <Label className="text-xs">{t("actionColumn")}</Label>
                   <Select value={form.action} onValueChange={(v) => setForm((f) => ({ ...f, action: v as "allow" | "deny" }))}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -273,7 +280,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Protokoll</Label>
+                  <Label className="text-xs">{t("protocol")}</Label>
                   <Select value={form.protocol} onValueChange={(v) => setForm((f) => ({ ...f, protocol: v as "tcp" | "udp" }))}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -285,7 +292,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Port</Label>
+                  <Label className="text-xs">{t("port")}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -296,7 +303,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Quelle (optional)</Label>
+                  <Label className="text-xs">{t("sourceOptional")}</Label>
                   <Input
                     placeholder="0.0.0.0/0"
                     value={form.source}
@@ -306,7 +313,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                 <div className="flex items-end">
                   <Button type="submit" disabled={applying} className="w-full">
                     {applying && <Loader2 className="size-4 animate-spin" />}
-                    Anwenden
+                    {t("apply")}
                   </Button>
                 </div>
               </form>
@@ -316,8 +323,7 @@ export function FirewallCard({ serverId }: { serverId: string }) {
           {isAdmin && (
             <TabsContent value="advanced" className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Rohe {state?.backend ?? "nft/iptables/ufw"}-Befehle, mit demselben
-                Auto-Rollback-Schutz wie im einfachen Modus.
+                {t("rawHint", { backend: state?.backend ?? "nft/iptables/ufw" })}
               </p>
               <textarea
                 className="min-h-32 w-full rounded-md border bg-transparent p-2 font-mono text-xs shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -332,12 +338,12 @@ export function FirewallCard({ serverId }: { serverId: string }) {
                 }
               />
               <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Aktuellen Regelsatz anzeigen</summary>
+                <summary className="cursor-pointer">{t("showCurrentRuleset")}</summary>
                 <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted p-2">{state?.raw || "–"}</pre>
               </details>
               <Button onClick={applyRaw} disabled={applying || !rawScript.trim()}>
                 {applying && <Loader2 className="size-4 animate-spin" />}
-                Ausführen
+                {t("execute")}
               </Button>
             </TabsContent>
           )}

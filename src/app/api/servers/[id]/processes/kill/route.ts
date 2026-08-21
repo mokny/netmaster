@@ -16,7 +16,7 @@ export async function POST(
     const pid = Number(body.pid);
     const signal = body.signal === "KILL" ? "KILL" : "TERM";
     if (!Number.isInteger(pid) || pid <= 1) {
-      throw new ApiError(400, "Ungültige PID");
+      throw new ApiError(400, "INVALID_PID");
     }
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
@@ -29,7 +29,7 @@ export async function POST(
     });
 
     if (result.code !== 0) {
-      throw new ApiError(500, result.stderr.trim() || "Kill fehlgeschlagen");
+      throw new ApiError(500, "KILL_FAILED", result.stderr.trim() || undefined);
     }
 
     return NextResponse.json({ ok: true });

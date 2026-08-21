@@ -42,10 +42,10 @@ export async function POST(
     const body = (await req.json()) as LinkBody;
     validateIfaceName(body.peerIface);
     if (!body.thisAllowedIps?.trim() || !body.peerAllowedIps?.trim()) {
-      throw new ApiError(400, "AllowedIPs sind für beide Seiten erforderlich");
+      throw new ApiError(400, "ALLOWED_IPS_REQUIRED_BOTH_SIDES");
     }
     if (body.peerServerId === id && body.peerIface === iface) {
-      throw new ApiError(400, "Ein Interface kann nicht mit sich selbst verknüpft werden");
+      throw new ApiError(400, "CANNOT_LINK_INTERFACE_TO_ITSELF");
     }
 
     const [thisServer, peerServer] = await Promise.all([
@@ -60,7 +60,7 @@ export async function POST(
       readAndParseConfig(peerServer, body.peerIface),
     ]);
     if (!thisConfig.privateKey || !peerConfig.privateKey) {
-      throw new ApiError(500, "Eines der Interfaces hat keinen PrivateKey");
+      throw new ApiError(500, "INTERFACE_MISSING_PRIVATE_KEY");
     }
 
     const [thisPublicKey, peerPublicKey] = await Promise.all([
@@ -94,12 +94,12 @@ export async function POST(
     const thisWrite = buildWriteConfigCommand(thisServer, iface, serializeWgConfig(thisConfig));
     const thisRes = await execOnServer(thisServer, thisWrite.command, 15_000, thisWrite.stdin);
     if (thisRes.code !== 0) {
-      throw new ApiError(400, thisRes.stderr.trim() || "Konnte lokale Config nicht schreiben");
+      throw new ApiError(400, "WRITE_LOCAL_CONFIG_FAILED", thisRes.stderr.trim() || undefined);
     }
     const peerWrite = buildWriteConfigCommand(peerServer, body.peerIface, serializeWgConfig(peerConfig));
     const peerRes = await execOnServer(peerServer, peerWrite.command, 15_000, peerWrite.stdin);
     if (peerRes.code !== 0) {
-      throw new ApiError(400, peerRes.stderr.trim() || "Konnte Config des anderen Servers nicht schreiben");
+      throw new ApiError(400, "WRITE_PEER_CONFIG_FAILED", peerRes.stderr.trim() || undefined);
     }
 
     const thisSync = buildSyncCommand(thisServer, iface);

@@ -14,7 +14,7 @@ export async function POST(
 
     const body = await req.json();
     if (!["start", "stop", "restart"].includes(body.action)) {
-      throw new ApiError(400, "Ungültige Aktion");
+      throw new ApiError(400, "INVALID_ACTION");
     }
     const action: DockerPowerAction = body.action;
 
@@ -24,18 +24,18 @@ export async function POST(
       where: { serverId: id, containerId },
       orderBy: { timestamp: "desc" },
     });
-    if (!latest) throw new ApiError(404, "Container nicht gefunden");
+    if (!latest) throw new ApiError(404, "CONTAINER_NOT_FOUND");
 
     let command: string;
     try {
       command = buildDockerPowerCommand(containerId, action);
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Konfiguration");
+      throw new ApiError(400, "INVALID_CONFIG", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 20_000);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || `${action} fehlgeschlagen`);
+      throw new ApiError(500, "ACTION_FAILED", result.stderr.trim() || action);
     }
 
     await writeAuditLog(session, `docker.${action}`, {

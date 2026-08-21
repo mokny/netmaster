@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const ConfirmContext = React.createContext<
 >(null);
 
 export function ConfirmDialogProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("common");
   const [state, setState] = React.useState<ConfirmState>(defaultState);
 
   const confirm = React.useCallback((options: ConfirmOptions) => {
@@ -80,10 +82,10 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
             </div>
             <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end">
               <Button variant="outline" onClick={() => settle(false)}>
-                {state.cancelText ?? "Abbrechen"}
+                {state.cancelText ?? t("cancel")}
               </Button>
               <Button variant={state.variant ?? "default"} onClick={() => settle(true)}>
-                {state.confirmText ?? "Bestätigen"}
+                {state.confirmText ?? t("confirm")}
               </Button>
             </div>
           </AlertDialogPrimitive.Popup>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatUserAgent } from "@/lib/user-agent";
@@ -13,8 +14,10 @@ export function SessionsList({
   sessions: SessionDTO[];
   onRevoke: (id: string) => void;
 }) {
+  const t = useTranslations("account.sessionsList");
+
   if (sessions.length === 0) {
-    return <p className="text-sm text-muted-foreground">Keine aktiven Sessions.</p>;
+    return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
   }
 
   return (
@@ -27,13 +30,13 @@ export function SessionsList({
               <p className="truncate text-sm font-medium">{formatUserAgent(s.userAgent)}</p>
               {s.isCurrent && (
                 <Badge variant="secondary" className="shrink-0">
-                  Dieses Gerät
+                  {t("thisDevice")}
                 </Badge>
               )}
             </div>
             <p className="truncate text-xs text-muted-foreground">
-              Zuletzt aktiv {new Date(s.lastSeenAt).toLocaleString()} · Angemeldet seit{" "}
-              {new Date(s.createdAt).toLocaleDateString()}
+              {t("lastActive", { time: new Date(s.lastSeenAt).toLocaleString() })} ·{" "}
+              {t("signedInSince", { date: new Date(s.createdAt).toLocaleDateString() })}
             </p>
           </div>
           <Button
@@ -41,7 +44,7 @@ export function SessionsList({
             size="icon"
             className="size-7 shrink-0"
             onClick={() => onRevoke(s.id)}
-            aria-label="Session beenden"
+            aria-label={t("endSession")}
           >
             <LogOut className="size-3.5" />
           </Button>

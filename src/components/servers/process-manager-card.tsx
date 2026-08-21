@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Card,
@@ -36,6 +37,8 @@ export function ProcessManagerCard({
   serverId: string;
   canKill: boolean;
 }) {
+  const t = useTranslations("servers.processManager");
+  const tErrors = useTranslations("errors");
   const [expanded, setExpanded] = useState(false);
   const [processes, setProcesses] = useState<ProcessRow[] | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -63,7 +66,7 @@ export function ProcessManagerCard({
             setConnectionError(null);
           }
           if (msg.type === "error") {
-            setConnectionError(msg.message ?? "Fehler beim Abrufen der Prozesse");
+            setConnectionError(msg.message ?? t("fetchFailed"));
           }
         } catch {
           // ignore
@@ -93,14 +96,14 @@ export function ProcessManagerCard({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Kill fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("killFailed"));
         return;
       }
-      toast.success(`Prozess ${killTarget.pid} beendet`);
+      toast.success(t("processTerminated", { pid: killTarget.pid }));
       setKillTarget(null);
       setForceKill(false);
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setKilling(false);
     }
@@ -113,8 +116,8 @@ export function ProcessManagerCard({
         onClick={() => setExpanded((e) => !e)}
       >
         <div>
-          <CardTitle>Prozesse</CardTitle>
-          <CardDescription>Live-Prozessliste (CPU-sortiert)</CardDescription>
+          <CardTitle>{t("cardTitle")}</CardTitle>
+          <CardDescription>{t("cardDescription")}</CardDescription>
         </div>
         <div className="flex items-center gap-2">
           <Cpu className="size-4 text-muted-foreground" />
@@ -137,17 +140,17 @@ export function ProcessManagerCard({
             <p className="mb-2 text-sm text-red-500">{connectionError}</p>
           )}
           {!processes ? (
-            <p className="text-sm text-muted-foreground">Lade Prozessliste…</p>
+            <p className="text-sm text-muted-foreground">{t("loadingProcesses")}</p>
           ) : processes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Prozesse gefunden.</p>
+            <p className="text-sm text-muted-foreground">{t("noProcessesFound")}</p>
           ) : (
             <div className="max-h-80 overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>PID</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Befehl</TableHead>
+                    <TableHead>{t("userColumn")}</TableHead>
+                    <TableHead>{t("commandColumn")}</TableHead>
                     <TableHead className="text-right">CPU%</TableHead>
                     <TableHead className="text-right">RAM%</TableHead>
                     {canKill && <TableHead className="w-8" />}
@@ -188,13 +191,14 @@ export function ProcessManagerCard({
       <Dialog open={killTarget != null} onOpenChange={(o) => !o && setKillTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Prozess beenden?</DialogTitle>
+            <DialogTitle>{t("terminateProcessTitle")}</DialogTitle>
             <DialogDescription>
               {killTarget && (
-                <>
-                  PID <span className="font-mono">{killTarget.pid}</span> ({killTarget.command}) von{" "}
-                  {killTarget.user} wird beendet.
-                </>
+                t("terminateProcessDescription", {
+                  pid: killTarget.pid,
+                  command: killTarget.command,
+                  user: killTarget.user,
+                })
               )}
             </DialogDescription>
           </DialogHeader>
@@ -204,14 +208,14 @@ export function ProcessManagerCard({
               checked={forceKill}
               onChange={(e) => setForceKill(e.target.checked)}
             />
-            Force Kill (SIGKILL statt SIGTERM)
+            {t("forceKillLabel")}
           </label>
           <DialogFooter>
             <Button variant="outline" onClick={() => setKillTarget(null)} disabled={killing}>
-              Abbrechen
+              {t("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmKill} disabled={killing}>
-              {forceKill ? "Force Kill" : "Beenden"}
+              {forceKill ? t("forceKill") : t("terminate")}
             </Button>
           </DialogFooter>
         </DialogContent>

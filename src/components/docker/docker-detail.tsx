@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   Card,
@@ -46,6 +47,7 @@ export function DockerDetail({
   serverId: string;
   containerId: string;
 }) {
+  const t = useTranslations("docker.detail");
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
   const { openDockerExec } = useTerminalManager();
@@ -137,11 +139,11 @@ export function DockerDetail({
                 {container.state}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                {container.ips.length > 0 ? container.ips.join(", ") : "IP unbekannt"}
+                {container.ips.length > 0 ? container.ips.join(", ") : t("ipUnknown")}
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              {container.image} · auf{" "}
+              {container.image} · {t("on")}{" "}
               <Link href={`/servers/${container.server.id}`} className="hover:underline">
                 {container.server.name}
               </Link>
@@ -157,7 +159,7 @@ export function DockerDetail({
                 onClick={() => openDockerExec(serverId, containerId, container.name)}
               >
                 <TerminalSquare className="size-4" />
-                Terminal
+                {t("terminal")}
               </Button>
             )}
             {!running && (
@@ -170,7 +172,7 @@ export function DockerDetail({
                 trigger={
                   <Button variant="outline" size="sm">
                     <Play className="size-4" />
-                    Starten
+                    {t("start")}
                   </Button>
                 }
               />
@@ -186,7 +188,7 @@ export function DockerDetail({
                   trigger={
                     <Button variant="outline" size="sm">
                       <RotateCw className="size-4" />
-                      Neu starten
+                      {t("restart")}
                     </Button>
                   }
                 />
@@ -199,7 +201,7 @@ export function DockerDetail({
                   trigger={
                     <Button variant="outline" size="sm">
                       <Square className="size-4" />
-                      Stoppen
+                      {t("stop")}
                     </Button>
                   }
                 />
@@ -236,7 +238,7 @@ export function DockerDetail({
 
         <Card>
           <CardHeader>
-            <CardTitle>Netzwerk (Empfang)</CardTitle>
+            <CardTitle>{t("networkRx")}</CardTitle>
             <CardDescription>
               {container.netRxMb != null ? `${container.netRxMb.toFixed(2)} MB` : "–"}
             </CardDescription>
@@ -248,7 +250,7 @@ export function DockerDetail({
 
         <Card>
           <CardHeader>
-            <CardTitle>Netzwerk (Senden)</CardTitle>
+            <CardTitle>{t("networkTx")}</CardTitle>
             <CardDescription>
               {container.netTxMb != null ? `${container.netTxMb.toFixed(2)} MB` : "–"}
             </CardDescription>
@@ -262,9 +264,9 @@ export function DockerDetail({
       {canControl && running && (
         <Card>
           <CardHeader>
-            <CardTitle>Dateien</CardTitle>
+            <CardTitle>{t("files")}</CardTitle>
             <CardDescription>
-              Zugriff über `docker exec` auf die Host-Verbindung - kein echtes SFTP.
+              {t("filesDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>

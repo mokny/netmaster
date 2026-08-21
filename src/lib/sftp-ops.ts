@@ -203,11 +203,11 @@ export async function readFileText(sftp: SFTPWrapper, filePath: string): Promise
   const info = await stat(sftp, filePath);
   if (info.isDirectory) throw new SftpOpError("Ist ein Verzeichnis", "IS_DIR");
   if (info.size > MAX_EDITABLE_BYTES) {
-    throw new SftpOpError("Datei ist zu groß zum Bearbeiten", "TOO_LARGE");
+    throw new SftpOpError("File is too large to edit", "TOO_LARGE");
   }
   const buf = await readFileBuffer(sftp, filePath);
   if (looksBinary(buf)) {
-    throw new SftpOpError("Datei scheint binär zu sein", "BINARY");
+    throw new SftpOpError("File appears to be binary", "BINARY");
   }
   return buf.toString("utf8");
 }

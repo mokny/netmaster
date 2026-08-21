@@ -28,14 +28,14 @@ export async function DELETE(
     const removed = config.peers.find((p) => p.publicKey === decodedKey);
     config.peers = config.peers.filter((p) => p.publicKey !== decodedKey);
     if (config.peers.length === before) {
-      throw new ApiError(404, "Peer nicht gefunden");
+      throw new ApiError(404, "PEER_NOT_FOUND");
     }
 
     const raw = serializeWgConfig(config);
     const { command, stdin } = buildWriteConfigCommand(server, iface, raw);
     const writeRes = await execOnServer(server, command, 15_000, stdin);
     if (writeRes.code !== 0) {
-      throw new ApiError(500, writeRes.stderr.trim() || "Peer konnte nicht entfernt werden");
+      throw new ApiError(500, "PEER_REMOVE_FAILED", writeRes.stderr.trim() || undefined);
     }
     const syncCmd = buildSyncCommand(server, iface);
     await execOnServer(server, syncCmd.command, 10_000, syncCmd.stdin);

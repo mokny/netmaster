@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const serverId = typeof body.serverId === "string" ? body.serverId : null;
 
     if (!name || commands.length === 0) {
-      throw new ApiError(400, "Name und mindestens ein Befehl sind erforderlich");
+      throw new ApiError(400, "NAME_AND_COMMAND_REQUIRED");
     }
 
     const snippet = await prisma.snippet.create({

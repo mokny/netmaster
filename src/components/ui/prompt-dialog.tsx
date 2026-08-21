@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const PromptContext = React.createContext<
 >(null);
 
 export function PromptDialogProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("common");
   const [state, setState] = React.useState<PromptState>(defaultState);
   const [value, setValue] = React.useState("");
 
@@ -101,9 +103,9 @@ export function PromptDialogProvider({ children }: { children: React.ReactNode }
               </div>
               <div className="-mx-4 -mb-4 mt-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={() => settle(null)}>
-                  {state.cancelText ?? "Abbrechen"}
+                  {state.cancelText ?? t("cancel")}
                 </Button>
-                <Button type="submit">{state.confirmText ?? "Bestätigen"}</Button>
+                <Button type="submit">{state.confirmText ?? t("confirm")}</Button>
               </div>
             </form>
           </AlertDialogPrimitive.Popup>

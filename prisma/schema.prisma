@@ -51,6 +51,12 @@ model User {
   role         Role     @default(VIEWER)
   createdAt    DateTime @default(now())
 
+  // UI-Sprache des Accounts ("en" | "de" | "nl" | "fr" | "es"), folgt dem
+  // Login geräteübergreifend. Wird zusätzlich im NEXT_LOCALE-Cookie
+  // gespiegelt (siehe src/lib/locale.ts), damit die Sprache schon vor dem
+  // ersten Server-Roundtrip (Login-Seite) verfügbar ist.
+  locale       String   @default("en")
+
   // Erzwingt nach dem nächsten Login eine Passwortänderung, bevor die App
   // sonst nutzbar ist – wird von "netmaster reset-login" gesetzt.
   mustChangePassword Boolean @default(false)

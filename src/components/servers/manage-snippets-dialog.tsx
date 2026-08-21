@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,8 @@ export function ManageSnippetsDialog({
   onOpenChange: (open: boolean) => void;
   onChanged: () => void;
 }) {
+  const t = useTranslations("servers.snippets");
+  const tErrors = useTranslations("errors");
   const [snippets, setSnippets] = useState<SnippetDTO[] | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,7 +69,7 @@ export function ManageSnippetsDialog({
       .map((c) => c.trim())
       .filter(Boolean);
     if (!form.name.trim() || commands.length === 0) {
-      toast.error("Name und mindestens ein Befehl sind erforderlich");
+      toast.error(t("nameAndCommandRequired"));
       return;
     }
 
@@ -84,10 +87,10 @@ export function ManageSnippetsDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success(form.id ? "Snippet aktualisiert" : "Snippet angelegt");
+      toast.success(form.id ? t("snippetUpdated") : t("snippetCreated"));
       setForm(null);
       load();
       onChanged();
@@ -99,7 +102,7 @@ export function ManageSnippetsDialog({
   async function remove(id: string) {
     const res = await fetch(`/api/snippets/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error(t("deleteFailed"));
       return;
     }
     setSnippets((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
@@ -110,22 +113,22 @@ export function ManageSnippetsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Snippets verwalten</DialogTitle>
+          <DialogTitle>{t("manageSnippets")}</DialogTitle>
         </DialogHeader>
 
         {form ? (
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>{t("name")}</Label>
               <Input
                 autoFocus
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="z.B. Docker aufräumen"
+                placeholder={t("namePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label>Befehle (eine Zeile pro Befehl)</Label>
+              <Label>{t("commandsLabel")}</Label>
               <textarea
                 className="min-h-28 w-full rounded-md border bg-transparent p-2 font-mono text-xs shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={form.commandsText}
@@ -134,7 +137,7 @@ export function ManageSnippetsDialog({
               />
             </div>
             <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-              <Label className="font-normal">Global (auf jedem Server nutzbar)</Label>
+              <Label className="font-normal">{t("globalLabel")}</Label>
               <input
                 type="checkbox"
                 checked={form.global}
@@ -145,11 +148,11 @@ export function ManageSnippetsDialog({
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setForm(null)}>
                 <X className="size-4" />
-                Abbrechen
+                {t("cancel")}
               </Button>
               <Button type="button" onClick={save} disabled={loading}>
                 {loading && <Loader2 className="size-4 animate-spin" />}
-                Speichern
+                {t("save")}
               </Button>
             </DialogFooter>
           </div>
@@ -157,9 +160,9 @@ export function ManageSnippetsDialog({
           <div className="space-y-3">
             <div className="space-y-1.5">
               {snippets === null ? (
-                <p className="text-sm text-muted-foreground">Lädt…</p>
+                <p className="text-sm text-muted-foreground">{t("loading")}</p>
               ) : snippets.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Noch keine Snippets angelegt.</p>
+                <p className="text-sm text-muted-foreground">{t("noSnippetsYet")}</p>
               ) : (
                 snippets.map((s) => (
                   <div
@@ -169,8 +172,8 @@ export function ManageSnippetsDialog({
                     <div className="min-w-0">
                       <p className="truncate font-medium">{s.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {s.serverId === null ? "Global" : "Dieser Server"} ·{" "}
-                        {s.commands.length} Befehl{s.commands.length > 1 ? "e" : ""}
+                        {s.serverId === null ? t("global") : t("thisServer")} ·{" "}
+                        {t("commandCount", { count: s.commands.length })}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -198,7 +201,7 @@ export function ManageSnippetsDialog({
             <DialogFooter>
               <Button type="button" onClick={startCreate}>
                 <Plus className="size-4" />
-                Neues Snippet
+                {t("newSnippet")}
               </Button>
             </DialogFooter>
           </div>

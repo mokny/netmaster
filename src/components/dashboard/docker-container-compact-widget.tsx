@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { MetricBar } from "@/components/dashboard/metric-bar";
@@ -16,6 +17,7 @@ export function DockerContainerCompactWidget({
   serverId: string;
   containerId: string;
 }) {
+  const t = useTranslations("common");
   const [container, setContainer] = useState<ContainerSnapshotDTO | null>(null);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export function DockerContainerCompactWidget({
   });
 
   if (!container) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 
   const running = RUNNING_STATES.has(container.state);

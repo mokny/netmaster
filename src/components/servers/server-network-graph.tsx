@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import "@xyflow/react/dist/style.css";
 import { ReactFlow, Background, Controls, type Node, type Edge, MarkerType } from "@xyflow/react";
 import {
@@ -99,6 +100,8 @@ function buildGraph(ports: PortEntry[]): { nodes: Node[]; edges: Edge[] } {
 }
 
 export function ServerNetworkGraph({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.networkGraph");
+  const tErrors = useTranslations("errors");
   const [ports, setPorts] = useState<PortEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,13 +113,13 @@ export function ServerNetworkGraph({ serverId }: { serverId: string }) {
         const data = await res.json().catch(() => ({}));
         if (stopped) return;
         if (!res.ok) {
-          setError(data.error ?? "Fehler beim Abrufen der Portdaten");
+          setError(data.error ? tErrors(data.error) : t("fetchFailed"));
           return;
         }
         setPorts(data.ports);
         setError(null);
       } catch {
-        if (!stopped) setError("Verbindung fehlgeschlagen");
+        if (!stopped) setError(t("connectionFailed"));
       }
     }
     load();
@@ -133,8 +136,8 @@ export function ServerNetworkGraph({ serverId }: { serverId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>Netzwerk-Graph</CardTitle>
-          <CardDescription>Programme → Ports → Remote-Peers</CardDescription>
+          <CardTitle>{t("cardTitle")}</CardTitle>
+          <CardDescription>{t("cardDescription")}</CardDescription>
         </div>
         <Waypoints className="size-4 text-muted-foreground" />
       </CardHeader>
@@ -142,9 +145,9 @@ export function ServerNetworkGraph({ serverId }: { serverId: string }) {
         {error && <p className="mb-2 text-sm text-red-500">{error}</p>}
         <div className="h-96 w-full overflow-hidden rounded-md border">
           {!ports ? (
-            <p className="p-4 text-sm text-muted-foreground">Lade Graph…</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("loadingGraph")}</p>
           ) : nodes.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Keine Daten für den Graphen.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("noGraphData")}</p>
           ) : (
             <ReactFlow nodes={nodes} edges={edges} fitView colorMode="system" proOptions={{ hideAttribution: true }}>
               <Background />

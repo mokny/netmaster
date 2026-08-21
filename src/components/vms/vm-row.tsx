@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VmPowerDialog } from "@/components/vms/vm-power-dialog";
@@ -21,6 +22,7 @@ export function VmRow({
   href?: string;
   onDone?: () => void;
 }) {
+  const t = useTranslations("vms.row");
   const running = RUNNING_STATES.has(vm.status);
   const serverName = "serverName" in vm ? vm.serverName : null;
   const name = (
@@ -34,7 +36,7 @@ export function VmRow({
           : ""}
       </p>
       <p className="truncate text-xs text-muted-foreground">
-        {vm.ips.length > 0 ? vm.ips.join(", ") : "IP unbekannt"}
+        {vm.ips.length > 0 ? vm.ips.join(", ") : t("ipUnknown")}
       </p>
     </div>
   );
@@ -71,7 +73,7 @@ export function VmRow({
                 action="start"
                 onDone={onDone}
                 trigger={
-                  <Button variant="ghost" size="icon" className="size-6" title="Starten">
+                  <Button variant="ghost" size="icon" className="size-6" title={t("start")}>
                     <Play className="size-3.5" />
                   </Button>
                 }
@@ -86,7 +88,7 @@ export function VmRow({
                   action="reboot"
                   onDone={onDone}
                   trigger={
-                    <Button variant="ghost" size="icon" className="size-6" title="Neu starten">
+                    <Button variant="ghost" size="icon" className="size-6" title={t("restart")}>
                       <RotateCw className="size-3.5" />
                     </Button>
                   }
@@ -98,7 +100,7 @@ export function VmRow({
                   action="stop"
                   onDone={onDone}
                   trigger={
-                    <Button variant="ghost" size="icon" className="size-6" title="Stoppen">
+                    <Button variant="ghost" size="icon" className="size-6" title={t("stop")}>
                       <Square className="size-3.5" />
                     </Button>
                   }

@@ -90,10 +90,10 @@ export async function PUT(req: Request) {
     const session = await requireSession();
     const body = await req.json();
     const serverId = body?.serverId;
-    if (typeof serverId !== "string") throw new ApiError(400, "serverId fehlt");
+    if (typeof serverId !== "string") throw new ApiError(400, "MISSING_SERVER_ID");
 
     const server = await prisma.server.findUnique({ where: { id: serverId } });
-    if (!server) throw new ApiError(404, "Server nicht gefunden");
+    if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
 
     const data: Record<string, unknown> = {};
     for (const f of ENABLED_FIELDS) data[f] = Boolean(body[f]);

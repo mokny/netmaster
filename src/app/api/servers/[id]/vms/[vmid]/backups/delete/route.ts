@@ -22,7 +22,7 @@ export async function POST(
     const session = await requireRole("EDITOR");
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
-    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
     const body = await req.json();
     const items: BackupRef[] = Array.isArray(body.items)
@@ -33,7 +33,7 @@ export async function POST(
             typeof (i as BackupRef).volid === "string"
         )
       : [];
-    if (items.length === 0) throw new ApiError(400, "Keine Backups ausgewählt");
+    if (items.length === 0) throw new ApiError(400, "NO_BACKUPS_SELECTED");
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireProxmoxEnabled(server);
@@ -46,7 +46,7 @@ export async function POST(
         if (result.code !== 0 && result.code !== null) {
           results.failed.push({
             volid: item.volid,
-            error: result.stderr.trim() || "Löschen fehlgeschlagen",
+            error: result.stderr.trim() || "DELETE_FAILED",
           });
         } else {
           results.ok.push(item.volid);
@@ -54,7 +54,7 @@ export async function POST(
       } catch (err) {
         results.failed.push({
           volid: item.volid,
-          error: err instanceof Error ? err.message : "Löschen fehlgeschlagen",
+          error: err instanceof Error ? err.message : "DELETE_FAILED",
         });
       }
     }

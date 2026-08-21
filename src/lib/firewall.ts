@@ -48,7 +48,7 @@ function snapshotCommand(backend: FirewallBackend): string {
     case "ufw":
       return "tar -C / -cf - etc/ufw/user.rules etc/ufw/user6.rules 2>/dev/null | base64 -w0";
     default:
-      throw new Error("Kein unterstütztes Firewall-Backend erkannt");
+      throw new Error("No supported firewall backend detected");
   }
 }
 
@@ -61,7 +61,7 @@ function restoreCommand(backend: FirewallBackend, snapPath: string): string {
     case "ufw":
       return `base64 -d < "${snapPath}" | tar -C / -xf - 2>/dev/null; ufw reload 2>/dev/null`;
     default:
-      throw new Error("Kein unterstütztes Firewall-Backend erkannt");
+      throw new Error("No supported firewall backend detected");
   }
 }
 
@@ -150,10 +150,10 @@ const CIDR_PATTERN = /^[a-fA-F0-9.:]+(\/\d{1,3})?$/;
 
 function validateSimpleRule(input: SimpleRuleInput) {
   if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) {
-    throw new Error("Ungültiger Port (1-65535)");
+    throw new Error("Invalid port (1-65535)");
   }
   if (input.source && !CIDR_PATTERN.test(input.source)) {
-    throw new Error("Ungültige Quelladresse (IP oder CIDR erwartet)");
+    throw new Error("Invalid source address (IP or CIDR expected)");
   }
 }
 
@@ -185,7 +185,7 @@ function buildAddRuleScript(
     const fromArg = src ? `from ${shellQuote(src)} to any ` : "";
     return `ufw ${verb} ${fromArg}port ${input.port} proto ${input.protocol} comment ${shellQuote(marker)}`;
   }
-  throw new Error("Kein unterstütztes Firewall-Backend erkannt");
+  throw new Error("No supported firewall backend detected");
 }
 
 function buildDeleteRuleScript(backend: FirewallBackend, id: string): string {
@@ -214,7 +214,7 @@ if [ -n "$num" ]; then
 fi
 `.trim();
   }
-  throw new Error("Kein unterstütztes Firewall-Backend erkannt");
+  throw new Error("No supported firewall backend detected");
 }
 
 export interface GuardedApplyResult {
@@ -250,7 +250,7 @@ export async function applyGuarded(
   onSettled: (confirmed: boolean) => void
 ): Promise<GuardedApplyResult> {
   if (backend === "none") {
-    throw new Error("Kein unterstütztes Firewall-Backend erkannt");
+    throw new Error("No supported firewall backend detected");
   }
   const token = genToken();
   const snapPath = `/tmp/.nm-fw-${token}.snap`;

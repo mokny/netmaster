@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,8 @@ interface Props {
 }
 
 export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
+  const t = useTranslations("vms.snapshotsTab");
+  const locale = useLocale();
   const [snapshots, setSnapshots] = useState<ProxmoxSnapshotDTO[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -75,7 +78,7 @@ export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {snapshots.length} Snapshot{snapshots.length === 1 ? "" : "s"}
+          {t("snapshotCount", { count: snapshots.length })}
         </p>
         {canControl && (
           <div className="flex items-center gap-2">
@@ -94,7 +97,7 @@ export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
 
       {snapshots.length === 0 ? (
         <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Keine Snapshots vorhanden.
+          {t("noSnapshots")}
         </p>
       ) : (
         <Table>
@@ -102,8 +105,8 @@ export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
             <TableRow>
               {canControl && <TableHead className="w-8" />}
               <TableHead>Name</TableHead>
-              <TableHead>Beschreibung</TableHead>
-              <TableHead>Erstellt</TableHead>
+              <TableHead>{t("description")}</TableHead>
+              <TableHead>{t("created")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -134,7 +137,7 @@ export function VmSnapshotsTab({ serverId, vmid, vmType, canControl }: Props) {
                   {snap.description || "–"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {snap.timestamp ? new Date(snap.timestamp).toLocaleString("de-DE") : "–"}
+                  {snap.timestamp ? new Date(snap.timestamp).toLocaleString(locale) : "–"}
                 </TableCell>
                 <TableCell className="text-right">
                   {canControl && (
@@ -163,6 +166,8 @@ function CreateSnapshotDialog({
   vmType: "QEMU" | "LXC";
   onDone: () => void;
 }) {
+  const t = useTranslations("vms.snapshotsTab.createDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -182,17 +187,17 @@ function CreateSnapshotDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Snapshot konnte nicht erstellt werden");
+        toast.error(data.error ? tErrors(data.error) : t("createFailed"));
         return;
       }
-      toast.success("Snapshot erstellt");
+      toast.success(t("createSuccess"));
       setOpen(false);
       setName("");
       setDescription("");
       setVmstate(false);
       onDone();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -204,14 +209,14 @@ function CreateSnapshotDialog({
         render={
           <Button variant="outline" size="sm">
             <Camera className="size-4" />
-            Snapshot erstellen
+            {t("trigger")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Snapshot erstellen</DialogTitle>
-          <DialogDescription>Legt einen neuen Snapshot dieser VM/LXC an.</DialogDescription>
+          <DialogTitle>{t("trigger")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -220,16 +225,16 @@ function CreateSnapshotDialog({
               id="snap-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="vor-update"
+              placeholder="before-update"
             />
             {name.length > 0 && !nameValid && (
               <p className="text-xs text-destructive">
-                Nur Buchstaben, Zahlen, _ und -, muss mit Buchstabe beginnen.
+                {t("nameHint")}
               </p>
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="snap-desc">Beschreibung (optional)</Label>
+            <Label htmlFor="snap-desc">{t("descriptionOptional")}</Label>
             <Input
               id="snap-desc"
               value={description}
@@ -239,9 +244,9 @@ function CreateSnapshotDialog({
           {vmType === "QEMU" && (
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="snap-vmstate">Arbeitsspeicher-Zustand einschließen</Label>
+                <Label htmlFor="snap-vmstate">{t("includeMemoryState")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Größerer, langsamerer Snapshot, ermöglicht Resume aus dem RAM-Zustand
+                  {t("includeMemoryStateHint")}
                 </p>
               </div>
               <Switch id="snap-vmstate" checked={vmstate} onCheckedChange={(c) => setVmstate(!!c)} />
@@ -251,7 +256,7 @@ function CreateSnapshotDialog({
         <DialogFooter>
           <Button disabled={loading || !nameValid} onClick={create}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Erstellen
+            {t("create")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -270,6 +275,8 @@ function DeleteSnapshotsDialog({
   names: string[];
   onDone: () => void;
 }) {
+  const t = useTranslations("vms.snapshotsTab.deleteDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -283,23 +290,26 @@ function DeleteSnapshotsDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Löschen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("deleteFailed"));
         return;
       }
       const { ok, failed } = data.results as { ok: string[]; failed: { name: string; error: string }[] };
       if (failed.length === 0) {
-        toast.success(`${ok.length} Snapshot${ok.length === 1 ? "" : "s"} gelöscht`);
+        toast.success(t("deleteSuccess", { count: ok.length }));
       } else {
         toast.error(
-          `${ok.length}/${names.length} gelöscht, ${failed.length} Fehler: ${failed
-            .map((f) => `${f.name} – ${f.error}`)
-            .join("; ")}`
+          t("partialFailure", {
+            ok: ok.length,
+            total: names.length,
+            failed: failed.length,
+            details: failed.map((f) => `${f.name} – ${f.error}`).join("; "),
+          })
         );
       }
       setOpen(false);
       onDone();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -311,13 +321,13 @@ function DeleteSnapshotsDialog({
         render={
           <Button variant="destructive" size="sm">
             <Trash2 className="size-4" />
-            {names.length} löschen
+            {t("deleteN", { count: names.length })}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{names.length} Snapshot{names.length === 1 ? "" : "s"} löschen?</DialogTitle>
+          <DialogTitle>{t("confirmTitle", { count: names.length })}</DialogTitle>
           <DialogDescription>
             {names.join(", ")}
           </DialogDescription>
@@ -325,7 +335,7 @@ function DeleteSnapshotsDialog({
         <DialogFooter>
           <Button variant="destructive" disabled={loading} onClick={remove}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Löschen
+            {t("delete")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -344,6 +354,8 @@ function RollbackDialog({
   name: string;
   onDone: () => void;
 }) {
+  const t = useTranslations("vms.snapshotsTab.rollbackDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -357,14 +369,14 @@ function RollbackDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Rollback fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("rollbackFailed"));
         return;
       }
-      toast.success("Rollback ausgeführt");
+      toast.success(t("rollbackSuccess"));
       setOpen(false);
       onDone();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -374,22 +386,22 @@ function RollbackDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="size-6" title="Wiederherstellen">
+          <Button variant="ghost" size="icon" className="size-6" title={t("restore")}>
             <History className="size-3.5" />
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Auf Snapshot zurücksetzen?</DialogTitle>
+          <DialogTitle>{t("confirmTitle")}</DialogTitle>
           <DialogDescription>
-            Der aktuelle Zustand der VM/LXC geht verloren und wird durch „{name}“ ersetzt.
+            {t("confirmDescription", { name })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="destructive" disabled={loading} onClick={rollback}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Zurücksetzen
+            {t("reset")}
           </Button>
         </DialogFooter>
       </DialogContent>

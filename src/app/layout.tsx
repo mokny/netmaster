@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Chakra_Petch } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,23 +21,26 @@ const chakraPetch = Chakra_Petch({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "NetMaster",
-  description: "Netzwerkadministratorpanel – Server- und Service-Monitoring",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return {
     title: "NetMaster",
-  },
-  icons: {
-    icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-  },
-};
+    description: t("description"),
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "NetMaster",
+    },
+    icons: {
+      icon: [
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -44,28 +49,33 @@ export const viewport: Viewport = {
   themeColor: "#3b82f6",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="de"
+      lang={locale}
       suppressHydrationWarning
       className={`${chakraPetch.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <ConfirmDialogProvider>
-            <PromptDialogProvider>
-              <TooltipProvider>{children}</TooltipProvider>
-            </PromptDialogProvider>
-          </ConfirmDialogProvider>
-          <Toaster />
-        </ThemeProvider>
-        <ServiceWorkerRegistration />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ConfirmDialogProvider>
+              <PromptDialogProvider>
+                <TooltipProvider>{children}</TooltipProvider>
+              </PromptDialogProvider>
+            </ConfirmDialogProvider>
+            <Toaster />
+          </ThemeProvider>
+          <ServiceWorkerRegistration />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

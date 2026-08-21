@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -27,6 +28,8 @@ interface PortEntry {
 const POLL_MS = 15_000;
 
 export function PortsCard({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.ports");
+  const tErrors = useTranslations("errors");
   const [ports, setPorts] = useState<PortEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,13 +41,13 @@ export function PortsCard({ serverId }: { serverId: string }) {
         const data = await res.json().catch(() => ({}));
         if (stopped) return;
         if (!res.ok) {
-          setError(data.error ?? "Fehler beim Abrufen der Ports");
+          setError(data.error ? tErrors(data.error) : t("fetchFailed"));
           return;
         }
         setPorts(data.ports);
         setError(null);
       } catch {
-        if (!stopped) setError("Verbindung fehlgeschlagen");
+        if (!stopped) setError(t("connectionFailed"));
       }
     }
     load();
@@ -62,20 +65,20 @@ export function PortsCard({ serverId }: { serverId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>Offene Ports</CardTitle>
-          <CardDescription>Lauschende Ports und aktive Verbindungen (live)</CardDescription>
+          <CardTitle>{t("cardTitle")}</CardTitle>
+          <CardDescription>{t("cardDescription")}</CardDescription>
         </div>
         <Network className="size-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         {error && <p className="mb-2 text-sm text-red-500">{error}</p>}
         {!ports ? (
-          <p className="text-sm text-muted-foreground">Lade Ports…</p>
+          <p className="text-sm text-muted-foreground">{t("loadingPorts")}</p>
         ) : (
           <Tabs defaultValue="listening">
             <TabsList>
-              <TabsTrigger value="listening">Listening ({listening.length})</TabsTrigger>
-              <TabsTrigger value="established">Verbindungen ({established.length})</TabsTrigger>
+              <TabsTrigger value="listening">{t("listening", { count: listening.length })}</TabsTrigger>
+              <TabsTrigger value="established">{t("connections", { count: established.length })}</TabsTrigger>
             </TabsList>
             <TabsContent value="listening">
               <div className="max-h-72 overflow-y-auto">
@@ -83,16 +86,16 @@ export function PortsCard({ serverId }: { serverId: string }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Port</TableHead>
-                      <TableHead>Proto</TableHead>
-                      <TableHead>Adresse</TableHead>
-                      <TableHead>Programm</TableHead>
+                      <TableHead>{t("protoColumn")}</TableHead>
+                      <TableHead>{t("addressColumn")}</TableHead>
+                      <TableHead>{t("programColumn")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {listening.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                          Keine lauschenden Ports gefunden.
+                          {t("noListeningPorts")}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -120,17 +123,17 @@ export function PortsCard({ serverId }: { serverId: string }) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Lokal</TableHead>
-                      <TableHead>Remote</TableHead>
-                      <TableHead>Proto</TableHead>
-                      <TableHead>Programm</TableHead>
+                      <TableHead>{t("localColumn")}</TableHead>
+                      <TableHead>{t("remoteColumn")}</TableHead>
+                      <TableHead>{t("protoColumn")}</TableHead>
+                      <TableHead>{t("programColumn")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {established.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                          Keine aktiven Verbindungen.
+                          {t("noActiveConnections")}
                         </TableCell>
                       </TableRow>
                     ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,24 +24,6 @@ interface Props {
   onDone?: () => void;
 }
 
-const LABELS: Record<Props["action"], { title: string; verb: string; description: string }> = {
-  start: {
-    title: "Container starten?",
-    verb: "Starten",
-    description: "wird gestartet.",
-  },
-  stop: {
-    title: "Container stoppen?",
-    verb: "Stoppen",
-    description: "wird gestoppt.",
-  },
-  restart: {
-    title: "Container neu starten?",
-    verb: "Neu starten",
-    description: "wird neu gestartet.",
-  },
-};
-
 export function DockerPowerDialog({
   serverId,
   containerId,
@@ -49,9 +32,15 @@ export function DockerPowerDialog({
   trigger,
   onDone,
 }: Props) {
+  const t = useTranslations("docker.powerDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const labels = LABELS[action];
+  const labels = {
+    start: { title: t("startTitle"), verb: t("startVerb"), description: t("startDescription") },
+    stop: { title: t("stopTitle"), verb: t("stopVerb"), description: t("stopDescription") },
+    restart: { title: t("restartTitle"), verb: t("restartVerb"), description: t("restartDescription") },
+  }[action];
 
   async function run() {
     setLoading(true);
@@ -66,14 +55,14 @@ export function DockerPowerDialog({
       );
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? `${labels.verb} fehlgeschlagen`);
+        toast.error(data.error ? tErrors(data.error) : t("actionFailed", { verb: labels.verb }));
         return;
       }
-      toast.success(`${labels.verb}-Befehl gesendet`);
+      toast.success(t("commandSent", { verb: labels.verb }));
       setOpen(false);
       onDone?.();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -86,7 +75,7 @@ export function DockerPowerDialog({
         <DialogHeader>
           <DialogTitle>{labels.title}</DialogTitle>
           <DialogDescription>
-            „{containerName}“ {labels.description}
+            &ldquo;{containerName}&rdquo; {labels.description}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

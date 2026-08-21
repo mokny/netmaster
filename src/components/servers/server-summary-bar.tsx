@@ -1,6 +1,7 @@
 "use client";
 
 import { Cpu, MemoryStick, HardDrive, Clock, Terminal, Activity } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DiskInfoDTO, MetricSampleDTO, ServerDTO } from "@/lib/types";
 
@@ -84,6 +85,7 @@ export function ServerSummaryBar({
   latest: MetricSampleDTO | undefined;
   disks: DiskInfoDTO[];
 }) {
+  const t = useTranslations("servers.summaryBar");
   const memUsedMb =
     server.memTotalMb != null && latest?.memPercent != null
       ? (latest.memPercent / 100) * server.memTotalMb
@@ -107,8 +109,8 @@ export function ServerSummaryBar({
         key="cpu"
         icon={<Cpu className="size-4" />}
         label="CPU"
-        value={`${server.cpuCores} Core${server.cpuCores === 1 ? "" : "s"}`}
-        sub={latest?.cpuPercent != null ? `${latest.cpuPercent.toFixed(0)}% ausgelastet` : undefined}
+        value={t("cores", { count: server.cpuCores })}
+        sub={latest?.cpuPercent != null ? t("utilized", { percent: latest.cpuPercent.toFixed(0) }) : undefined}
         percent={latest?.cpuPercent ?? undefined}
       />
     );
@@ -121,7 +123,7 @@ export function ServerSummaryBar({
         icon={<MemoryStick className="size-4" />}
         label="RAM"
         value={formatMb(server.memTotalMb) ?? "–"}
-        sub={memUsedMb != null ? `${formatMb(memUsedMb)} belegt` : undefined}
+        sub={memUsedMb != null ? t("used", { value: formatMb(memUsedMb) ?? "" }) : undefined}
         percent={latest?.memPercent ?? undefined}
       />
     );
@@ -132,9 +134,9 @@ export function ServerSummaryBar({
       <Tile
         key="disk"
         icon={<HardDrive className="size-4" />}
-        label={disks.length > 1 ? `Platte (${disks.length})` : "Platte"}
+        label={disks.length > 1 ? t("diskCount", { count: disks.length }) : t("disk")}
         value={formatGb(diskTotalKb) ?? "–"}
-        sub={diskUsedKb > 0 ? `${formatGb(diskUsedKb)} belegt` : undefined}
+        sub={diskUsedKb > 0 ? t("used", { value: formatGb(diskUsedKb) ?? "" }) : undefined}
         percent={diskPercent ?? undefined}
         tooltip={
           <div className="space-y-1">
@@ -157,7 +159,7 @@ export function ServerSummaryBar({
       <Tile
         key="uptime"
         icon={<Clock className="size-4" />}
-        label="Uptime"
+        label={t("uptime")}
         value={uptime}
       />
     );
@@ -168,7 +170,7 @@ export function ServerSummaryBar({
       <Tile
         key="os"
         icon={<Terminal className="size-4" />}
-        label="System"
+        label={t("system")}
         value={server.osName ?? "–"}
         sub={server.kernelVersion ?? undefined}
       />
@@ -180,7 +182,7 @@ export function ServerSummaryBar({
       <Tile
         key="load"
         icon={<Activity className="size-4" />}
-        label="Load Average"
+        label={t("loadAverage")}
         value={[latest.loadAvg1, latest.loadAvg5, latest.loadAvg15]
           .map((v) => (v != null ? v.toFixed(2) : "–"))
           .join(" / ")}

@@ -45,7 +45,7 @@ export async function POST(
     const { id } = await params;
     const body = await req.json();
     const image = String(body.image ?? "").trim();
-    if (!image) throw new ApiError(400, "Image-Name erforderlich");
+    if (!image) throw new ApiError(400, "IMAGE_NAME_REQUIRED");
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireDockerEnabled(server);
@@ -54,12 +54,12 @@ export async function POST(
     try {
       command = buildDockerPullCommand(image);
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültiger Image-Name");
+      throw new ApiError(400, "INVALID_IMAGE_NAME", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 5 * 60_000);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Pull fehlgeschlagen");
+      throw new ApiError(500, "PULL_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "docker.image.pull", {

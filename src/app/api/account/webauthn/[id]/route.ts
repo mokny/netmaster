@@ -6,7 +6,7 @@ import { writeAuditLog } from "@/lib/audit";
 async function loadOwnedCredential(userId: string, id: string) {
   const credential = await prisma.webAuthnCredential.findUnique({ where: { id } });
   if (!credential || credential.userId !== userId) {
-    throw new ApiError(404, "Passkey nicht gefunden");
+    throw new ApiError(404, "PASSKEY_NOT_FOUND");
   }
   return credential;
 }
@@ -22,7 +22,7 @@ export async function PATCH(
 
     const body = await req.json().catch(() => null);
     const name = typeof body?.name === "string" ? body.name.trim().slice(0, 60) : "";
-    if (!name) throw new ApiError(400, "Name erforderlich");
+    if (!name) throw new ApiError(400, "NAME_REQUIRED");
 
     await prisma.webAuthnCredential.update({ where: { id }, data: { name } });
     return NextResponse.json({ ok: true });

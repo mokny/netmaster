@@ -17,14 +17,14 @@ export async function DELETE(
     const session = await requireRole("EDITOR");
     const { id, ruleId } = await params;
     if (!/^[a-zA-Z0-9]+$/.test(ruleId)) {
-      throw new ApiError(400, "Ungültige Regel-ID");
+      throw new ApiError(400, "INVALID_RULE_ID");
     }
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireNetworkToolsEnabled(server);
 
     const backend = await detectFirewallBackend(server);
     if (backend === "none") {
-      throw new ApiError(400, "Kein unterstütztes Firewall-Backend (nft/iptables/ufw) erkannt");
+      throw new ApiError(400, "UNSUPPORTED_FIREWALL_BACKEND");
     }
 
     const script = buildSimpleDeleteScript(backend, ruleId);

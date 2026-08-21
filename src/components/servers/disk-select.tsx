@@ -1,6 +1,7 @@
 "use client";
 
 import { HardDrive } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ export function DiskSelect({
   selected: string[];
   onChange: (mountpoints: string[]) => void;
 }) {
+  const t = useTranslations("servers.diskSelect");
   function toggle(mountpoint: string) {
     onChange(
       selected.includes(mountpoint)
@@ -37,7 +39,7 @@ export function DiskSelect({
         render={
           <Button variant="outline" size="sm">
             <HardDrive className="size-4" />
-            Disks
+            {t("disks")}
             {selected.length > 0 && (
               <span className="ml-1 rounded-full bg-muted px-1.5 text-xs">
                 {selected.length}
@@ -48,7 +50,7 @@ export function DiskSelect({
       />
       <DropdownMenuContent align="end" className="min-w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Laufwerke anzeigen</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("showDrives")}</DropdownMenuLabel>
           {disks.map((disk) => (
             <DropdownMenuCheckboxItem
               key={disk.mountpoint}

@@ -44,6 +44,7 @@ import { useLiveEvents, type LiveEvent } from "@/hooks/use-live-events";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
 import { SshConnectDialog } from "@/components/explore/ssh-connect-dialog";
+import { useTranslations } from "next-intl";
 
 interface OpenPort {
   port: number;
@@ -103,10 +104,10 @@ interface ExploreRangeDTO {
   enabled: boolean;
 }
 
-function rangeSourceLabel(source: RangeSource): string {
+function rangeSourceLabel(source: RangeSource, manualLabel: string): string {
   if (source === "LAN_AUTO") return "LAN";
   if (source === "VPN_AUTO") return "VPN";
-  return "Manuell";
+  return manualLabel;
 }
 
 interface HostConnections {
@@ -225,6 +226,9 @@ function SortableTableHead({
 }
 
 export function ExploreOverview() {
+  const t = useTranslations("explore");
+  const tErrors = useTranslations("errors");
+  const tc = useTranslations("common");
   const session = useSession();
   const canScan = session?.role === "EDITOR" || session?.role === "ADMIN";
   const { openTerminal } = useTerminalManager();
@@ -326,7 +330,7 @@ export function ExploreOverview() {
     const res = await fetch("/api/explore/scan", { method: "POST" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error ?? "Scan konnte nicht gestartet werden");
+      toast.error(data.error ? tErrors(data.error) : t("scanStartFailed"));
       return;
     }
     setScanStatus({ status: "running", startedAt: new Date().toISOString(), progress: null, error: null, lastCompletedAt: null });
@@ -340,10 +344,10 @@ export function ExploreOverview() {
       const res = await fetch("/api/explore/scan/abort", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Abbruch fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("abortFailed"));
         return;
       }
-      toast.success("Scan wird abgebrochen…");
+      toast.success(t("scanAborting"));
     } finally {
       setAborting(false);
     }
@@ -352,17 +356,17 @@ export function ExploreOverview() {
   const [clearingHosts, setClearingHosts] = useState(false);
 
   async function clearHosts() {
-    if (!window.confirm("Alle gefundenen Geräte aus der Liste entfernen?")) return;
+    if (!window.confirm(t("clearHostsConfirm"))) return;
     setClearingHosts(true);
     try {
       const res = await fetch("/api/explore/hosts", { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Liste konnte nicht geleert werden");
+        toast.error(data.error ? tErrors(data.error) : t("clearListFailed"));
         return;
       }
       setHosts([]);
-      toast.success("Liste geleert");
+      toast.success(t("listCleared"));
     } finally {
       setClearingHosts(false);
     }
@@ -383,11 +387,11 @@ export function ExploreOverview() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
       setSettings(data.settings);
-      toast.success("Einstellungen gespeichert");
+      toast.success(t("settingsSaved"));
     } finally {
       setSavingSettings(false);
     }
@@ -402,7 +406,7 @@ export function ExploreOverview() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast.error(data.error ?? "Speichern fehlgeschlagen");
+      toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
       return;
     }
     setSettings(data.settings);
@@ -420,7 +424,7 @@ export function ExploreOverview() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Range konnte nicht angelegt werden");
+        toast.error(data.error ? tErrors(data.error) : t("rangeCreateFailed"));
         return;
       }
       setNewRangeInput("");
@@ -438,18 +442,18 @@ export function ExploreOverview() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast.error(data.error ?? "Speichern fehlgeschlagen");
+      toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
       return;
     }
     setRanges((prev) => prev?.map((r) => (r.id === id ? data.range : r)) ?? prev);
   }
 
   async function deleteRange(id: string) {
-    if (!window.confirm("Diese manuelle Range wirklich entfernen?")) return;
+    if (!window.confirm(t("deleteRangeConfirm"))) return;
     const res = await fetch(`/api/explore/ranges/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error ?? "Löschen fehlgeschlagen");
+      toast.error(data.error ? tErrors(data.error) : t("deleteFailed"));
       return;
     }
     setRanges((prev) => prev?.filter((r) => r.id !== id) ?? prev);
@@ -461,22 +465,20 @@ export function ExploreOverview() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Explore</h1>
-          <p className="text-sm text-muted-foreground">
-            Netzwerk-Scan: findet Geräte im LAN und ihre offenen Dienste
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         {canScan && (
           <div className="flex gap-2">
             {scanning && (
               <Button variant="outline" onClick={abortRunningScan} disabled={aborting}>
                 {aborting ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
-                Abbrechen
+                {tc("cancel")}
               </Button>
             )}
             <Button onClick={startScan} disabled={scanning}>
               {scanning ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-              Scan starten
+              {t("startScan")}
             </Button>
           </div>
         )}
@@ -487,8 +489,11 @@ export function ExploreOverview() {
           <CardContent className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {scanStatus?.progress?.phase === "ports"
-              ? `Scanne Dienste... (${scanStatus.progress.current}/${scanStatus.progress.total})`
-              : "Suche Geräte im Netzwerk..."}
+              ? t("scanningServices", {
+                  current: scanStatus.progress.current,
+                  total: scanStatus.progress.total,
+                })
+              : t("scanningHosts")}
           </CardContent>
         </Card>
       )}
@@ -496,7 +501,7 @@ export function ExploreOverview() {
       {scanStatus?.status === "error" && scanStatus.error && (
         <Card>
           <CardContent className="py-4 text-sm text-destructive">
-            Scan fehlgeschlagen: {scanStatus.error}
+            {t("scanFailed", { error: scanStatus.error })}
           </CardContent>
         </Card>
       )}
@@ -504,19 +509,14 @@ export function ExploreOverview() {
       {canScan && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Scan-Ranges</CardTitle>
-            <CardDescription>
-              LAN- und VPN-Interfaces des Hosts werden automatisch erkannt (alle 15s
-              abgeglichen). Manuelle Ranges können frei hinzugefügt werden.
-            </CardDescription>
+            <CardTitle className="text-base">{t("scanRanges")}</CardTitle>
+            <CardDescription>{t("scanRangesDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {ranges === null ? (
               <Skeleton className="h-20 w-full" />
             ) : ranges.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Keine Range erkannt oder konfiguriert.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("noRanges")}</p>
             ) : (
               <div className="space-y-2">
                 {ranges.map((range) => (
@@ -526,7 +526,7 @@ export function ExploreOverview() {
                   >
                     <div className="flex items-center gap-2">
                       <Badge variant={range.source === "MANUAL" ? "outline" : "secondary"}>
-                        {rangeSourceLabel(range.source)}
+                        {rangeSourceLabel(range.source, t("manual"))}
                       </Badge>
                       <span className="font-mono text-sm">{range.cidr}</span>
                       {range.interfaceName && (
@@ -558,7 +558,7 @@ export function ExploreOverview() {
 
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <Label>Manuelle Range hinzufügen (CIDR)</Label>
+                <Label>{t("addManualRange")}</Label>
                 <Input
                   value={newRangeInput}
                   onChange={(e) => setNewRangeInput(e.target.value)}
@@ -572,16 +572,16 @@ export function ExploreOverview() {
                   ) : (
                     <Plus className="size-4" />
                   )}
-                  Hinzufügen
+                  {tc("add")}
                 </Button>
               </div>
             </div>
 
             <div className="flex items-center justify-between rounded-md border px-3 py-2">
               <div>
-                <Label className="font-normal">Automatischer Scan</Label>
+                <Label className="font-normal">{t("autoScan")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Alle {settings?.autoScanIntervalHr ?? 24} Stunden im Hintergrund
+                  {t("autoScanHint", { hours: settings?.autoScanIntervalHr ?? 24 })}
                 </p>
               </div>
               <Switch
@@ -592,7 +592,7 @@ export function ExploreOverview() {
 
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <Label>Gleichzeitige Port-Scans</Label>
+                <Label>{t("concurrentPortScans")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -606,7 +606,7 @@ export function ExploreOverview() {
               <div className="flex items-end">
                 <Button variant="outline" onClick={saveSettings} disabled={savingSettings}>
                   {savingSettings && <Loader2 className="size-4 animate-spin" />}
-                  Speichern
+                  {tc("save")}
                 </Button>
               </div>
             </div>
@@ -623,7 +623,7 @@ export function ExploreOverview() {
             disabled={clearingHosts || scanning}
           >
             {clearingHosts ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-3.5" />}
-            Liste leeren
+            {t("clearList")}
           </Button>
         </div>
       )}
@@ -637,7 +637,7 @@ export function ExploreOverview() {
       ) : hosts.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Noch keine Geräte gefunden. {canScan && "Starte einen Scan, um das Netzwerk zu durchsuchen."}
+            {t("noHostsFound")} {canScan && t("startScanHint")}
           </CardContent>
         </Card>
       ) : (
@@ -650,26 +650,26 @@ export function ExploreOverview() {
                     IP
                   </SortableTableHead>
                   <SortableTableHead sortKey="hostname" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
-                    Hostname
+                    {t("hostname")}
                   </SortableTableHead>
                   <SortableTableHead sortKey="vendor" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
-                    Hersteller
+                    {t("vendor")}
                   </SortableTableHead>
                   <SortableTableHead sortKey="mac" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
                     MAC
                   </SortableTableHead>
                   <SortableTableHead sortKey="source" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
-                    Quelle
+                    {t("source")}
                   </SortableTableHead>
-                  <TableHead>Verbindung</TableHead>
-                  <TableHead>Offene Ports</TableHead>
+                  <TableHead>{t("connection")}</TableHead>
+                  <TableHead>{t("openPorts")}</TableHead>
                   <SortableTableHead sortKey="lastSeenAt" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
-                    Zuletzt gesehen
+                    {t("lastSeen")}
                   </SortableTableHead>
                   <SortableTableHead sortKey="status" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
-                    Status
+                    {tc("status")}
                   </SortableTableHead>
-                  <TableHead className="text-right">Aktion</TableHead>
+                  <TableHead className="text-right">{tc("actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -684,7 +684,7 @@ export function ExploreOverview() {
                     <TableCell>
                       {host.range ? (
                         <Badge variant={host.range.source === "MANUAL" ? "outline" : "secondary"}>
-                          {rangeSourceLabel(host.range.source)}
+                          {rangeSourceLabel(host.range.source, t("manual"))}
                           {host.range.interfaceName && ` (${host.range.interfaceName})`}
                         </Badge>
                       ) : (
@@ -698,7 +698,7 @@ export function ExploreOverview() {
                             variant="ghost"
                             size="icon"
                             className="size-7"
-                            title={`SSH (Port ${connections.ssh.port})`}
+                            title={t("sshPort", { port: connections.ssh.port })}
                             onClick={() => connectSsh(host, connections.ssh!.port)}
                           >
                             <TerminalIcon className="size-3.5" />
@@ -719,7 +719,7 @@ export function ExploreOverview() {
                         {connections.ftp && (
                           <a
                             href={`ftp://${host.ip}:${connections.ftp.port}`}
-                            title={`FTP (Port ${connections.ftp.port})`}
+                            title={t("ftpPort", { port: connections.ftp.port })}
                             className={buttonVariants({ variant: "ghost", size: "icon", className: "size-7" })}
                           >
                             <FolderUp className="size-3.5" />
@@ -748,13 +748,15 @@ export function ExploreOverview() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={host.lastSeenOnline ? "secondary" : "outline"}>
-                        {host.lastSeenOnline ? "online" : "nicht mehr online"}
+                        {host.lastSeenOnline ? t("online") : t("offline")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {host.matched ? (
                         <Badge variant="outline">
-                          Bereits hinzugefügt ({host.matched.kind === "server" ? "Server" : "Router"})
+                          {t("alreadyAdded", {
+                            kind: host.matched.kind === "server" ? "Server" : "Router",
+                          })}
                         </Badge>
                       ) : canScan ? (
                         <div className="flex justify-end gap-1.5">

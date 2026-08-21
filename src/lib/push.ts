@@ -1,6 +1,8 @@
 import webPush from "web-push";
 import { prisma } from "@/lib/prisma";
 import { shouldFireDelayedAlert, shouldFireRecovery } from "@/lib/monitor/alert-delay";
+import { buildPushPayload, type PushMessageDescriptor } from "@/lib/push-messages";
+import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale";
 
 interface VapidKeySet {
   publicKey: string;
@@ -115,7 +117,7 @@ async function sendPushToSubscription(
 
     if (statusCode === 404 || statusCode === 410) {
       await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-      return { ok: false, error: "Subscription ist nicht mehr gültig und wurde entfernt" };
+      return { ok: false, error: "Subscription is no longer valid and was removed" };
     }
 
     console.error(
@@ -130,12 +132,18 @@ async function sendPushToSubscription(
   }
 }
 
-// Schickt eine Push-Nachricht an alle Endpunkte (Geräte) eines Users.
-export async function sendPushToUser(userId: string, payload: PushPayload) {
+// Schickt eine Push-Nachricht an alle Endpunkte (Geräte) eines Users - Titel
+// und Text werden anhand der Account-Sprache des Empfängers gebaut (siehe
+// push-messages.ts), nicht der Sprache des auslösenden Requests/Servers.
+export async function sendPushToUser(userId: string, descriptor: PushMessageDescriptor) {
   await ensureVapidKeys();
 
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { locale: true } });
+  const locale = isAppLocale(user?.locale) ? user.locale : DEFAULT_LOCALE;
+  const payload = buildPushPayload(locale, descriptor);
 
   const results = await Promise.all(subscriptions.map((sub) => sendPushToSubscription(sub, payload)));
   const failed = results.filter((r) => !r.ok);
@@ -158,7 +166,7 @@ export async function sendPushToSubscriptionByEndpoint(
   await ensureVapidKeys();
 
   const sub = await prisma.pushSubscription.findFirst({ where: { userId, endpoint } });
-  if (!sub) return { ok: false, found: false, error: "Keine aktive Push-Subscription für dieses Gerät" };
+  if (!sub) return { ok: false, found: false, error: "No active push subscription for this device" };
 
   const result = await sendPushToSubscription(sub, payload);
   return { ...result, found: true };
@@ -265,7 +273,7 @@ async function loadUsersAndPrefs(serverId: string) {
 export async function notifyServerEvent(
   serverId: string,
   event: NotificationEvent,
-  payload: PushPayload,
+  descriptor: PushMessageDescriptor,
   since: Date | null,
   pollIntervalSec: number
 ) {
@@ -282,7 +290,7 @@ export async function notifyServerEvent(
       if (!enabled) return Promise.resolve();
       const delayMin = pref ? Number(pref[delayField] ?? 0) : 0;
       if (!shouldFireDelayedAlert(since, delayMin, pollIntervalSec)) return Promise.resolve();
-      return sendPushToUser(u.id, payload);
+      return sendPushToUser(u.id, descriptor);
     })
   );
 }
@@ -293,7 +301,7 @@ export async function notifyServerEvent(
 export async function notifyServerRecovery(
   serverId: string,
   event: NotificationEvent,
-  payload: PushPayload,
+  descriptor: PushMessageDescriptor,
   sinceBeforeClear: Date | null
 ) {
   if (!sinceBeforeClear) return;
@@ -311,7 +319,7 @@ export async function notifyServerRecovery(
       if (!recoveryEnabled) return Promise.resolve();
       const delayMin = pref ? Number(pref[delayField] ?? 0) : 0;
       if (!shouldFireRecovery(sinceBeforeClear, delayMin)) return Promise.resolve();
-      return sendPushToUser(u.id, payload);
+      return sendPushToUser(u.id, descriptor);
     })
   );
 }

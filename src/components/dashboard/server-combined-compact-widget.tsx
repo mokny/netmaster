@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import type { MetricSampleDTO, ServerDTO } from "@/lib/types";
 
 export function ServerCombinedCompactWidget({ serverId }: { serverId: string }) {
+  const t = useTranslations("common");
   const [server, setServer] = useState<ServerDTO | null>(null);
   const [latest, setLatest] = useState<MetricSampleDTO | null>(null);
 
@@ -28,7 +30,7 @@ export function ServerCombinedCompactWidget({ serverId }: { serverId: string }) 
   });
 
   if (!server) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 
   return (

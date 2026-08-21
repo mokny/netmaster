@@ -12,7 +12,7 @@ export async function DELETE(
 
     const sub = await prisma.pushSubscription.findUnique({ where: { id } });
     if (!sub || sub.userId !== session.userId) {
-      throw new ApiError(404, "Subscription nicht gefunden");
+      throw new ApiError(404, "PUSH_SUBSCRIPTION_NOT_FOUND");
     }
 
     await prisma.pushSubscription.delete({ where: { id } });

@@ -15,7 +15,7 @@ export async function POST(
 
     const action: PowerAction = body.action === "shutdown" ? "shutdown" : "reboot";
     if (action !== "reboot" && action !== "shutdown") {
-      throw new ApiError(400, "Ungültige Aktion");
+      throw new ApiError(400, "INVALID_ACTION");
     }
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
@@ -25,7 +25,7 @@ export async function POST(
     try {
       ({ command, stdin } = buildPowerCommand(server, action));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Konfiguration");
+      throw new ApiError(400, "INVALID_CONFIG", err instanceof Error ? err.message : undefined);
     }
 
     let sent = false;
@@ -37,7 +37,7 @@ export async function POST(
       // bevor der Exit-Code zurückkommt — ein Nicht-Null-Code weist hier
       // meist auf ein echtes Problem hin (z.B. falsches Sudo-Passwort).
       if (result.code !== 0 && result.code !== null) {
-        throw new ApiError(500, result.stderr.trim() || `${action} fehlgeschlagen`);
+        throw new ApiError(500, "ACTION_FAILED", result.stderr.trim() || action);
       }
     } catch (err) {
       if (!sent) {

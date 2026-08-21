@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
@@ -28,16 +29,18 @@ export function PasskeyCard({
 }) {
   const confirm = useConfirm();
   const prompt = usePrompt();
+  const t = useTranslations("account.passkeyCard");
+  const tErrors = useTranslations("errors");
   const [loading, setLoading] = useState(false);
   const ipHost = isIpHost();
 
   async function addPasskey() {
     const name = await prompt({
-      title: "Passkey hinzufügen",
-      label: "Name für diesen Passkey",
-      placeholder: "z.B. MacBook Pro",
-      defaultValue: "Neues Gerät",
-      confirmText: "Weiter",
+      title: t("addTitle"),
+      label: t("nameLabel"),
+      placeholder: t("namePlaceholder"),
+      defaultValue: t("defaultName"),
+      confirmText: t("continue"),
     });
     if (name === null) return;
 
@@ -48,7 +51,7 @@ export function PasskeyCard({
       });
       const options = await optionsRes.json();
       if (!optionsRes.ok) {
-        toast.error(options.error ?? "Passkey-Setup nicht verfügbar");
+        toast.error(tErrors(options.error ?? "PASSKEY_SETUP_UNAVAILABLE"));
         return;
       }
 
@@ -61,13 +64,13 @@ export function PasskeyCard({
       });
       const data = await verifyRes.json();
       if (!verifyRes.ok) {
-        toast.error(data.error ?? "Passkey konnte nicht angelegt werden");
+        toast.error(tErrors(data.error ?? "PASSKEY_CREATE_FAILED"));
         return;
       }
-      toast.success("Passkey hinzugefügt");
+      toast.success(t("added"));
       onChanged();
     } catch {
-      toast.error("Passkey-Registrierung abgebrochen oder fehlgeschlagen");
+      toast.error(t("registrationAborted"));
     } finally {
       setLoading(false);
     }
@@ -81,58 +84,47 @@ export function PasskeyCard({
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      toast.error("Umbenennen fehlgeschlagen");
+      toast.error(t("renameFailed"));
       return;
     }
     onChanged();
   }
 
   async function removePasskey(id: string) {
-    const message =
-      passkeys.length === 1
-        ? "Letzten Passkey wirklich entfernen? Danach ist wieder Passwort-Login für diesen Account möglich."
-        : "Passkey wirklich entfernen? Andere aktive Sessions werden beendet.";
+    const message = passkeys.length === 1 ? t("removeLastMessage") : t("removeMessage");
     if (
       !(await confirm({
-        title: "Passkey entfernen",
+        title: t("removeTitle"),
         description: message,
-        confirmText: "Entfernen",
+        confirmText: t("remove"),
         variant: "destructive",
       }))
     )
       return;
     const res = await fetch(`/api/account/webauthn/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Entfernen fehlgeschlagen");
+      toast.error(t("removeFailed"));
       return;
     }
-    toast.success("Passkey entfernt");
+    toast.success(t("removed"));
     onChanged();
   }
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Passkeys</CardTitle>
+        <CardTitle className="text-base">{t("title")}</CardTitle>
         {!ipHost && (
           <Button size="sm" disabled={loading} onClick={addPasskey}>
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Fingerprint className="size-4" />}
-            Passkey hinzufügen
+            {t("addButton")}
           </Button>
         )}
       </CardHeader>
       <CardContent className="space-y-3">
-        {ipHost && (
-          <p className="text-sm text-muted-foreground">
-            Passkeys benötigen eine feste Domain – über eine IP-Adresse aufgerufen werden sie
-            von Browsern nicht unterstützt.
-          </p>
-        )}
+        {ipHost && <p className="text-sm text-muted-foreground">{t("ipHostWarning")}</p>}
         {passkeys.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Solange mindestens ein Passkey hinterlegt ist, sind Passwort-Login und 2FA für diesen
-            Account gesperrt.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("lockedNotice")}</p>
         )}
         <PasskeyList passkeys={passkeys} onRename={renamePasskey} onRemove={removePasskey} />
       </CardContent>

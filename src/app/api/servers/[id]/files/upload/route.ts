@@ -31,12 +31,12 @@ export async function POST(
     const targetDir = form.get("targetDir");
     const overwrite = form.get("overwrite") === "true";
     if (typeof targetDir !== "string" || !targetDir.startsWith("/")) {
-      throw new ApiError(400, "Ungültiges Zielverzeichnis");
+      throw new ApiError(400, "INVALID_TARGET_DIRECTORY");
     }
     const files = form.getAll("files").filter((f): f is File => f instanceof File);
     const relPaths = form.getAll("relPaths").map((v) => String(v));
     if (files.length === 0 || files.length !== relPaths.length) {
-      throw new ApiError(400, "Keine gültigen Dateien übermittelt");
+      throw new ApiError(400, "NO_VALID_FILES_SUBMITTED");
     }
 
     const { conn, sftp } = await openSftpSession(server);
@@ -66,7 +66,10 @@ export async function POST(
     return NextResponse.json({ ok: true, uploaded });
   } catch (err) {
     if (err instanceof SftpOpError && err.code === "EXISTS") {
-      return NextResponse.json({ error: err.message, code: "EXISTS" }, { status: 409 });
+      return NextResponse.json(
+        { error: "FILE_EXISTS", detail: err.message, code: "EXISTS" },
+        { status: 409 }
+      );
     }
     return handleApiError(err);
   }

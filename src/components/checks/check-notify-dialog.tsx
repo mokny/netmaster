@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Bell, Loader2 } from "lucide-react";
 import type { ServiceCheckDTO, ServiceCheckSubscriberDTO } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 const DEFAULT_PREF: ServiceCheckSubscriberDTO = {
   downEnabled: false,
@@ -27,6 +28,8 @@ const DEFAULT_PREF: ServiceCheckSubscriberDTO = {
 };
 
 export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
+  const t = useTranslations("checks.notifyDialog");
+  const tc = useTranslations("common");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pref, setPref] = useState<ServiceCheckSubscriberDTO>(DEFAULT_PREF);
@@ -54,10 +57,10 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
         }),
       });
       if (!res.ok) {
-        toast.error("Speichern fehlgeschlagen");
+        toast.error(t("saveFailed"));
         return;
       }
-      toast.success("Benachrichtigungen gespeichert");
+      toast.success(t("notificationsSaved"));
       setOpen(false);
     } finally {
       setLoading(false);
@@ -75,20 +78,20 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Benachrichtigungen: {check.name}</DialogTitle>
+          <DialogTitle>{t("title", { name: check.name })}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Ausfall (Down)</p>
+            <p className="text-sm font-medium">{t("down")}</p>
             <div className="flex items-center justify-between">
-              <Label className="font-normal">Aktiv</Label>
+              <Label className="font-normal">{t("active")}</Label>
               <Switch
                 checked={pref.downEnabled}
                 onCheckedChange={(c) => setPref((p) => ({ ...p, downEnabled: !!c }))}
               />
             </div>
             <div className="flex items-center justify-between gap-3">
-              <Label className="font-normal">Verzögerung (Min)</Label>
+              <Label className="font-normal">{t("delayMin")}</Label>
               <Input
                 type="number"
                 min={0}
@@ -100,7 +103,7 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
               />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="font-normal">Wieder erreichbar benachrichtigen</Label>
+              <Label className="font-normal">{t("notifyOnRecovery")}</Label>
               <Switch
                 checked={pref.downRecoveryEnabled}
                 onCheckedChange={(c) => setPref((p) => ({ ...p, downRecoveryEnabled: !!c }))}
@@ -109,27 +112,27 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
           </div>
 
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Langsame Antwort</p>
+            <p className="text-sm font-medium">{t("slowResponse")}</p>
             <div className="flex items-center justify-between gap-3">
-              <Label className="font-normal">Schwelle (ms, Check-Einstellung)</Label>
+              <Label className="font-normal">{t("thresholdCheckSetting")}</Label>
               <Input
                 type="number"
                 min={0}
                 className="w-24"
-                placeholder="aus"
+                placeholder={tc("off")}
                 value={latencyWarnMs}
                 onChange={(e) => setLatencyWarnMs(e.target.value)}
               />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="font-normal">Aktiv</Label>
+              <Label className="font-normal">{t("active")}</Label>
               <Switch
                 checked={pref.slowEnabled}
                 onCheckedChange={(c) => setPref((p) => ({ ...p, slowEnabled: !!c }))}
               />
             </div>
             <div className="flex items-center justify-between gap-3">
-              <Label className="font-normal">Verzögerung (Min)</Label>
+              <Label className="font-normal">{t("delayMin")}</Label>
               <Input
                 type="number"
                 min={0}
@@ -141,7 +144,7 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
               />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="font-normal">Wieder schnell benachrichtigen</Label>
+              <Label className="font-normal">{t("notifyOnFastAgain")}</Label>
               <Switch
                 checked={pref.slowRecoveryEnabled}
                 onCheckedChange={(c) => setPref((p) => ({ ...p, slowRecoveryEnabled: !!c }))}
@@ -152,7 +155,7 @@ export function CheckNotifyDialog({ check }: { check: ServiceCheckDTO }) {
         <DialogFooter>
           <Button onClick={save} disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Speichern
+            {tc("save")}
           </Button>
         </DialogFooter>
       </DialogContent>

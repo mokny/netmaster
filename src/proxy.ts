@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login/totp",
   "/api/auth/webauthn/login/options",
   "/api/auth/webauthn/login/verify",
+  "/api/locale",
 ];
 
 export async function proxy(req: NextRequest) {
@@ -30,7 +31,7 @@ export async function proxy(req: NextRequest) {
 
   if (!session) {
     if (pathname.startsWith("/api")) {
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
     }
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("from", pathname);
@@ -47,7 +48,7 @@ export async function proxy(req: NextRequest) {
   if (session.mustChangePassword && pathname !== "/change-password") {
     if (pathname.startsWith("/api") && !FORCE_CHANGE_EXEMPT_API.includes(pathname)) {
       return NextResponse.json(
-        { error: "Passwort muss zuerst geändert werden" },
+        { error: "PASSWORD_CHANGE_REQUIRED" },
         { status: 403 }
       );
     }

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const p256dh = body?.keys?.p256dh;
     const auth = body?.keys?.auth;
     if (typeof endpoint !== "string" || typeof p256dh !== "string" || typeof auth !== "string") {
-      throw new ApiError(400, "Ungültige Subscription");
+      throw new ApiError(400, "INVALID_PUSH_SUBSCRIPTION");
     }
 
     await prisma.pushSubscription.upsert({
@@ -41,7 +41,7 @@ export async function DELETE(req: Request) {
     const session = await requireSession();
     const body = await req.json();
     const endpoint = body?.endpoint;
-    if (typeof endpoint !== "string") throw new ApiError(400, "endpoint fehlt");
+    if (typeof endpoint !== "string") throw new ApiError(400, "MISSING_ENDPOINT");
 
     await prisma.pushSubscription.deleteMany({
       where: { endpoint, userId: session.userId },

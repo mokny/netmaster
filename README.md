@@ -1,87 +1,87 @@
 # NetMaster
 
-Selbst-gehostetes Netzwerkadministratorpanel: Live-Monitoring deiner Server (CPU/RAM/Disk/Load/Netzwerk via SSH), HTTP-Health-Checks, Docker-Container-Übersicht und ein frei anordenbares Dashboard – hinter einem Multi-User-Login mit Rollen (Admin/Editor/Viewer).
+Self-hosted network admin panel: live monitoring of your servers (CPU/RAM/disk/load/network via SSH), HTTP health checks, a Docker container overview, and a freely arrangeable dashboard – behind a multi-user login with roles (Admin/Editor/Viewer).
 
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript, Tailwind CSS + shadcn/ui
-- Custom Node-Server (`server.ts`) für WebSocket-Live-Updates neben Next.js
+- Custom Node server (`server.ts`) for WebSocket live updates alongside Next.js
 - SQLite via Prisma (`@prisma/adapter-better-sqlite3`)
-- SSH-Monitoring über `ssh2`, verschlüsselte Credentials (AES-256-GCM)
-- Recharts für Live-Graphen, `react-grid-layout` für das Drag-&-Drop-Dashboard
+- SSH monitoring via `ssh2`, encrypted credentials (AES-256-GCM)
+- Recharts for live graphs, `react-grid-layout` for the drag-and-drop dashboard
 
-## Installation (Linux-Server, empfohlen)
+## Installation (Linux server, recommended)
 
-Ein einzelner Befehl installiert Docker (falls nötig), lädt das neueste Release,
-führt dich durch ein kurzes Setup (Admin-Account, Port, optional HTTPS via
-Caddy + Let's Encrypt) und startet NetMaster:
+A single command installs Docker (if needed), downloads the latest release,
+walks you through a short setup (admin account, port, optional HTTPS via
+Caddy + Let's Encrypt) and starts NetMaster:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mokny/netmaster/main/install.sh | bash
 ```
 
-Danach steht der `netmaster`-Befehl zur Verfügung:
+Afterwards the `netmaster` command is available:
 
 ```bash
-netmaster status              # Status & URL anzeigen
-netmaster logs                # Live-Logs
-netmaster restart             # Container neu starten
-netmaster update               # auf neuestes Release aktualisieren (mit DB-Backup)
-netmaster update --nightly     # auf neuesten main-Commit aktualisieren
-netmaster uninstall            # interaktiv entfernen
+netmaster status              # show status & URL
+netmaster logs                # live logs
+netmaster restart             # restart the container
+netmaster update               # update to the latest release (with DB backup)
+netmaster update --nightly     # update to the latest main commit
+netmaster uninstall            # remove interactively
 ```
 
-Der Einzeiler ist auch für Updates/Reparatur sicher erneut ausführbar: eine
-bestehende Installation wird automatisch erkannt und stattdessen aktualisiert
-(Secrets/`.env` bleiben unangetastet).
+The one-liner is also safe to re-run for updates/repair: an existing
+installation is detected automatically and updated instead
+(secrets/`.env` are left untouched).
 
-## Lokale Entwicklung
+## Local development
 
 ```bash
 npm install
 cp .env.example .env
-# MASTER_SECRET und AUTH_SECRET setzen: openssl rand -hex 32 (jeweils einmal ausführen)
+# set MASTER_SECRET and AUTH_SECRET: openssl rand -hex 32 (run once each)
 
 npx prisma migrate dev
-npm run seed        # legt den ersten Admin-Account an (SEED_ADMIN_* aus .env)
+npm run seed        # creates the first admin account (SEED_ADMIN_* from .env)
 npm run dev
 ```
 
-Das Panel läuft dann unter http://localhost:3000. Login mit den `SEED_ADMIN_*`-Zugangsdaten aus der `.env`.
+The panel then runs at http://localhost:3000. Log in with the `SEED_ADMIN_*` credentials from `.env`.
 
-## Manuelle Docker-Compose-Installation
+## Manual Docker Compose installation
 
-Für alle, die `install.sh` nicht nutzen wollen (z.B. bestehender Docker-Host):
+For anyone who doesn't want to use `install.sh` (e.g. an existing Docker host):
 
 ```bash
 cp .env.example .env
-# MASTER_SECRET, AUTH_SECRET und SEED_ADMIN_PASSWORD in .env setzen
+# set MASTER_SECRET, AUTH_SECRET and SEED_ADMIN_PASSWORD in .env
 
 docker compose up --build -d
 ```
 
-Die SQLite-Datenbank liegt persistent im Docker-Volume `netmaster-data`. Migrationen und der Admin-Seed laufen automatisch beim Containerstart (`docker-entrypoint.sh`). Optional: `HOST_PORT` in `.env` setzt den Port, auf dem die App lauscht (Standard `3000`). Für HTTPS via Caddy + Let's Encrypt: `COMPOSE_PROFILES=proxy` in `.env` setzen sowie ein `Caddyfile` anlegen (siehe `install.sh` für ein Beispiel), das per `reverse_proxy localhost:<HOST_PORT>` auf die App zeigt.
+The SQLite database is persisted in the Docker volume `netmaster-data`. Migrations and the admin seed run automatically on container start (`docker-entrypoint.sh`). Optional: set `HOST_PORT` in `.env` to change the port the app listens on (default `3000`). For HTTPS via Caddy + Let's Encrypt: set `COMPOSE_PROFILES=proxy` in `.env` and create a `Caddyfile` (see `install.sh` for an example) that points `reverse_proxy localhost:<HOST_PORT>` at the app.
 
-Der `netmaster`-Container läuft mit `network_mode: host` (kein Docker-Portmapping) und `cap_add: [NET_ADMIN, NET_RAW]`, damit die Explore-Netzwerkerkennung (siehe unten) das echte LAN sehen kann – er teilt sich also direkt das Netzwerk-Interface des Hosts. Wird Caddy als einziger öffentlicher Zugang genutzt, sollte der App-eigene Port zusätzlich per Host-Firewall von außen gesperrt werden (macht `install.sh` automatisch, wenn eine unterstützte Firewall aktiv ist).
+The `netmaster` container runs with `network_mode: host` (no Docker port mapping) and `cap_add: [NET_ADMIN, NET_RAW]`, so that Explore's network discovery (see below) can see the real LAN – it shares the host's network interface directly. If Caddy is the only intended public entry point, the app's own port should additionally be blocked from outside via the host firewall (`install.sh` does this automatically if a supported firewall is active).
 
-## Explore (Netzwerk-Scan)
+## Explore (network scan)
 
-Der Menüpunkt „Explore" durchsucht das lokale Netzwerk per `nmap` (ARP-/Ping-Sweep, danach Port-/Dienst-Erkennung für gefundene Hosts) und zeigt an, welche Geräte noch nicht als Server/Router in NetMaster erfasst sind.
+The "Explore" menu item scans the local network via `nmap` (ARP/ping sweep, followed by port/service discovery for hosts found) and shows which devices aren't yet registered as a server/router in NetMaster.
 
-- **Docker**: funktioniert nur mit `network_mode: host` + `NET_ADMIN`/`NET_RAW` (siehe oben) – ohne Host-Networking sieht der Scan nur das isolierte Docker-Bridge-Netz, nicht das echte LAN. `network_mode: host` funktioniert unter Linux; unter Docker Desktop für Mac/Windows verhält es sich anders bzw. wird nicht unterstützt.
-- **Lokale Entwicklung** (`npm run dev`): benötigt ein installiertes `nmap`-Binary im `PATH`. Ohne erhöhte Rechte liefert der Host-Sweep in der Regel keine MAC-Adressen (und Hosts ohne MAC werden übersprungen) – für vollständige Ergebnisse lokal ggf. `sudo npm run dev` verwenden.
+- **Docker**: only works with `network_mode: host` + `NET_ADMIN`/`NET_RAW` (see above) – without host networking, the scan only sees the isolated Docker bridge network, not the real LAN. `network_mode: host` works on Linux; on Docker Desktop for Mac/Windows it behaves differently or isn't supported.
+- **Local development** (`npm run dev`): requires an installed `nmap` binary in `PATH`. Without elevated privileges, the host sweep typically won't return MAC addresses (and hosts without a MAC are skipped) – for complete results locally, consider using `sudo npm run dev`.
 
-## Wichtige Umgebungsvariablen
+## Important environment variables
 
-| Variable | Zweck |
+| Variable | Purpose |
 | --- | --- |
-| `MASTER_SECRET` | AES-256-Schlüssel zur Verschlüsselung der SSH-Zugangsdaten in der DB (64 Hex-Zeichen) |
-| `AUTH_SECRET` | Signaturschlüssel für Login-Session-JWTs (64 Hex-Zeichen) |
-| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | Nur beim ersten Start verwendet, um den initialen Admin-Account anzulegen |
-| `DATABASE_URL` | SQLite-Pfad, z.B. `file:./prisma/dev.db` |
+| `MASTER_SECRET` | AES-256 key used to encrypt SSH credentials in the DB (64 hex characters) |
+| `AUTH_SECRET` | Signing key for login session JWTs (64 hex characters) |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | Only used on first start to create the initial admin account |
+| `DATABASE_URL` | SQLite path, e.g. `file:./prisma/dev.db` |
 
-## Architekturnotizen
+## Architecture notes
 
-- Monitoring läuft als In-Process-Scheduler in `server.ts` (`src/lib/monitor/scheduler.ts`), der Server/Health-Checks per Intervall pollt und Ergebnisse per SQLite + WebSocket-Broadcast verteilt.
-- Rollen: **Viewer** sieht nur, **Editor** verwaltet Server/Checks/Dashboard, **Admin** zusätzlich Nutzerverwaltung.
-- Docker-Container-Metriken werden per SSH (`docker stats`/`docker ps`) auf dem Zielserver abgefragt – kein separater Agent nötig.
+- Monitoring runs as an in-process scheduler in `server.ts` (`src/lib/monitor/scheduler.ts`), which polls servers/health checks on an interval and distributes results via SQLite + WebSocket broadcast.
+- Roles: **Viewer** can only view, **Editor** manages servers/checks/dashboard, **Admin** additionally manages users.
+- Docker container metrics are queried over SSH (`docker stats`/`docker ps`) on the target server – no separate agent needed.

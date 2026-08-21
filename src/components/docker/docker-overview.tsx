@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { useSession } from "@/hooks/use-session";
 import type { ContainerWithServerDTO } from "@/lib/types";
 
 export function DockerOverview() {
+  const t = useTranslations("docker.overview");
   const [containers, setContainers] = useState<ContainerWithServerDTO[] | null>(null);
   const [search, setSearch] = useState("");
   const session = useSession();
@@ -83,11 +85,11 @@ export function DockerOverview() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Docker</h1>
           <p className="text-sm text-muted-foreground">
-            Container aller Server im Überblick.
+            {t("subtitle")}
           </p>
         </div>
         <Input
-          placeholder="Suche nach Name, Server oder Image…"
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
@@ -118,8 +120,7 @@ export function DockerOverview() {
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Container className="size-10 text-muted-foreground" />
             <p className="text-muted-foreground">
-              Keine Docker-Container gefunden. Server werden automatisch erkannt, sobald
-              Docker per SSH erreichbar ist.
+              {t("emptyState")}
             </p>
           </CardContent>
         </Card>

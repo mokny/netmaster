@@ -64,10 +64,7 @@ export async function POST(req: Request) {
     const sudoPassword = String(body.sudoPassword ?? "");
 
     if (!name || !hostname || !sshUsername || !secret) {
-      throw new ApiError(
-        400,
-        "Name, Hostname, SSH-Benutzer und Passwort/Key sind erforderlich"
-      );
+      throw new ApiError(400, "MISSING_REQUIRED_FIELDS");
     }
 
     const server = await prisma.server.create({

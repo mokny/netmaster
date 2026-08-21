@@ -15,20 +15,28 @@ import { Trash2, ExternalLink } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ServiceCheckDTO } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 // lastError erklärt nur CRITICAL-Fälle (Timeout, falscher Status-Code, nicht
 // erreichbar) - bei WARNING (zu langsame Antwort) bleibt es leer, weil der
 // Request selbst erfolgreich war. Für diesen Fall wird der Auslöser separat
 // aus Latenz + konfiguriertem Schwellwert zusammengesetzt.
-function checkCauseMessage(check: ServiceCheckDTO): string | null {
+function checkCauseMessage(
+  check: ServiceCheckDTO,
+  latencyWarning: (values: { latency: number; threshold: number }) => string
+): string | null {
   if (check.lastError) return check.lastError;
   if (check.lastStatus === "WARNING" && check.latencyWarnMs != null && check.lastLatencyMs != null) {
-    return `Antwortzeit ${Math.round(check.lastLatencyMs)}ms liegt über dem Schwellwert von ${check.latencyWarnMs}ms`;
+    return latencyWarning({
+      latency: Math.round(check.lastLatencyMs),
+      threshold: check.latencyWarnMs,
+    });
   }
   return null;
 }
 
 export function UpcheckerOverview() {
+  const t = useTranslations("upchecker");
   const [checks, setChecks] = useState<ServiceCheckDTO[] | null>(null);
   const [detailCheckId, setDetailCheckId] = useState<string | null>(null);
   const session = useSession();
@@ -37,7 +45,7 @@ export function UpcheckerOverview() {
 
   async function recheck(id: string) {
     const res = await fetch(`/api/checks/${id}/check`, { method: "POST" });
-    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    if (!res.ok) throw new Error(t("checkFailed"));
     const data = await res.json();
     setChecks((prev) => (prev ? prev.map((c) => (c.id === id ? data.check : c)) : prev));
   }
@@ -67,7 +75,7 @@ export function UpcheckerOverview() {
   async function deleteCheck(id: string) {
     const res = await fetch(`/api/checks/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error(t("deleteFailed"));
       return;
     }
     setChecks((prev) => (prev ? prev.filter((c) => c.id !== id) : prev));
@@ -78,19 +86,15 @@ export function UpcheckerOverview() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Upchecker</h1>
-          <p className="text-sm text-muted-foreground">
-            Erreichbarkeit von Websites und Diensten per HTTP
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         {canEdit && <GlobalCheckDialog onSaved={load} />}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Checks</CardTitle>
-          <CardDescription>
-            Freie Checks und die HTTP-Health-Checks aller Server an einem Ort
-          </CardDescription>
+          <CardTitle>{t("checks")}</CardTitle>
+          <CardDescription>{t("checksDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           {checks === null ? (
@@ -100,7 +104,7 @@ export function UpcheckerOverview() {
               ))}
             </div>
           ) : checks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Checks konfiguriert.</p>
+            <p className="text-sm text-muted-foreground">{t("noChecks")}</p>
           ) : (
             <div className="space-y-2">
               {checks.map((c) => (
@@ -166,7 +170,7 @@ export function UpcheckerOverview() {
           title={detailCheck.name}
           subtitle={detailCheck.url}
           status={detailCheck.lastStatus}
-          error={checkCauseMessage(detailCheck)}
+          error={checkCauseMessage(detailCheck, (v) => t("latencyWarning", v))}
           checkedAt={detailCheck.lastCheckedAt}
           onRecheck={() => recheck(detailCheck.id)}
         />

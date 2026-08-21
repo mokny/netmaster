@@ -29,7 +29,7 @@ export async function handleVmTerminalSocket(
     return;
   }
   if (!server.proxmoxEnabled) {
-    send({ type: "error", message: "Proxmox ist für diesen Server nicht aktiviert" });
+    send({ type: "error", message: "Proxmox is not enabled for this server" });
     ws.close();
     return;
   }

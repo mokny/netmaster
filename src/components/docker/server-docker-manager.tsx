@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,7 @@ import { useSession } from "@/hooks/use-session";
 import type { ContainerSnapshotDTO, ContainerWithServerDTO, DockerImageDTO, ServerDTO } from "@/lib/types";
 
 export function ServerDockerManager({ serverId }: { serverId: string }) {
+  const t = useTranslations("docker.serverManager");
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
 
@@ -65,7 +67,7 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
           <h1 className="text-2xl font-semibold tracking-tight">
             Docker · {server?.name ?? "…"}
           </h1>
-          <p className="text-sm text-muted-foreground">Container und Images auf diesem Server</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
       </div>
 
@@ -74,9 +76,9 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Container className="size-10 text-muted-foreground" />
             <p className="text-muted-foreground">
-              Docker ist für diesen Server nicht aktiviert.{" "}
+              {t("dockerDisabled")}{" "}
               <Link href={`/servers/${serverId}`} className="underline">
-                In den Server-Einstellungen aktivieren
+                {t("enableInSettings")}
               </Link>
               .
             </p>
@@ -110,7 +112,7 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
             ) : containerRows.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  Keine Container auf diesem Server.
+                  {t("noContainers")}
                 </CardContent>
               </Card>
             ) : (
@@ -143,7 +145,7 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
             ) : images.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  Keine Images auf diesem Server gefunden.
+                  {t("noImages")}
                 </CardContent>
               </Card>
             ) : (

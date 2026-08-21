@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Pencil } from "lucide-react";
 import type { ServiceCheckDTO } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 export function EditCheckDialog({
   check,
@@ -30,6 +31,9 @@ export function EditCheckDialog({
   check: ServiceCheckDTO;
   onSaved: () => void;
 }) {
+  const t = useTranslations("checks.editDialog");
+  const tErrors = useTranslations("errors");
+  const tc = useTranslations("common");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -52,10 +56,10 @@ export function EditCheckDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success("Check aktualisiert");
+      toast.success(t("checkUpdated"));
       setOpen(false);
       onSaved();
     } finally {
@@ -74,11 +78,11 @@ export function EditCheckDialog({
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Check bearbeiten</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Typ</Label>
+            <Label>{t("type")}</Label>
             <Select
               value={form.checkType}
               onValueChange={(v) => setForm((f) => ({ ...f, checkType: v as "HTTP" | "PING" }))}
@@ -93,7 +97,7 @@ export function EditCheckDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{tc("name")}</Label>
             <Input
               required
               value={form.name}
@@ -112,7 +116,7 @@ export function EditCheckDialog({
           <div className="grid grid-cols-3 gap-3">
             {form.checkType === "HTTP" && (
               <div className="space-y-2">
-                <Label>Erw. Status</Label>
+                <Label>{t("expectedStatus")}</Label>
                 <Input
                   type="number"
                   value={form.expectedStatus}
@@ -123,7 +127,7 @@ export function EditCheckDialog({
               </div>
             )}
             <div className="space-y-2">
-              <Label>Intervall (s)</Label>
+              <Label>{t("intervalSec")}</Label>
               <Input
                 type="number"
                 value={form.intervalSec}
@@ -133,7 +137,7 @@ export function EditCheckDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Timeout (ms)</Label>
+              <Label>{t("timeoutMs")}</Label>
               <Input
                 type="number"
                 value={form.timeoutMs}
@@ -146,7 +150,7 @@ export function EditCheckDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Speichern
+              {tc("save")}
             </Button>
           </DialogFooter>
         </form>

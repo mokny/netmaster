@@ -24,7 +24,7 @@ export async function handleAdhocTerminalSocket(
 
   const creds = consumeAdhocSshTicket(ticket);
   if (!creds) {
-    send({ type: "error", message: "Verbindungs-Ticket ungültig oder abgelaufen" });
+    send({ type: "error", message: "Connection ticket invalid or expired" });
     ws.close();
     return;
   }

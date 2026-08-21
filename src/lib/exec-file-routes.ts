@@ -19,9 +19,9 @@ export async function handleExecDownload(
   auditContext: { serverId: string; detail: string }
 ) {
   try {
-    if (!filePath || !filePath.startsWith("/")) throw new ApiError(400, "Ungültiger Pfad");
+    if (!filePath || !filePath.startsWith("/")) throw new ApiError(400, "INVALID_PATH");
     const info = await backend.statSize(filePath);
-    if (info.isDirectory) throw new ApiError(400, "Verzeichnisse können nur als ZIP heruntergeladen werden");
+    if (info.isDirectory) throw new ApiError(400, "DIRECTORY_DOWNLOAD_REQUIRES_ZIP");
 
     const buf = await backend.readFileBuffer(filePath);
     void writeAuditLog(session, "files.download", {
@@ -49,7 +49,7 @@ export async function handleExecZip(
   auditContext: { serverId: string; detail: string }
 ) {
   try {
-    if (!dirPath || !dirPath.startsWith("/")) throw new ApiError(400, "Ungültiger Pfad");
+    if (!dirPath || !dirPath.startsWith("/")) throw new ApiError(400, "INVALID_PATH");
     const rootName = path.posix.basename(dirPath) || "root";
     const files = await backend.collectFilesRecursive(dirPath, rootName);
 
@@ -97,12 +97,12 @@ export async function handleExecUpload(
     const targetDir = form.get("targetDir");
     const overwrite = form.get("overwrite") === "true";
     if (typeof targetDir !== "string" || !targetDir.startsWith("/")) {
-      throw new ApiError(400, "Ungültiges Zielverzeichnis");
+      throw new ApiError(400, "INVALID_TARGET_DIRECTORY");
     }
     const files = form.getAll("files").filter((f): f is File => f instanceof File);
     const relPaths = form.getAll("relPaths").map((v) => String(v));
     if (files.length === 0 || files.length !== relPaths.length) {
-      throw new ApiError(400, "Keine gültigen Dateien übermittelt");
+      throw new ApiError(400, "NO_VALID_FILES_SUBMITTED");
     }
 
     const uploaded: string[] = [];

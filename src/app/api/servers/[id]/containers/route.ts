@@ -47,7 +47,7 @@ export async function POST(
     const body = await req.json();
 
     const image = String(body.image ?? "").trim();
-    if (!image) throw new ApiError(400, "Image erforderlich");
+    if (!image) throw new ApiError(400, "IMAGE_REQUIRED");
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireDockerEnabled(server);
@@ -72,12 +72,12 @@ export async function POST(
     try {
       command = buildDockerRunCommand(opts);
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Konfiguration");
+      throw new ApiError(400, "INVALID_CONFIG", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 5 * 60_000);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Erstellen fehlgeschlagen");
+      throw new ApiError(500, "CREATE_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "docker.container.create", {

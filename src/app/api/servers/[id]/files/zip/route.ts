@@ -19,7 +19,7 @@ export async function GET(
     const url = new URL(req.url);
     const dirPath = url.searchParams.get("path");
     if (!dirPath || !dirPath.startsWith("/")) {
-      throw new ApiError(400, "Ungültiger Pfad");
+      throw new ApiError(400, "INVALID_PATH");
     }
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });

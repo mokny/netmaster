@@ -1,6 +1,7 @@
 "use client";
 
 import { cloneElement, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +46,8 @@ function selectionKey(sel: Selection): string {
 }
 
 export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger, onDone }: Props) {
+  const t = useTranslations("servers.cleanup");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [sel, setSel] = useState<Selection>({
     apt: true,
@@ -84,21 +87,21 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Bereinigung fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("cleanupFailed"));
         return;
       }
-      setLog(data.output || "(keine Ausgabe)");
+      setLog(data.output || t("noOutput"));
       setErrorLog(data.errorOutput || null);
       if (dryRun) {
         setPreviewedKey(selectionKey(sel));
-        toast.success("Vorschau erstellt");
+        toast.success(t("previewCreated"));
       } else {
         setPreviewedKey(null);
-        toast.success("Bereinigung ausgeführt");
+        toast.success(t("cleanupExecuted"));
         onDone?.();
       }
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(null);
     }
@@ -113,18 +116,13 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
           <TooltipTrigger render={<span />}>
             {cloneElement(trigger, { disabled: true })}
           </TooltipTrigger>
-          <TooltipContent>
-            Erfordert root-SSH-Zugang oder ein hinterlegtes Sudo-Passwort (siehe „Bearbeiten“)
-          </TooltipContent>
+          <TooltipContent>{t("requiresRootAccess")}</TooltipContent>
         </Tooltip>
       )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Festplattenspeicher bereinigen</DialogTitle>
-          <DialogDescription>
-            Erst „Vorschau“ ausführen, um zu sehen was passieren würde, danach „Jetzt
-            ausführen“, um die Bereinigung tatsächlich durchzuführen.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -136,7 +134,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
                 onCheckedChange={(c) => update("apt", !!c)}
               />
               <Label htmlFor="cleanup-apt" className="font-normal">
-                APT: verwaiste Pakete entfernen (autoremove) & Paket-Cache leeren
+                {t("aptLabel")}
               </Label>
             </div>
 
@@ -149,7 +147,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
                     onCheckedChange={(c) => update("docker", !!c)}
                   />
                   <Label htmlFor="cleanup-docker" className="font-normal">
-                    Docker: ungenutzte Images, Container, Netzwerke & Build-Cache entfernen
+                    {t("dockerLabel")}
                   </Label>
                 </div>
                 <div className="ml-6 flex items-center gap-2">
@@ -163,7 +161,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
                     htmlFor="cleanup-docker-volumes"
                     className="font-normal text-muted-foreground"
                   >
-                    Ungenutzte Volumes einschließen (kann Daten löschen)
+                    {t("dockerVolumesLabel")}
                   </Label>
                 </div>
               </>
@@ -176,7 +174,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
                 onCheckedChange={(c) => update("journal", !!c)}
               />
               <Label htmlFor="cleanup-journal" className="font-normal">
-                Systemd-Journal-Logs kürzen, älter als
+                {t("journalLabel")}
               </Label>
               <Select
                 value={String(sel.journalDays)}
@@ -187,9 +185,9 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 Tag</SelectItem>
-                  <SelectItem value="7">7 Tagen</SelectItem>
-                  <SelectItem value="30">30 Tagen</SelectItem>
+                  <SelectItem value="1">{t("days", { count: 1 })}</SelectItem>
+                  <SelectItem value="7">{t("days", { count: 7 })}</SelectItem>
+                  <SelectItem value="30">{t("days", { count: 30 })}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -210,7 +208,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
             onClick={() => run(true)}
           >
             {loading === "preview" && <Loader2 className="size-4 animate-spin" />}
-            Vorschau
+            {t("preview")}
           </Button>
           <Button
             variant="destructive"
@@ -218,7 +216,7 @@ export function CleanupDialog({ serverId, hasRootAccess, dockerEnabled, trigger,
             onClick={() => run(false)}
           >
             {loading === "run" && <Loader2 className="size-4 animate-spin" />}
-            Jetzt ausführen
+            {t("runNow")}
           </Button>
         </DialogFooter>
       </DialogContent>

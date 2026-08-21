@@ -18,13 +18,13 @@ import { writeAuditLog } from "@/lib/audit";
 import type { Server as ServerModel } from "@/generated/prisma/client";
 
 async function loadVm(id: string, vmidNum: number) {
-  if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+  if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
   const server = await prisma.server.findUniqueOrThrow({ where: { id } });
   requireProxmoxEnabled(server);
   const vm = await prisma.proxmoxVm.findUnique({
     where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
   });
-  if (!vm) throw new ApiError(404, "VM nicht gefunden");
+  if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
   return { server, vm };
 }
 
@@ -73,19 +73,19 @@ export async function POST(
       body.compress === "gzip" || body.compress === "lzo" || body.compress === "0"
         ? body.compress
         : "zstd";
-    if (!storage) throw new ApiError(400, "Storage erforderlich");
+    if (!storage) throw new ApiError(400, "STORAGE_REQUIRED");
 
     let command: string;
     let stdin: string | undefined;
     try {
       ({ command, stdin } = buildBackupCreateCommand(server, vm.vmid, { storage, mode, compress }));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Eingabe");
+      throw new ApiError(400, "INVALID_INPUT", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 30 * 60_000, stdin);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Backup fehlgeschlagen");
+      throw new ApiError(500, "BACKUP_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "vm.backup.create", {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,8 @@ import { Loader2, KeyRound } from "lucide-react";
 
 export function ForcePasswordChangeForm() {
   const router = useRouter();
+  const t = useTranslations("auth.forcePasswordChange");
+  const tErrors = useTranslations("errors");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +22,11 @@ export function ForcePasswordChangeForm() {
     e.preventDefault();
     setError(null);
     if (password.length < 8) {
-      setError("Passwort muss mindestens 8 Zeichen lang sein");
+      setError(t("passwordTooShort"));
       return;
     }
     if (password !== passwordConfirm) {
-      setError("Passwörter stimmen nicht überein");
+      setError(t("passwordMismatch"));
       return;
     }
 
@@ -36,13 +39,13 @@ export function ForcePasswordChangeForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Ändern fehlgeschlagen");
+        setError(tErrors(data.error ?? "INTERNAL_ERROR"));
         return;
       }
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setError("Verbindung zum Server fehlgeschlagen");
+      setError(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -54,16 +57,13 @@ export function ForcePasswordChangeForm() {
         <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <KeyRound className="size-6" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Neues Passwort setzen</h1>
-        <p className="text-sm text-muted-foreground">
-          Dein Zugang wurde zurückgesetzt. Bitte lege ein neues Passwort fest, bevor du
-          fortfährst.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="password">Neues Passwort</Label>
+          <Label htmlFor="password">{t("newPassword")}</Label>
           <Input
             id="password"
             type="password"
@@ -75,7 +75,7 @@ export function ForcePasswordChangeForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="passwordConfirm">Passwort bestätigen</Label>
+          <Label htmlFor="passwordConfirm">{t("confirmPassword")}</Label>
           <Input
             id="passwordConfirm"
             type="password"
@@ -95,7 +95,7 @@ export function ForcePasswordChangeForm() {
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" />}
-          Passwort setzen
+          {t("setPassword")}
         </Button>
       </form>
     </div>

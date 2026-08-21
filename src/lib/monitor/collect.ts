@@ -116,8 +116,8 @@ export async function collectServerMetrics(server: ServerModel) {
         server.id,
         "offlineEnabled",
         {
-          title: `${server.name}: wieder erreichbar`,
-          body: `${server.name} antwortet wieder.`,
+          key: "serverOfflineRecovered",
+          params: { serverName: server.name },
           url: `/servers/${server.id}`,
         },
         offlineSinceBeforeClear
@@ -176,7 +176,7 @@ export async function collectServerMetrics(server: ServerModel) {
     });
   } catch (err) {
     invalidatePooledConnection(server.id);
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+    const message = err instanceof Error ? err.message : "Unknown error";
     const offlineSince = server.offlineSince ?? new Date();
     await prisma.server.update({
       where: { id: server.id },
@@ -197,8 +197,8 @@ export async function collectServerMetrics(server: ServerModel) {
       server.id,
       "offlineEnabled",
       {
-        title: `${server.name}: nicht erreichbar`,
-        body: message,
+        key: "serverOffline",
+        params: { serverName: server.name, detail: message },
         url: `/servers/${server.id}`,
       },
       offlineSince,
@@ -206,13 +206,6 @@ export async function collectServerMetrics(server: ServerModel) {
     );
   }
 }
-
-const METRIC_LABELS: Record<MetricKey, string> = {
-  cpu: "CPU-Auslastung",
-  mem: "RAM-Auslastung",
-  disk: "Disk-Auslastung",
-  net: "Netzwerk-Durchsatz",
-};
 
 const METRIC_PREV_FIELD: Record<MetricKey, "lastCpuStatus" | "lastMemStatus" | "lastDiskStatus" | "lastNetStatus"> = {
   cpu: "lastCpuStatus",
@@ -313,7 +306,6 @@ async function notifyMetricAlerts(
   sinceUpdates: MetricSinceComputation
 ) {
   for (const key of Object.keys(newStatuses) as MetricKey[]) {
-    const label = METRIC_LABELS[key];
     const events = METRIC_EVENTS[key];
     const { warnSince, critSince, recovery } = sinceUpdates.perMetric[key];
 
@@ -322,8 +314,8 @@ async function notifyMetricAlerts(
         server.id,
         events.crit,
         {
-          title: `${server.name}: ${label} kritisch`,
-          body: `${label} liegt im kritischen Bereich.`,
+          key: "metricCritical",
+          params: { serverName: server.name, metric: key },
           url: `/servers/${server.id}`,
         },
         critSince,
@@ -334,8 +326,8 @@ async function notifyMetricAlerts(
         server.id,
         events.warn,
         {
-          title: `${server.name}: ${label} Warnung`,
-          body: `${label} liegt im Warnbereich.`,
+          key: "metricWarning",
+          params: { serverName: server.name, metric: key },
           url: `/servers/${server.id}`,
         },
         warnSince,
@@ -346,8 +338,8 @@ async function notifyMetricAlerts(
         server.id,
         recovery.event,
         {
-          title: `${server.name}: ${label} wieder normal`,
-          body: `${label} ist wieder im Normalbereich.`,
+          key: "metricRecovered",
+          params: { serverName: server.name, metric: key },
           url: `/servers/${server.id}`,
         },
         recovery.since
@@ -438,8 +430,8 @@ export async function collectDockerContainers(server: ServerModel) {
           server.id,
           "dockerStoppedEnabled",
           {
-            title: `${server.name}: Container gestoppt`,
-            body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
+            key: "dockerContainerStopped",
+            params: { serverName: server.name, containerName: c.name, state: c.state },
             url: `/servers/${server.id}`,
           },
           stoppedSince,
@@ -454,8 +446,8 @@ export async function collectDockerContainers(server: ServerModel) {
           server.id,
           "dockerStoppedEnabled",
           {
-            title: `${server.name}: Container gestoppt`,
-            body: `Container "${c.name}" läuft nicht mehr (Status: ${c.state}).`,
+            key: "dockerContainerStopped",
+            params: { serverName: server.name, containerName: c.name, state: c.state },
             url: `/servers/${server.id}`,
           },
           prev.stoppedSince,
@@ -470,8 +462,8 @@ export async function collectDockerContainers(server: ServerModel) {
           server.id,
           "dockerStoppedEnabled",
           {
-            title: `${server.name}: Container wieder gestartet`,
-            body: `Container "${c.name}" läuft wieder.`,
+            key: "dockerContainerRecovered",
+            params: { serverName: server.name, containerName: c.name },
             url: `/servers/${server.id}`,
           },
           prev.stoppedSince
@@ -678,8 +670,8 @@ async function notifyServiceCheckAlerts(check: ServiceCheck, since: CheckSinceUp
         if (!s.downEnabled) return Promise.resolve();
         if (!shouldFireDelayedAlert(since.downSince, s.downDelayMin, check.intervalSec)) return Promise.resolve();
         return sendPushToUser(s.userId, {
-          title: `${check.name} nicht erreichbar`,
-          body: check.lastError || `${check.url} antwortet nicht wie erwartet`,
+          key: "checkDown",
+          params: { checkName: check.name, checkUrl: check.url, detail: check.lastError ?? undefined },
           url,
         });
       }
@@ -687,8 +679,8 @@ async function notifyServiceCheckAlerts(check: ServiceCheck, since: CheckSinceUp
         if (!s.slowEnabled) return Promise.resolve();
         if (!shouldFireDelayedAlert(since.slowSince, s.slowDelayMin, check.intervalSec)) return Promise.resolve();
         return sendPushToUser(s.userId, {
-          title: `${check.name}: langsame Antwort`,
-          body: `Antwortzeit liegt über dem konfigurierten Schwellwert (${check.latencyWarnMs}ms).`,
+          key: "checkSlow",
+          params: { checkName: check.name, latencyMs: check.latencyWarnMs ?? 0 },
           url,
         });
       }
@@ -697,15 +689,15 @@ async function notifyServiceCheckAlerts(check: ServiceCheck, since: CheckSinceUp
         if (which === "down") {
           if (!s.downRecoveryEnabled || !shouldFireRecovery(recSince, s.downDelayMin)) return Promise.resolve();
           return sendPushToUser(s.userId, {
-            title: `${check.name}: wieder erreichbar`,
-            body: `${check.url} antwortet wieder wie erwartet.`,
+            key: "checkRecovered",
+            params: { checkName: check.name, checkUrl: check.url },
             url,
           });
         }
         if (!s.slowRecoveryEnabled || !shouldFireRecovery(recSince, s.slowDelayMin)) return Promise.resolve();
         return sendPushToUser(s.userId, {
-          title: `${check.name}: wieder schnell`,
-          body: `Antwortzeit ist wieder im normalen Bereich.`,
+          key: "checkFastAgain",
+          params: { checkName: check.name },
           url,
         });
       }
@@ -790,7 +782,7 @@ export async function runServiceCheck(check: ServiceCheck) {
     });
     void notifyServiceCheckAlerts(updated, since);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+    const message = err instanceof Error ? err.message : "Unknown error";
     await prisma.serviceCheckResult.create({
       data: { serviceCheckId: check.id, success: false, latencyMs: null },
     });

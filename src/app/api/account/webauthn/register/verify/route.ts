@@ -12,11 +12,11 @@ export async function POST(req: Request) {
     const response = body?.response as RegistrationResponseJSON | undefined;
     const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim().slice(0, 60) : "Passkey";
 
-    if (!response) throw new ApiError(400, "Ungültige Anfrage");
+    if (!response) throw new ApiError(400, "INVALID_REQUEST");
 
     const result = await verifyRegistration(req, session.userId, response);
     if (!result.verified || !result.registrationInfo) {
-      throw new ApiError(400, "Passkey-Registrierung fehlgeschlagen");
+      throw new ApiError(400, "PASSKEY_REGISTRATION_FAILED");
     }
 
     const { credential } = result.registrationInfo;

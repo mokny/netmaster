@@ -44,19 +44,19 @@ export async function POST(
 
     const body = (await req.json()) as { peers: BulkPeerSpec[] };
     if (!Array.isArray(body.peers) || body.peers.length === 0) {
-      throw new ApiError(400, "Mindestens ein Peer ist erforderlich");
+      throw new ApiError(400, "AT_LEAST_ONE_PEER_REQUIRED");
     }
     for (const p of body.peers) {
       if (!p.name?.trim() || !p.allowedIps?.trim() || !p.clientAddress?.trim()) {
-        throw new ApiError(400, "Name, AllowedIPs und Client-Adresse sind für jeden Peer erforderlich");
+        throw new ApiError(400, "PEER_FIELDS_REQUIRED");
       }
     }
 
     const config = await readAndParseConfig(server, iface);
-    if (!config.privateKey) throw new ApiError(500, "Interface hat keinen PrivateKey");
+    if (!config.privateKey) throw new ApiError(500, "INTERFACE_MISSING_PRIVATE_KEY");
     const pubRes = await execOnServer(server, "wg pubkey", 10_000, `${config.privateKey}\n`);
     const serverPublicKey = pubRes.stdout.trim();
-    if (!serverPublicKey) throw new ApiError(500, "Server-PublicKey konnte nicht ermittelt werden");
+    if (!serverPublicKey) throw new ApiError(500, "SERVER_PUBLIC_KEY_UNAVAILABLE");
 
     const clientConfigs: { name: string; text: string }[] = [];
 
@@ -93,7 +93,7 @@ export async function POST(
     const { command, stdin } = buildWriteConfigCommand(server, iface, raw);
     const writeRes = await execOnServer(server, command, 20_000, stdin);
     if (writeRes.code !== 0) {
-      throw new ApiError(400, writeRes.stderr.trim() || "Peers konnten nicht gespeichert werden");
+      throw new ApiError(400, "PEERS_SAVE_FAILED", writeRes.stderr.trim() || undefined);
     }
     const syncCmd = buildSyncCommand(server, iface);
     await execOnServer(server, syncCmd.command, 10_000, syncCmd.stdin);

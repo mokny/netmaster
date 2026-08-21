@@ -26,7 +26,7 @@ export async function PATCH(
     }
     if (typeof body.password === "string" && body.password.length > 0) {
       if (body.password.length < 8) {
-        throw new ApiError(400, "Passwort muss mindestens 8 Zeichen haben");
+        throw new ApiError(400, "PASSWORD_TOO_SHORT");
       }
       data.passwordHash = await hashPassword(body.password);
     }
@@ -52,7 +52,7 @@ export async function DELETE(
     const { id } = await params;
 
     if (id === session.userId) {
-      throw new ApiError(400, "Du kannst dich nicht selbst löschen");
+      throw new ApiError(400, "CANNOT_DELETE_SELF");
     }
 
     await prisma.user.delete({ where: { id } });

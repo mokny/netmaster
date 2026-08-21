@@ -13,7 +13,7 @@ export async function DELETE(
 
     const target = await prisma.session.findUnique({ where: { id: sessionId } });
     if (!target || target.userId !== id) {
-      throw new ApiError(404, "Session nicht gefunden");
+      throw new ApiError(404, "SESSION_NOT_FOUND");
     }
 
     await prisma.session.update({

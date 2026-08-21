@@ -8,6 +8,7 @@ import {
   verifySessionToken,
   type SessionPayload,
 } from "./session-token";
+import { LOCALE_COOKIE, isAppLocale } from "./locale";
 import type { User } from "@/generated/prisma/client";
 
 export { SESSION_COOKIE, verifySessionToken, type SessionPayload };
@@ -44,7 +45,7 @@ export async function setSessionCookie(sessionId: string, payload: SessionPayloa
 // enthält danach nur noch die Session-ID + signierte Nutzer-Claims für
 // optimistische Checks in der Middleware.
 export async function createUserSession(
-  user: Pick<User, "id" | "email" | "name" | "role" | "mustChangePassword">,
+  user: Pick<User, "id" | "email" | "name" | "role" | "mustChangePassword" | "locale">,
   userAgent: string
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000);
@@ -59,6 +60,17 @@ export async function createUserSession(
     role: user.role,
     mustChangePassword: user.mustChangePassword,
   });
+
+  // Account-Sprache übernimmt das NEXT_LOCALE-Cookie beim Login, damit die
+  // Sprache geräteübergreifend folgt (siehe src/app/api/locale/route.ts).
+  if (isAppLocale(user.locale)) {
+    const store = await cookies();
+    store.set(LOCALE_COOKIE, user.locale, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  }
 }
 
 // Hat der User mindestens einen Passkey hinterlegt? Wenn ja, sind

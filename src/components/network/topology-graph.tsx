@@ -15,6 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { NetworkChart, type NetworkChartPoint } from "@/components/network/network-chart";
 import { formatBitRate, formatBytesGB } from "@/lib/format";
 import type { MetricSampleDTO } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 interface TopologyNode {
   serverId: string;
@@ -54,6 +55,8 @@ function layoutCircular(nodes: TopologyNode[]): Node[] {
 }
 
 export function TopologyGraph() {
+  const t = useTranslations("network.topologyGraph");
+  const tErrors = useTranslations("errors");
   const [nodes, setNodes] = useState<TopologyNode[] | null>(null);
   const [edges, setEdges] = useState<TopologyEdge[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -68,14 +71,14 @@ export function TopologyGraph() {
         const data = await res.json().catch(() => ({}));
         if (stopped) return;
         if (!res.ok) {
-          setError(data.error ?? "Fehler beim Abrufen der Topologie");
+          setError(data.error ? tErrors(data.error) : t("fetchError"));
           return;
         }
         setNodes(data.nodes);
         setEdges(data.edges);
         setError(null);
       } catch {
-        if (!stopped) setError("Verbindung fehlgeschlagen");
+        if (!stopped) setError(t("connectionFailed"));
       }
     }
     load();
@@ -108,7 +111,7 @@ export function TopologyGraph() {
         id: `${e.fromServerId}-${e.toServerId}`,
         source: e.fromServerId,
         target: e.toServerId,
-        label: `${e.connectionCount} Verbindung${e.connectionCount > 1 ? "en" : ""}`,
+        label: t("connectionCount", { count: e.connectionCount }),
         style: { strokeWidth: 1 + (e.connectionCount / maxCount) * 6 },
         animated: true,
       })),
@@ -143,17 +146,12 @@ export function TopologyGraph() {
   return (
     <div className="space-y-2">
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <p className="text-xs text-muted-foreground">
-        Kantenstärke = Anzahl aktiver Verbindungen zwischen den Servern. Klick auf einen Server
-        zeigt den Netzwerk-Durchsatz.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("hint")}</p>
       <div className="h-[600px] w-full overflow-hidden rounded-md border">
         {!nodes ? (
-          <p className="p-4 text-sm text-muted-foreground">Lade Topologie…</p>
+          <p className="p-4 text-sm text-muted-foreground">{t("loading")}</p>
         ) : nodes.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Keine Server mit aktivierten Netzwerk-Tools gefunden.
-          </p>
+          <p className="p-4 text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <ReactFlow
             nodes={flowNodes}
@@ -178,20 +176,20 @@ export function TopologyGraph() {
             <SheetTitle>{selected?.name}</SheetTitle>
             <SheetDescription>
               {selected?.status === "error"
-                ? `Fehler: ${selected.error}`
-                : "Netzwerk-Durchsatz (letzte 6h)"}
+                ? t("errorPrefix", { error: selected.error ?? "" })
+                : t("throughputLast6h")}
             </SheetDescription>
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Durchsatz-Rate
+                {t("throughputRate")}
               </p>
               <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
             </div>
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Kumulatives Volumen
+                {t("cumulativeVolume")}
               </p>
               <NetworkChart data={cumulativePoints} formatValue={formatBytesGB} height={140} />
             </div>
@@ -200,7 +198,7 @@ export function TopologyGraph() {
                 href={`/servers/${selected.serverId}`}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Zum Server
+                {t("goToServer")}
               </Link>
             )}
           </div>

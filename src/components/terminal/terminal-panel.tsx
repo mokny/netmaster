@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/use-is-mobile";
 import { XtermTab } from "@/components/terminal/xterm-tab";
 import { VncTab } from "@/components/terminal/vnc-tab";
 import { SnippetsMenu } from "@/components/servers/snippets-menu";
+import { useTranslations } from "next-intl";
 
 const BASE_OFFSET = 24;
 
@@ -17,6 +18,7 @@ function TabIcon({ kind }: { kind: TerminalSession["kind"] }) {
 }
 
 export function TerminalPanel() {
+  const t = useTranslations("terminal.panel");
   const {
     sessions,
     activeId,
@@ -154,7 +156,7 @@ export function TerminalPanel() {
                     closeTab(s.id);
                   }}
                   className="rounded p-0.5 hover:bg-accent"
-                  aria-label="Tab schließen"
+                  aria-label={t("closeTab")}
                 >
                   <X className="size-3" />
                 </button>
@@ -172,7 +174,7 @@ export function TerminalPanel() {
             <button
               onClick={toggleMinimize}
               className="rounded p-1 hover:bg-accent"
-              aria-label={minimized ? "Wiederherstellen" : "Minimieren"}
+              aria-label={minimized ? t("restore") : t("minimize")}
             >
               <Minus className="size-3.5" />
             </button>
@@ -180,7 +182,7 @@ export function TerminalPanel() {
               <button
                 onClick={toggleMaximize}
                 className="rounded p-1 hover:bg-accent"
-                aria-label={maximized ? "Verkleinern" : "Maximieren"}
+                aria-label={maximized ? t("restoreSize") : t("maximize")}
               >
                 {maximized ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
               </button>

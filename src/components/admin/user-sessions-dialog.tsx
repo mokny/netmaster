@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ import type { SessionDTO, UserDTO } from "@/lib/types";
 
 export function UserSessionsDialog({ user }: { user: UserDTO }) {
   const confirm = useConfirm();
+  const t = useTranslations("admin.userSessions");
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionDTO[] | null>(null);
 
@@ -32,29 +34,29 @@ export function UserSessionsDialog({ user }: { user: UserDTO }) {
       method: "DELETE",
     });
     if (res.ok) {
-      toast.success("Session beendet");
+      toast.success(t("sessionEnded"));
       load();
     } else {
-      toast.error("Beenden fehlgeschlagen");
+      toast.error(t("endFailed"));
     }
   }
 
   async function revokeAll() {
     if (
       !(await confirm({
-        title: "Sessions beenden",
-        description: `Alle Sessions von ${user.name} wirklich beenden?`,
-        confirmText: "Beenden",
+        title: t("endSessionsTitle"),
+        description: t("endSessionsDescription", { name: user.name }),
+        confirmText: t("end"),
         variant: "destructive",
       }))
     )
       return;
     const res = await fetch(`/api/users/${user.id}/sessions`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Alle Sessions beendet");
+      toast.success(t("allEnded"));
       load();
     } else {
-      toast.error("Beenden fehlgeschlagen");
+      toast.error(t("endFailed"));
     }
   }
 
@@ -76,7 +78,7 @@ export function UserSessionsDialog({ user }: { user: UserDTO }) {
       />
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sessions von {user.name}</DialogTitle>
+          <DialogTitle>{t("title", { name: user.name })}</DialogTitle>
         </DialogHeader>
         {sessions === null ? (
           <Skeleton className="h-24 w-full" />
@@ -86,7 +88,7 @@ export function UserSessionsDialog({ user }: { user: UserDTO }) {
         {sessions !== null && sessions.length > 0 && (
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={revokeAll}>
-              Alle beenden
+              {t("endAll")}
             </Button>
           </DialogFooter>
         )}

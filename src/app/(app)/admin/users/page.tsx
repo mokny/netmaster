@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Table,
@@ -23,6 +24,8 @@ import type { UserDTO } from "@/lib/types";
 export default function UsersPage() {
   const session = useSession();
   const confirm = useConfirm();
+  const t = useTranslations("admin.users");
+  const tErrors = useTranslations("errors");
   const [users, setUsers] = useState<UserDTO[] | null>(null);
 
   const load = useCallback(async () => {
@@ -45,20 +48,20 @@ export default function UsersPage() {
   async function deleteUser(id: string) {
     if (
       !(await confirm({
-        title: "Nutzer löschen",
-        description: "Diesen Nutzer wirklich löschen?",
-        confirmText: "Löschen",
+        title: t("deleteTitle"),
+        description: t("deleteDescription"),
+        confirmText: t("delete"),
         variant: "destructive",
       }))
     )
       return;
     const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Nutzer gelöscht");
+      toast.success(t("deleted"));
       load();
     } else {
       const data = await res.json();
-      toast.error(data.error ?? "Löschen fehlgeschlagen");
+      toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
     }
   }
 
@@ -66,10 +69,8 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Nutzer</h1>
-          <p className="text-sm text-muted-foreground">
-            Accounts und Rollen verwalten. Nur Admins können Nutzer anlegen.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <UserFormDialog onSaved={load} />
       </div>
@@ -81,9 +82,9 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>E-Mail</TableHead>
-                <TableHead>Rolle</TableHead>
+                <TableHead>{t("name")}</TableHead>
+                <TableHead>{t("email")}</TableHead>
+                <TableHead>{t("role")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
@@ -8,13 +9,14 @@ import { useLiveEvents } from "@/hooks/use-live-events";
 import type { ServerDTO } from "@/lib/types";
 
 export function OverviewWidget() {
+  const t = useTranslations("dashboard.widgets.overview");
   const [servers, setServers] = useState<ServerDTO[]>([]);
   const [detailServerId, setDetailServerId] = useState<string | null>(null);
   const detailServer = servers.find((s) => s.id === detailServerId) ?? null;
 
   async function recheck(id: string) {
     const res = await fetch(`/api/servers/${id}/check`, { method: "POST" });
-    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    if (!res.ok) throw new Error(t("checkFailed"));
     const data = await res.json();
     setServers((prev) => prev.map((s) => (s.id === id ? data.server : s)));
   }
@@ -59,7 +61,7 @@ export function OverviewWidget() {
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {problematic.length === 0 ? (
           <p className="truncate text-sm text-muted-foreground">
-            Alle {servers.length} Server sind OK.
+            {t("allServersOk", { count: servers.length })}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -93,9 +95,9 @@ export function OverviewWidget() {
           checkedAt={detailServer.lastCheckedAt}
           metrics={[
             { label: "CPU", status: detailServer.lastCpuStatus },
-            { label: "Arbeitsspeicher", status: detailServer.lastMemStatus },
-            { label: "Speicherplatz", status: detailServer.lastDiskStatus },
-            { label: "Netzwerk", status: detailServer.lastNetStatus },
+            { label: t("metricMemory"), status: detailServer.lastMemStatus },
+            { label: t("metricDisk"), status: detailServer.lastDiskStatus },
+            { label: t("metricNetwork"), status: detailServer.lastNetStatus },
           ]}
           onRecheck={() => recheck(detailServer.id)}
         />

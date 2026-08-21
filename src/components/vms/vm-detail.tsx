@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   Card,
@@ -33,6 +34,7 @@ interface VmWithServer extends ProxmoxVmDTO {
 }
 
 export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number }) {
+  const t = useTranslations("vms.detail");
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
 
@@ -113,11 +115,11 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
                 {vm.status}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                {vm.ips.length > 0 ? vm.ips.join(", ") : "IP unbekannt"}
+                {vm.ips.length > 0 ? vm.ips.join(", ") : t("ipUnknown")}
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              #{vm.vmid} · {vm.type === "QEMU" ? "VM" : "LXC"} auf{" "}
+              #{vm.vmid} · {vm.type === "QEMU" ? "VM" : "LXC"} {t("on")}{" "}
               <Link href={`/servers/${vm.server.id}`} className="hover:underline">
                 {vm.server.name}
               </Link>
@@ -145,7 +147,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
                 trigger={
                   <Button variant="outline" size="sm">
                     <Play className="size-4" />
-                    Starten
+                    {t("start")}
                   </Button>
                 }
               />
@@ -161,7 +163,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
                   trigger={
                     <Button variant="outline" size="sm">
                       <RotateCw className="size-4" />
-                      Neu starten
+                      {t("restart")}
                     </Button>
                   }
                 />
@@ -174,7 +176,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
                   trigger={
                     <Button variant="outline" size="sm">
                       <Square className="size-4" />
-                      Stoppen
+                      {t("stop")}
                     </Button>
                   }
                 />
@@ -186,10 +188,10 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
 
       <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
+          <TabsTrigger value="overview">{t("overview")}</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="backups">Backups</TabsTrigger>
-          {canControl && running && <TabsTrigger value="files">Dateien</TabsTrigger>}
+          {canControl && running && <TabsTrigger value="files">{t("files")}</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">
           <Card>

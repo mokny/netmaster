@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -19,6 +20,8 @@ interface WireguardListResponse {
 }
 
 export function WireguardCard({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.wireguardCard");
+  const tErrors = useTranslations("errors");
   const [state, setState] = useState<WireguardListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,12 +32,12 @@ export function WireguardCard({ serverId }: { serverId: string }) {
         const data = await res.json().catch(() => ({}));
         if (!active) return;
         if (!res.ok) {
-          setError(data.error ?? "Fehler beim Abrufen des WireGuard-Status");
+          setError(data.error ? tErrors(data.error) : t("fetchFailed"));
           return;
         }
         setState(data);
       })
-      .catch(() => active && setError("Verbindung fehlgeschlagen"));
+      .catch(() => active && setError(t("connectionFailed")));
     return () => {
       active = false;
     };
@@ -45,23 +48,23 @@ export function WireguardCard({ serverId }: { serverId: string }) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle>WireGuard</CardTitle>
-          <CardDescription>VPN-Interfaces und Peers</CardDescription>
+          <CardDescription>{t("cardDescription")}</CardDescription>
         </div>
         <Network className="size-4 text-muted-foreground" />
       </CardHeader>
       <CardContent className="space-y-3">
         {error && <p className="text-sm text-red-500">{error}</p>}
         {!error && !state && (
-          <p className="text-sm text-muted-foreground">Lade Status…</p>
+          <p className="text-sm text-muted-foreground">{t("loadingStatus")}</p>
         )}
         {state && !state.installed && (
           <p className="text-sm text-muted-foreground">
-            WireGuard ist auf diesem Server nicht installiert.
+            {t("notInstalled")}
           </p>
         )}
         {state && state.installed && state.interfaces.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            WireGuard ist installiert, es sind aber noch keine Interfaces angelegt.
+            {t("noInterfacesYet")}
           </p>
         )}
         {state && state.installed && state.interfaces.length > 0 && (
@@ -78,7 +81,7 @@ export function WireguardCard({ serverId }: { serverId: string }) {
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           <Settings2 className="size-4" />
-          Verwalten
+          {t("manage")}
         </Link>
       </CardContent>
     </Card>

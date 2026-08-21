@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Loader2, Network, Fingerprint } from "lucide-react";
 
 function goAfterLogin(
@@ -20,6 +22,8 @@ function goAfterLogin(
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
+  const t = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -41,7 +45,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error ?? "Anmeldung fehlgeschlagen");
+          setError(tErrors(data.error ?? "INTERNAL_ERROR"));
           return;
         }
         goAfterLogin(router, redirectTo, data.user);
@@ -55,7 +59,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Anmeldung fehlgeschlagen");
+        setError(tErrors(data.error ?? "INTERNAL_ERROR"));
         return;
       }
       if (data.requiresTotp) {
@@ -64,7 +68,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       }
       goAfterLogin(router, redirectTo, data.user);
     } catch {
-      setError("Verbindung zum Server fehlgeschlagen");
+      setError(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -77,7 +81,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       const optionsRes = await fetch("/api/auth/webauthn/login/options", { method: "POST" });
       const options = await optionsRes.json();
       if (!optionsRes.ok) {
-        setError(options.error ?? "Passkey-Login nicht verfügbar");
+        setError(tErrors(options.error ?? "PASSKEY_LOGIN_FAILED"));
         return;
       }
 
@@ -90,12 +94,12 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       });
       const data = await verifyRes.json();
       if (!verifyRes.ok) {
-        setError(data.error ?? "Passkey-Anmeldung fehlgeschlagen");
+        setError(tErrors(data.error ?? "PASSKEY_LOGIN_FAILED"));
         return;
       }
       goAfterLogin(router, redirectTo, data.user);
     } catch {
-      setError("Passkey-Anmeldung abgebrochen oder fehlgeschlagen");
+      setError(t("passkeyAborted"));
     } finally {
       setPasskeyLoading(false);
     }
@@ -108,9 +112,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           <Network className="size-6" />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">NetMaster</h1>
-        <p className="text-sm text-muted-foreground">
-          Melde dich an, um dein Netzwerk zu überwachen.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("tagline")}</p>
       </div>
 
       <Button
@@ -125,19 +127,19 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         ) : (
           <Fingerprint className="size-4" />
         )}
-        Mit Passkey einloggen
+        {t("loginWithPasskey")}
       </Button>
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="h-px flex-1 bg-border" />
-        oder
+        {t("or")}
         <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
         {preAuthToken ? (
           <div className="space-y-2">
-            <Label htmlFor="totpCode">Bestätigungscode</Label>
+            <Label htmlFor="totpCode">{t("confirmationCode")}</Label>
             <Input
               id="totpCode"
               type="text"
@@ -145,18 +147,16 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               autoComplete="one-time-code"
               autoFocus
               required
-              placeholder="6-stelliger Code oder Backup-Code"
+              placeholder={t("confirmationCodePlaceholder")}
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              Code aus deiner Authenticator-App, oder ein Backup-Code (XXXXX-XXXXX).
-            </p>
+            <p className="text-xs text-muted-foreground">{t("confirmationCodeHint")}</p>
           </div>
         ) : (
           <>
             <div className="space-y-2">
-              <Label htmlFor="email">E-Mail</Label>
+              <Label htmlFor="email">{t("email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -168,7 +168,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
+              <Label htmlFor="password">{t("password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -189,7 +189,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" />}
-          {preAuthToken ? "Bestätigen" : "Anmelden"}
+          {preAuthToken ? t("confirm") : t("login")}
         </Button>
         {preAuthToken && (
           <Button
@@ -202,10 +202,14 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               setError(null);
             }}
           >
-            Zurück
+            {t("back")}
           </Button>
         )}
       </form>
+
+      <div className="flex justify-center pt-2">
+        <LanguageSwitcher />
+      </div>
     </div>
   );
 }

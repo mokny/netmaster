@@ -2,7 +2,7 @@
 // Namen ("Chrome auf macOS") – keine vollständige UA-Parsing-Bibliothek,
 // reicht aber aus, um Sessions in der Liste unterscheidbar zu machen.
 export function formatUserAgent(userAgent: string): string {
-  if (!userAgent) return "Unbekanntes Gerät";
+  if (!userAgent) return "Unknown device";
 
   let os = "Unbekanntes System";
   if (/windows/i.test(userAgent)) os = "Windows";

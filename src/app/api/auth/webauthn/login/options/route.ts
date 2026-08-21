@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const options = await createAuthenticationOptions(req);
     return NextResponse.json(options);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Fehler beim Passkey-Login";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const detail = err instanceof Error ? err.message : undefined;
+    return NextResponse.json({ error: "PASSKEY_LOGIN_FAILED", detail }, { status: 400 });
   }
 }

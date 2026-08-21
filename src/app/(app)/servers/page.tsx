@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { ServerDTO } from "@/lib/types";
 
 export default function ServersPage() {
+  const t = useTranslations("servers.page");
   const [servers, setServers] = useState<ServerDTO[] | null>(null);
   const session = useSession();
   const confirm = useConfirm();
@@ -56,9 +58,9 @@ export default function ServersPage() {
   async function deleteServer(id: string) {
     if (
       !(await confirm({
-        title: "Server löschen",
-        description: "Diesen Server wirklich löschen? Alle Metrikdaten gehen verloren.",
-        confirmText: "Löschen",
+        title: t("deleteServerTitle"),
+        description: t("deleteServerConfirm"),
+        confirmText: t("delete"),
         variant: "destructive",
       }))
     ) {
@@ -66,11 +68,11 @@ export default function ServersPage() {
     }
     const res = await fetch(`/api/servers/${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Server gelöscht");
+      toast.success(t("serverDeleted"));
       load();
     } else {
       const data = await res.json();
-      toast.error(data.error ?? "Löschen fehlgeschlagen");
+      toast.error(data.error ?? t("deleteFailed"));
     }
   }
 
@@ -78,9 +80,9 @@ export default function ServersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Server</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Verwalte deine überwachten Server und deren SSH-Zugangsdaten.
+            {t("subtitle")}
           </p>
         </div>
         {canEdit && <ServerFormDialog onSaved={load} />}
@@ -96,7 +98,7 @@ export default function ServersPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <ServerIcon className="size-10 text-muted-foreground" />
-            <p className="text-muted-foreground">Noch keine Server hinzugefügt.</p>
+            <p className="text-muted-foreground">{t("noServersYet")}</p>
             {canEdit && <ServerFormDialog onSaved={load} />}
           </CardContent>
         </Card>

@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const cidr = String(body.cidr ?? "").trim();
     if (!CIDR_PATTERN.test(cidr)) {
-      throw new ApiError(400, "Range muss im CIDR-Format vorliegen (z.B. 192.168.1.0/24)");
+      throw new ApiError(400, "INVALID_CIDR");
     }
 
     const range = await prisma.exploreRange.create({

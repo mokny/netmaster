@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,8 @@ export function PowerActionDialog({
   open: openProp,
   onOpenChange,
 }: Props) {
+  const t = useTranslations("servers.power");
+  const tErrors = useTranslations("errors");
   const controlled = openProp !== undefined;
   const [openState, setOpenState] = useState(false);
   const open = controlled ? openProp : openState;
@@ -64,15 +67,15 @@ export function PowerActionDialog({
       const data = await res.json();
       if (!res.ok) {
         toast.error(
-          data.error ?? (action === "reboot" ? "Neustart fehlgeschlagen" : "Shutdown fehlgeschlagen")
+          data.error ? tErrors(data.error) : (action === "reboot" ? t("rebootFailed") : t("shutdownFailed"))
         );
         return;
       }
-      toast.success(action === "reboot" ? "Neustart-Befehl gesendet" : "Shutdown-Befehl gesendet");
+      toast.success(action === "reboot" ? t("rebootSent") : t("shutdownSent"));
       setOpenAndReset(false);
       onDone?.();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -84,27 +87,23 @@ export function PowerActionDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            {action === "reboot" ? "Server neu starten?" : "Server herunterfahren?"}
+            {action === "reboot" ? t("rebootTitle") : t("shutdownTitle")}
           </DialogTitle>
           <DialogDescription>
             {action === "reboot" ? (
-              <>
-                „{serverName}“ wird über SSH neu gestartet. Dienste sind für kurze Zeit nicht
-                erreichbar.
-              </>
+              t("rebootDescription", { name: serverName })
             ) : (
-              <>
-                „{serverName}“ wird ausgeschaltet. netmaster kann den Server danach{" "}
-                <strong>nicht</strong> per SSH wieder einschalten — er muss manuell (z.B. per
-                Power-Taste oder Remote-Management) neu gestartet werden.
-              </>
+              t.rich("shutdownDescription", {
+                name: serverName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })
             )}
           </DialogDescription>
         </DialogHeader>
         {requiresTyped && (
           <div className="space-y-2">
             <Label>
-              Zur Bestätigung Servername eingeben:{" "}
+              {t("confirmNamePrompt")}{" "}
               <span className="font-mono text-foreground">{serverName}</span>
             </Label>
             <Input
@@ -121,7 +120,7 @@ export function PowerActionDialog({
             onClick={run}
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
-            {action === "reboot" ? "Neu starten" : "Herunterfahren"}
+            {action === "reboot" ? t("rebootAction") : t("shutdownAction")}
           </Button>
         </DialogFooter>
       </DialogContent>

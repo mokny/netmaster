@@ -125,7 +125,7 @@ export async function handleFilesSocket(
         }
         case "chmod": {
           const mode = parseInt(msg.mode, 8);
-          if (Number.isNaN(mode)) throw new SftpOpError("Ungültiger Modus", "OTHER");
+          if (Number.isNaN(mode)) throw new SftpOpError("Invalid mode", "OTHER");
           await chmodPath(sftp, msg.path, mode);
           audit("chmod", `${msg.path} -> ${msg.mode}`);
           send({ type: "ok", reqId: msg.reqId });

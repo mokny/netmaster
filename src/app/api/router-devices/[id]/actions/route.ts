@@ -16,7 +16,7 @@ export async function POST(
     const action = String(body.action ?? "");
 
     const device = await prisma.routerDevice.findUnique({ where: { id } });
-    if (!device) throw new ApiError(404, "Router-Gerät nicht gefunden");
+    if (!device) throw new ApiError(404, "ROUTER_DEVICE_NOT_FOUND");
 
     const config: Tr064Config = {
       hostname: device.hostname,
@@ -36,12 +36,12 @@ export async function POST(
       case "wifi-toggle": {
         const wifiIndex = Number(body.wifiIndex);
         const enabled = Boolean(body.enabled);
-        if (!wifiIndex) throw new ApiError(400, "wifiIndex ist erforderlich");
+        if (!wifiIndex) throw new ApiError(400, "MISSING_WIFI_INDEX");
         await setWifiEnabled(config, wifiIndex, enabled);
         break;
       }
       default:
-        throw new ApiError(400, `Unbekannte Aktion: ${action}`);
+        throw new ApiError(400, "UNKNOWN_ACTION", action);
     }
 
     await prisma.auditLog.create({

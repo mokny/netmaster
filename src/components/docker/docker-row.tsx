@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
@@ -22,6 +23,7 @@ export function DockerRow({
   href?: string;
   onDone?: () => void;
 }) {
+  const t = useTranslations("docker.row");
   const { openDockerExec } = useTerminalManager();
   const running = RUNNING_STATES.has(container.state);
 
@@ -34,7 +36,7 @@ export function DockerRow({
         {container.memUsageMb != null ? ` · ${container.memUsageMb.toFixed(0)} MB RAM` : ""}
       </p>
       <p className="truncate text-xs text-muted-foreground">
-        {container.ips.length > 0 ? container.ips.join(", ") : "IP unbekannt"}
+        {container.ips.length > 0 ? container.ips.join(", ") : t("ipUnknown")}
       </p>
     </div>
   );
@@ -60,7 +62,7 @@ export function DockerRow({
                 variant="ghost"
                 size="icon"
                 className="size-6"
-                title="Terminal"
+                title={t("terminal")}
                 onClick={() =>
                   openDockerExec(container.serverId, container.containerId, container.name)
                 }
@@ -77,7 +79,7 @@ export function DockerRow({
                   action="start"
                   onDone={onDone}
                   trigger={
-                    <Button variant="ghost" size="icon" className="size-6" title="Starten">
+                    <Button variant="ghost" size="icon" className="size-6" title={t("start")}>
                       <Play className="size-3.5" />
                     </Button>
                   }
@@ -99,7 +101,7 @@ export function DockerRow({
                   action="restart"
                   onDone={onDone}
                   trigger={
-                    <Button variant="ghost" size="icon" className="size-6" title="Neu starten">
+                    <Button variant="ghost" size="icon" className="size-6" title={t("restart")}>
                       <RotateCw className="size-3.5" />
                     </Button>
                   }
@@ -111,7 +113,7 @@ export function DockerRow({
                   action="stop"
                   onDone={onDone}
                   trigger={
-                    <Button variant="ghost" size="icon" className="size-6" title="Stoppen">
+                    <Button variant="ghost" size="icon" className="size-6" title={t("stop")}>
                       <Square className="size-3.5" />
                     </Button>
                   }

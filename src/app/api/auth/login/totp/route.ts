@@ -11,37 +11,37 @@ export async function POST(req: Request) {
   const code = typeof body?.code === "string" ? body.code.trim() : "";
 
   if (!preAuthToken || !code) {
-    return NextResponse.json({ error: "Code erforderlich" }, { status: 400 });
+    return NextResponse.json({ error: "TOTP_CODE_REQUIRED" }, { status: 400 });
   }
 
   const claims = await verifyPreAuthToken(preAuthToken);
   if (!claims) {
     return NextResponse.json(
-      { error: "Anmeldung abgelaufen, bitte erneut mit Passwort anmelden." },
+      { error: "LOGIN_EXPIRED" },
       { status: 401 }
     );
   }
 
   const user = await prisma.user.findUnique({ where: { id: claims.userId } });
   if (!user || !user.totpEnabled) {
-    return NextResponse.json({ error: "Ungültige Anmeldung" }, { status: 401 });
+    return NextResponse.json({ error: "INVALID_LOGIN" }, { status: 401 });
   }
 
   const isBackupCode = /^[A-Z2-9]{5}-[A-Z2-9]{5}$/.test(code.toUpperCase());
   if (isBackupCode) {
     if (!(await consumeBackupCode(user.id, code.toUpperCase()))) {
-      return NextResponse.json({ error: "Ungültiger Backup-Code" }, { status: 401 });
+      return NextResponse.json({ error: "INVALID_BACKUP_CODE" }, { status: 401 });
     }
   } else {
     const result = await verifyTotpCode(user.id, code);
     if (!result.ok) {
       if (result.lockedUntil) {
         return NextResponse.json(
-          { error: "Zu viele Fehlversuche. Bitte in einer Minute erneut versuchen." },
+          { error: "TOTP_TOO_MANY_ATTEMPTS" },
           { status: 429 }
         );
       }
-      return NextResponse.json({ error: "Ungültiger Code" }, { status: 401 });
+      return NextResponse.json({ error: "INVALID_TOTP_CODE" }, { status: 401 });
     }
   }
 

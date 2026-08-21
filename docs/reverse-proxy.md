@@ -1,39 +1,40 @@
-# Reverse-Proxy vor NetMaster (HTTPS / Passkeys)
+# Reverse proxy in front of NetMaster (HTTPS / passkeys)
 
-NetMaster selbst spricht nur HTTP. TLS/HTTPS wird von einem vorgeschalteten
-Reverse-Proxy terminiert (z. B. Caddy, nginx, NGINX Proxy Manager, Traefik).
-Damit Passkeys/WebAuthn funktionieren, muss der Proxy die Anfrage **korrekt
-weiterleiten** – insbesondere den `Host`-Header unverändert durchreichen und
-per `X-Forwarded-Proto` mitteilen, dass der Browser über `https` zugreift.
+NetMaster itself only speaks HTTP. TLS/HTTPS is terminated by an upstream
+reverse proxy (e.g. Caddy, nginx, NGINX Proxy Manager, Traefik). For
+passkeys/WebAuthn to work, the proxy must **forward the request correctly**
+– in particular, pass through the `Host` header unchanged and use
+`X-Forwarded-Proto` to signal that the browser is connecting over `https`.
 
-## Warum das wichtig ist
+## Why this matters
 
-WebAuthn prüft bei der Passkey-Registrierung/Anmeldung, ob die vom Browser
-gemeldete Origin (`https://netmaster.example.com`) mit der vom Server
-erwarteten Origin übereinstimmt. NetMaster leitet die erwartete Origin aus
-dem `Host`-Header und dem Schema ab (`src/lib/webauthn.ts`):
+During passkey registration/login, WebAuthn checks whether the origin
+reported by the browser (`https://netmaster.example.com`) matches the
+origin expected by the server. NetMaster derives the expected origin from
+the `Host` header and the scheme (`src/lib/webauthn.ts`):
 
-1. Schema kommt primär aus `X-Forwarded-Proto` (vom Proxy gesetzt).
-2. Fehlt dieser Header, wird ersatzweise die Env-Variable `COOKIE_SECURE`
-   verwendet (`COOKIE_SECURE=true` → `https`, sonst `http`).
+1. The scheme primarily comes from `X-Forwarded-Proto` (set by the proxy).
+2. If that header is missing, the `COOKIE_SECURE` env variable is used
+   instead (`COOKIE_SECURE=true` → `https`, otherwise `http`).
 
-Fehlt `X-Forwarded-Proto` und ist `COOKIE_SECURE` nicht gesetzt, erwartet
-NetMaster `http://...`, obwohl der Browser über `https://...` zugreift →
+If `X-Forwarded-Proto` is missing and `COOKIE_SECURE` isn't set, NetMaster
+expects `http://...` even though the browser is connecting via
+`https://...` →
 
 ```
 Unexpected registration response origin "https://netmaster.example.com",
 expected "http://netmaster.example.com"
 ```
 
-**Fix:** Proxy so konfigurieren, dass er `X-Forwarded-Proto: https` sendet
-(empfohlen, siehe unten) **und/oder** `COOKIE_SECURE=true` in der
-`.env`/`docker-compose.yml` von NetMaster setzen.
+**Fix:** configure the proxy to send `X-Forwarded-Proto: https`
+(recommended, see below) **and/or** set `COOKIE_SECURE=true` in
+NetMaster's `.env`/`docker-compose.yml`.
 
 ---
 
-## Variante A: Manuelle nginx-Konfiguration
+## Option A: Manual nginx configuration
 
-Beispiel `server`-Block für nginx (z. B. `/etc/nginx/sites-available/netmaster`):
+Example `server` block for nginx (e.g. `/etc/nginx/sites-available/netmaster`):
 
 ```nginx
 server {
@@ -46,13 +47,13 @@ server {
     location / {
         proxy_pass http://127.0.0.1:3000;
 
-        # WICHTIG für WebAuthn/Passkeys:
+        # IMPORTANT for WebAuthn/passkeys:
         proxy_set_header Host              $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Real-IP         $remote_addr;
 
-        # WebSocket-Support (falls von NetMaster genutzt)
+        # WebSocket support (used by NetMaster)
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -66,36 +67,36 @@ server {
 }
 ```
 
-Danach testen und neu laden:
+Then test and reload:
 
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Mit gesetztem `X-Forwarded-Proto` ist `COOKIE_SECURE=true` in NetMasters
-`.env` nicht mehr zwingend nötig, schadet aber nicht als Fallback.
+With `X-Forwarded-Proto` set, `COOKIE_SECURE=true` in NetMaster's `.env` is
+no longer strictly required, but doesn't hurt as a fallback.
 
 ---
 
-## Variante B: NGINX Proxy Manager (UI)
+## Option B: NGINX Proxy Manager (UI)
 
 1. **Proxy Hosts → Add Proxy Host**
-2. **Details**-Tab:
+2. **Details** tab:
    - *Domain Names*: `netmaster.example.com`
    - *Scheme*: `http`
-   - *Forward Hostname / IP*: IP/Hostname des NetMaster-Containers (z. B.
-     `netmaster` im Docker-Netzwerk oder die Server-IP)
-   - *Forward Port*: `3000` (bzw. der von NetMaster exponierte Port)
-   - **Websockets Support**: aktivieren
-3. **SSL**-Tab:
-   - *SSL Certificate*: bestehendes Zertifikat wählen oder "Request a new
+   - *Forward Hostname / IP*: the NetMaster container's IP/hostname (e.g.
+     `netmaster` on the Docker network, or the server's IP)
+   - *Forward Port*: `3000` (or whichever port NetMaster exposes)
+   - **Websockets Support**: enable
+3. **SSL** tab:
+   - *SSL Certificate*: choose an existing certificate or "Request a new
      SSL Certificate" (Let's Encrypt)
-   - **Force SSL**: aktivieren
-   - **HTTP/2 Support**: aktivieren
-4. **Advanced**-Tab: NGINX Proxy Manager setzt `X-Forwarded-Proto` und
-   `Host` bei aktiviertem SSL bereits standardmäßig korrekt. Falls Passkeys
-   trotzdem den Origin-Fehler zeigen, im *Advanced*-Feld ergänzen:
+   - **Force SSL**: enable
+   - **HTTP/2 Support**: enable
+4. **Advanced** tab: NGINX Proxy Manager already sets `X-Forwarded-Proto`
+   and `Host` correctly by default once SSL is enabled. If passkeys still
+   show the origin error, add this to the *Advanced* field:
 
    ```nginx
    proxy_set_header Host              $host;
@@ -103,32 +104,32 @@ Mit gesetztem `X-Forwarded-Proto` ist `COOKIE_SECURE=true` in NetMasters
    proxy_set_header X-Real-IP         $remote_addr;
    ```
 
-5. Speichern.
+5. Save.
 
 ---
 
-## Zusätzlich: NetMaster-Konfiguration
+## Also: NetMaster configuration
 
-Unabhängig vom Proxy sollte in NetMasters `.env` (bzw. `docker-compose.yml`)
-gesetzt sein, sobald der Dienst nur noch über HTTPS erreichbar ist:
+Regardless of the proxy, once the service is only reachable over HTTPS,
+NetMaster's `.env` (or `docker-compose.yml`) should have:
 
 ```env
 COOKIE_SECURE=true
 ```
 
-Das sorgt dafür, dass Session-Cookies mit dem `Secure`-Flag ausgestellt
-werden und WebAuthn auch dann die richtige Origin annimmt, wenn der Proxy
-aus irgendeinem Grund kein `X-Forwarded-Proto` sendet.
+This ensures session cookies are issued with the `Secure` flag, and that
+WebAuthn accepts the correct origin even if the proxy fails to send
+`X-Forwarded-Proto` for some reason.
 
-> Der `install.sh`-Installer setzt `COOKIE_SECURE=true` automatisch, wenn
-> beim Setup der integrierte Caddy-Reverse-Proxy mit Domain gewählt wird.
-> Bei einem extern betriebenen Proxy (nginx, NGINX Proxy Manager, Traefik
-> o. Ä.) muss diese Variable manuell in der `.env`-Datei gesetzt werden.
+> The `install.sh` installer sets `COOKIE_SECURE=true` automatically when
+> the built-in Caddy reverse proxy with a domain is chosen during setup.
+> With an externally run proxy (nginx, NGINX Proxy Manager, Traefik, etc.)
+> this variable must be set manually in the `.env` file.
 
-## Checkliste bei Passkey-Fehlern
+## Checklist for passkey errors
 
-- [ ] Zugriff erfolgt tatsächlich über `https://` (nicht `http://`)
-- [ ] Proxy sendet `Host`-Header unverändert (keine Domain-Umschreibung)
-- [ ] Proxy sendet `X-Forwarded-Proto: https`
-- [ ] `COOKIE_SECURE=true` in NetMasters `.env` gesetzt (Fallback)
-- [ ] Container/Dienst nach Env-Änderung neu gestartet
+- [ ] Access is actually happening over `https://` (not `http://`)
+- [ ] The proxy passes through the `Host` header unchanged (no domain rewriting)
+- [ ] The proxy sends `X-Forwarded-Proto: https`
+- [ ] `COOKIE_SECURE=true` is set in NetMaster's `.env` (fallback)
+- [ ] The container/service was restarted after the env change

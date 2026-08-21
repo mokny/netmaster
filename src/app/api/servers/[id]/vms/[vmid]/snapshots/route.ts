@@ -12,13 +12,13 @@ import { parseSnapshotListOutput } from "@/lib/monitor/parse";
 import { writeAuditLog } from "@/lib/audit";
 
 async function loadVm(id: string, vmidNum: number) {
-  if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+  if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
   const server = await prisma.server.findUniqueOrThrow({ where: { id } });
   requireProxmoxEnabled(server);
   const vm = await prisma.proxmoxVm.findUnique({
     where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
   });
-  if (!vm) throw new ApiError(404, "VM nicht gefunden");
+  if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
   return { server, vm };
 }
 
@@ -55,7 +55,7 @@ export async function POST(
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : undefined;
     const vmstate = body.vmstate === true;
-    if (!name) throw new ApiError(400, "Name erforderlich");
+    if (!name) throw new ApiError(400, "NAME_REQUIRED");
 
     const type = vm.type === "QEMU" ? "qemu" : "lxc";
     let command: string;
@@ -66,12 +66,12 @@ export async function POST(
         vmstate,
       }));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Eingabe");
+      throw new ApiError(400, "INVALID_INPUT", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 5 * 60_000, stdin);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Snapshot konnte nicht erstellt werden");
+      throw new ApiError(500, "SNAPSHOT_CREATE_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "vm.snapshot.create", {

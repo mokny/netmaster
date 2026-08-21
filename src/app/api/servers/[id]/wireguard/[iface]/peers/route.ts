@@ -37,16 +37,16 @@ export async function POST(
     requireWireguardEnabled(server);
 
     const body = (await req.json()) as AddPeerBody;
-    if (!body.name?.trim()) throw new ApiError(400, "Name ist erforderlich");
-    if (!body.allowedIps?.trim()) throw new ApiError(400, "AllowedIPs ist erforderlich");
-    if (!body.clientAddress?.trim()) throw new ApiError(400, "Client-Adresse ist erforderlich");
+    if (!body.name?.trim()) throw new ApiError(400, "NAME_REQUIRED");
+    if (!body.allowedIps?.trim()) throw new ApiError(400, "ALLOWED_IPS_REQUIRED");
+    if (!body.clientAddress?.trim()) throw new ApiError(400, "CLIENT_ADDRESS_REQUIRED");
 
     const config = await readAndParseConfig(server, iface);
-    if (!config.privateKey) throw new ApiError(500, "Interface hat keinen PrivateKey");
+    if (!config.privateKey) throw new ApiError(500, "INTERFACE_MISSING_PRIVATE_KEY");
 
     const pubRes = await execOnServer(server, "wg pubkey", 10_000, `${config.privateKey}\n`);
     const serverPublicKey = pubRes.stdout.trim();
-    if (!serverPublicKey) throw new ApiError(500, "Server-PublicKey konnte nicht ermittelt werden");
+    if (!serverPublicKey) throw new ApiError(500, "SERVER_PUBLIC_KEY_UNAVAILABLE");
 
     const { privateKey: peerPrivateKey, publicKey: peerPublicKey } = await generateKeypair(server);
     const presharedKey = body.usePsk !== false ? await generatePresharedKey(server) : undefined;
@@ -65,7 +65,7 @@ export async function POST(
     const { command, stdin } = buildWriteConfigCommand(server, iface, raw);
     const writeRes = await execOnServer(server, command, 15_000, stdin);
     if (writeRes.code !== 0) {
-      throw new ApiError(400, writeRes.stderr.trim() || "Peer konnte nicht gespeichert werden");
+      throw new ApiError(400, "PEER_SAVE_FAILED", writeRes.stderr.trim() || undefined);
     }
     const syncCmd = buildSyncCommand(server, iface);
     await execOnServer(server, syncCmd.command, 10_000, syncCmd.stdin);

@@ -104,7 +104,7 @@ async function resolveEnabledRanges(): Promise<ExploreRange[]> {
   const ranges = await prisma.exploreRange.findMany({ where: { enabled: true } });
   if (ranges.length === 0) {
     throw new Error(
-      "Keine aktive Scan-Range vorhanden - bitte in den Explore-Einstellungen eine Range hinzufügen/aktivieren"
+      "No active scan range - please add/enable a range in Explore settings"
     );
   }
   return ranges;

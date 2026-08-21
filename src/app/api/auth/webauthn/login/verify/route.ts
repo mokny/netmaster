@@ -9,17 +9,17 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const response = body?.response as AuthenticationResponseJSON | undefined;
     if (!response) {
-      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+      return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
     }
 
     const { result, credential } = await verifyAuthentication(req, response);
     if (!result.verified) {
-      return NextResponse.json({ error: "Passkey-Anmeldung fehlgeschlagen" }, { status: 401 });
+      return NextResponse.json({ error: "PASSKEY_LOGIN_FAILED" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({ where: { id: credential.userId } });
     if (!user) {
-      return NextResponse.json({ error: "Unbekannter Account" }, { status: 401 });
+      return NextResponse.json({ error: "UNKNOWN_ACCOUNT" }, { status: 401 });
     }
 
     await prisma.webAuthnCredential.update({
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Passkey-Anmeldung fehlgeschlagen";
-    return NextResponse.json({ error: message }, { status: 401 });
+    const detail = err instanceof Error ? err.message : undefined;
+    return NextResponse.json({ error: "PASSKEY_LOGIN_FAILED", detail }, { status: 401 });
   }
 }

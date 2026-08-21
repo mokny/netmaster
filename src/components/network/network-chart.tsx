@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTranslations } from "next-intl";
 
 export interface NetworkChartPoint {
   timestamp: string;
@@ -29,6 +30,7 @@ export function NetworkChart({
   formatValue: (value: number) => string;
   height?: number | `${number}%`;
 }) {
+  const t = useTranslations("network.chart");
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -65,7 +67,7 @@ export function NetworkChart({
         <Line
           type="monotone"
           dataKey="rx"
-          name="Empfangen"
+          name={t("received")}
           stroke={RX_COLOR}
           strokeWidth={2}
           dot={false}
@@ -75,7 +77,7 @@ export function NetworkChart({
         <Line
           type="monotone"
           dataKey="tx"
-          name="Gesendet"
+          name={t("sent")}
           stroke={TX_COLOR}
           strokeWidth={2}
           dot={false}

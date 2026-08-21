@@ -10,29 +10,26 @@ export async function POST(req: Request) {
 
   if (!email || !password) {
     return NextResponse.json(
-      { error: "E-Mail und Passwort erforderlich" },
+      { error: "EMAIL_PASSWORD_REQUIRED" },
       { status: 400 }
     );
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return NextResponse.json({ error: "Ungültige Anmeldedaten" }, { status: 401 });
+    return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
   }
 
   if (await hasActivePasskeys(user.id)) {
     return NextResponse.json(
-      {
-        error:
-          "Dieser Account verwendet ausschließlich Passkey-Login. Bitte nutze den Passkey-Button oben.",
-      },
+      { error: "PASSKEY_ONLY_ACCOUNT" },
       { status: 403 }
     );
   }
 
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
-    return NextResponse.json({ error: "Ungültige Anmeldedaten" }, { status: 401 });
+    return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
   }
 
   if (user.totpEnabled) {

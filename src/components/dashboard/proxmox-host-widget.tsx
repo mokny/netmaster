@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ export function ProxmoxHostWidget({
   aggregation?: "weighted" | "average";
   showProblematic?: boolean;
 }) {
+  const t = useTranslations("dashboard.widgets.proxmox");
+  const tCommon = useTranslations("common");
   const [vms, setVms] = useState<ProxmoxVmDTO[] | null>(null);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function ProxmoxHostWidget({
   });
 
   if (!vms) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
   }
 
   const qemu = vms.filter((v) => v.type === "QEMU");
@@ -97,13 +100,13 @@ export function ProxmoxHostWidget({
           <p className="truncate text-lg font-semibold">
             {qemu.filter((v) => RUNNING_STATES.has(v.status)).length}/{qemu.length}
           </p>
-          <p className="truncate text-muted-foreground">VMs laufend</p>
+          <p className="truncate text-muted-foreground">{t("vmsRunning")}</p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">
             {lxc.filter((v) => RUNNING_STATES.has(v.status)).length}/{lxc.length}
           </p>
-          <p className="truncate text-muted-foreground">LXC laufend</p>
+          <p className="truncate text-muted-foreground">{t("lxcRunning")}</p>
         </div>
       </div>
 
@@ -117,7 +120,7 @@ export function ProxmoxHostWidget({
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {problematic.length === 0 ? (
             <p className="truncate text-sm text-muted-foreground">
-              Alle {vms.length} VMs/LXC laufen unauffällig.
+              {t("allVmsHealthy", { count: vms.length })}
             </p>
           ) : (
             <ul className="space-y-1">
@@ -141,7 +144,9 @@ export function ProxmoxHostWidget({
       )}
 
       {stopped.length > 0 && !showProblematic && (
-        <p className="truncate text-xs text-muted-foreground">{stopped.length} gestoppt</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {t("stoppedCount", { count: stopped.length })}
+        </p>
       )}
     </div>
   );

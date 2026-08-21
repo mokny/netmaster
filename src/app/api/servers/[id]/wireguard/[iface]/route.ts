@@ -38,7 +38,7 @@ export async function GET(
     const { command, stdin } = buildReadConfigCommand(server, iface);
     const readRes = await execOnServer(server, command, 15_000, stdin);
     if (readRes.code !== 0 && !readRes.stdout.trim()) {
-      throw new ApiError(404, "Interface nicht gefunden");
+      throw new ApiError(404, "INTERFACE_NOT_FOUND");
     }
     const raw = readRes.stdout;
     const config = parseWgConfig(iface, raw);
@@ -73,13 +73,13 @@ export async function PUT(
 
     const body = (await req.json()) as { raw: string };
     if (typeof body.raw !== "string" || !body.raw.trim()) {
-      throw new ApiError(400, "Konfigurationstext ist erforderlich");
+      throw new ApiError(400, "CONFIG_TEXT_REQUIRED");
     }
 
     const { command, stdin } = buildWriteConfigCommand(server, iface, body.raw);
     const res = await execOnServer(server, command, 15_000, stdin);
     if (res.code !== 0) {
-      throw new ApiError(400, res.stderr.trim() || "Config ist ungültig oder konnte nicht geschrieben werden");
+      throw new ApiError(400, "CONFIG_INVALID_OR_WRITE_FAILED", res.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "wireguard.interface.edit-raw", {
@@ -107,7 +107,7 @@ export async function DELETE(
     const { command, stdin } = buildDeleteInterfaceCommand(server, iface);
     const res = await execOnServer(server, command, 20_000, stdin);
     if (res.code !== 0) {
-      throw new ApiError(500, res.stderr.trim() || "Löschen fehlgeschlagen");
+      throw new ApiError(500, "DELETE_FAILED", res.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "wireguard.interface.delete", {

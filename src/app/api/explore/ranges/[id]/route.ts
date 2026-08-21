@@ -11,17 +11,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
 
     const existing = await prisma.exploreRange.findUnique({ where: { id } });
-    if (!existing) throw new ApiError(404, "Range nicht gefunden");
+    if (!existing) throw new ApiError(404, "RANGE_NOT_FOUND");
 
     const data: { enabled?: boolean; cidr?: string } = {};
     if (body.enabled !== undefined) data.enabled = Boolean(body.enabled);
     if (body.cidr !== undefined) {
       if (existing.source !== "MANUAL") {
-        throw new ApiError(400, "Automatisch erkannte Ranges können nur aktiviert/deaktiviert werden");
+        throw new ApiError(400, "RANGE_AUTO_LIMITED_EDIT");
       }
       const cidr = String(body.cidr).trim();
       if (!CIDR_PATTERN.test(cidr)) {
-        throw new ApiError(400, "Range muss im CIDR-Format vorliegen (z.B. 192.168.1.0/24)");
+        throw new ApiError(400, "INVALID_CIDR");
       }
       data.cidr = cidr;
     }
@@ -39,12 +39,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
 
     const existing = await prisma.exploreRange.findUnique({ where: { id } });
-    if (!existing) throw new ApiError(404, "Range nicht gefunden");
+    if (!existing) throw new ApiError(404, "RANGE_NOT_FOUND");
     if (existing.source !== "MANUAL") {
-      throw new ApiError(
-        400,
-        "Automatisch erkannte Ranges können nicht gelöscht werden, nur deaktiviert"
-      );
+      throw new ApiError(400, "RANGE_AUTO_NOT_DELETABLE");
     }
 
     await prisma.exploreRange.delete({ where: { id } });

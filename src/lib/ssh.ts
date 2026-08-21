@@ -163,7 +163,7 @@ export function execOnConnection(
 ): Promise<SshExecResult> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error("SSH-Befehl hat Timeout überschritten"));
+      reject(new Error("SSH command timed out"));
     }, timeoutMs);
 
     conn.exec(command, (err, stream) => {
@@ -313,7 +313,7 @@ export const PROCESS_LIST_COMMAND = "ps -eo pid,user,pcpu,pmem,comm --no-headers
 
 export function buildKillCommand(pid: number, signal: "TERM" | "KILL"): string {
   if (!Number.isInteger(pid) || pid <= 1) {
-    throw new Error("Ungültige PID");
+    throw new Error("Invalid PID");
   }
   return `kill -${signal} ${pid}`;
 }
@@ -353,7 +353,7 @@ export function buildRootCommand(
     };
   }
   throw new Error(
-    "Root oder Sudo-Passwort erforderlich, um diesen Befehl auszuführen"
+    "Root or a sudo password is required to run this command"
   );
 }
 
@@ -377,7 +377,7 @@ export function buildRootScriptCommand(
     };
   }
   throw new Error(
-    "Root oder Sudo-Passwort erforderlich, um diesen Befehl auszuführen"
+    "Root or a sudo password is required to run this command"
   );
 }
 
@@ -397,11 +397,11 @@ export interface CleanupOptions {
 // Dry-Run werden nur nicht-destruktive Vorschau-Befehle verwendet.
 export function buildCleanupScript(opts: CleanupOptions): string {
   if (!opts.apt && !opts.docker && !opts.journal) {
-    throw new Error("Keine Bereinigungs-Option ausgewählt");
+    throw new Error("No cleanup option selected");
   }
   const journalDays = Math.trunc(opts.journalDays);
   if (opts.journal && (!Number.isInteger(journalDays) || journalDays < 1 || journalDays > 365)) {
-    throw new Error("Ungültige Journal-Aufbewahrungsdauer (1-365 Tage)");
+    throw new Error("Invalid journal retention period (1-365 days)");
   }
 
   const lines = ["set +e"];
@@ -484,7 +484,7 @@ export function buildDockerPowerCommand(
   action: DockerPowerAction
 ): string {
   if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
-    throw new Error("Ungültige Container-ID");
+    throw new Error("Invalid container ID");
   }
   return `docker ${action} ${containerId}`;
 }
@@ -494,7 +494,7 @@ export function buildDockerRemoveContainerCommand(
   force: boolean
 ): string {
   if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
-    throw new Error("Ungültige Container-ID");
+    throw new Error("Invalid container ID");
   }
   return `docker rm ${force ? "-f " : ""}${containerId}`;
 }
@@ -506,7 +506,7 @@ export const DOCKER_IMAGES_COMMAND =
 // IPv6-Adresse (eine Zeile je Adresse, leer bei z.B. host-Networking).
 export function buildDockerInspectIpsCommand(containerId: string): string {
   if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
-    throw new Error("Ungültige Container-ID");
+    throw new Error("Invalid container ID");
   }
   return `docker inspect ${containerId} --format '{{range $net, $conf := .NetworkSettings.Networks}}{{$conf.IPAddress}}\n{{$conf.GlobalIPv6Address}}\n{{end}}' 2>/dev/null`;
 }
@@ -523,7 +523,7 @@ const IMAGE_REF_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._\-/:@]{0,255}$/;
 
 export function buildDockerPullCommand(image: string): string {
   if (!IMAGE_REF_PATTERN.test(image)) {
-    throw new Error("Ungültiger Image-Name");
+    throw new Error("Invalid image name");
   }
   return `docker pull ${shellQuote(image)}`;
 }
@@ -533,7 +533,7 @@ export function buildDockerImageRemoveCommand(
   force: boolean
 ): string {
   if (!/^[a-zA-Z0-9]+$/.test(imageId)) {
-    throw new Error("Ungültige Image-ID");
+    throw new Error("Invalid image ID");
   }
   return `docker rmi ${force ? "-f " : ""}${imageId}`;
 }
@@ -556,13 +556,13 @@ export interface DockerRunOptions {
 
 export function buildDockerRunCommand(opts: DockerRunOptions): string {
   if (!IMAGE_REF_PATTERN.test(opts.image)) {
-    throw new Error("Ungültiger Image-Name");
+    throw new Error("Invalid image name");
   }
   const parts = ["docker", "run", "-d"];
 
   if (opts.name) {
     if (!CONTAINER_NAME_PATTERN.test(opts.name)) {
-      throw new Error("Ungültiger Container-Name");
+      throw new Error("Invalid container name");
     }
     parts.push("--name", shellQuote(opts.name));
   }
@@ -589,7 +589,7 @@ export function buildDockerRunCommand(opts: DockerRunOptions): string {
   }
   if (opts.network) {
     if (!NETWORK_MODE_PATTERN.test(opts.network)) {
-      throw new Error("Ungültiger Netzwerk-Modus");
+      throw new Error("Invalid network mode");
     }
     parts.push("--network", shellQuote(opts.network));
   }
@@ -622,7 +622,7 @@ export function buildVmPowerCommand(
   action: VmPowerAction
 ): { command: string; stdin?: string } {
   if (!Number.isInteger(vmid) || vmid <= 0) {
-    throw new Error("Ungültige VM-ID");
+    throw new Error("Invalid VM ID");
   }
   const bin = type === "qemu" ? "qm" : "pct";
   return buildRootCommand(server, `${bin} ${action} ${vmid}`);
@@ -638,7 +638,7 @@ export function buildVmIpCommand(
   vmid: number
 ): { command: string; stdin?: string } {
   if (!Number.isInteger(vmid) || vmid <= 0) {
-    throw new Error("Ungültige VM-ID");
+    throw new Error("Invalid VM ID");
   }
   const baseCommand =
     type === "qemu"
@@ -656,7 +656,7 @@ export function buildVmTerminalCommand(
   vmid: number
 ): { command: string; stdin?: string } {
   if (!Number.isInteger(vmid) || vmid <= 0) {
-    throw new Error("Ungültige VM-ID");
+    throw new Error("Invalid VM ID");
   }
   const baseCommand = type === "lxc" ? `pct enter ${vmid}` : `qm terminal ${vmid}`;
   return buildRootCommand(server, baseCommand);
@@ -668,7 +668,7 @@ export function buildVmTerminalCommand(
 // Container-Image vorhanden).
 export function buildDockerExecCommand(containerId: string): string {
   if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
-    throw new Error("Ungültige Container-ID");
+    throw new Error("Invalid container ID");
   }
   return `docker exec -it ${containerId} sh -c "exec bash 2>/dev/null || exec sh"`;
 }
@@ -725,10 +725,10 @@ export function buildVmVncCommand(
   ticket: string
 ): { command: string; stdin?: string } {
   if (!Number.isInteger(vmid) || vmid <= 0) {
-    throw new Error("Ungültige VM-ID");
+    throw new Error("Invalid VM ID");
   }
   if (!/^[a-zA-Z0-9]{16,64}$/.test(ticket)) {
-    throw new Error("Ungültiges VNC-Ticket");
+    throw new Error("Invalid VNC ticket");
   }
   return buildRootCommand(server, `env LC_PVE_TICKET='${ticket}' qm vncproxy ${vmid}`);
 }
@@ -785,7 +785,7 @@ const VOLID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,255}$/;
 
 function validateVmid(vmid: number): void {
   if (!Number.isInteger(vmid) || vmid <= 0) {
-    throw new Error("Ungültige VM-ID");
+    throw new Error("Invalid VM ID");
   }
 }
 
@@ -813,7 +813,7 @@ export function buildSnapshotCreateCommand(
 ): { command: string; stdin?: string } {
   validateVmid(vmid);
   if (!SNAPSHOT_NAME_PATTERN.test(name)) {
-    throw new Error("Ungültiger Snapshot-Name (nur Buchstaben, Zahlen, _ und -, muss mit Buchstabe beginnen)");
+    throw new Error("Invalid snapshot name (letters, numbers, _ and - only, must start with a letter)");
   }
   let cmd = `${vmBinary(type)} snapshot ${vmid} ${shellQuote(name)}`;
   if (opts.description) {
@@ -833,7 +833,7 @@ export function buildSnapshotDeleteCommand(
 ): { command: string; stdin?: string } {
   validateVmid(vmid);
   if (!SNAPSHOT_NAME_PATTERN.test(name)) {
-    throw new Error("Ungültiger Snapshot-Name");
+    throw new Error("Invalid snapshot name");
   }
   return buildRootCommand(server, `${vmBinary(type)} delsnapshot ${vmid} ${shellQuote(name)}`);
 }
@@ -846,7 +846,7 @@ export function buildSnapshotRollbackCommand(
 ): { command: string; stdin?: string } {
   validateVmid(vmid);
   if (!SNAPSHOT_NAME_PATTERN.test(name)) {
-    throw new Error("Ungültiger Snapshot-Name");
+    throw new Error("Invalid snapshot name");
   }
   return buildRootCommand(server, `${vmBinary(type)} rollback ${vmid} ${shellQuote(name)}`);
 }
@@ -857,7 +857,7 @@ export const STORAGE_LIST_COMMAND = `pvesh get /nodes/${PVE_NODE}/storage --outp
 export function buildBackupListCommand(storageId: string, vmid: number): string {
   validateVmid(vmid);
   if (!STORAGE_ID_PATTERN.test(storageId)) {
-    throw new Error("Ungültige Storage-ID");
+    throw new Error("Invalid storage ID");
   }
   return `pvesh get /nodes/${PVE_NODE}/storage/${shellQuote(storageId)}/content --content backup --vmid ${vmid} --output-format json 2>/dev/null`;
 }
@@ -875,13 +875,13 @@ export function buildBackupCreateCommand(
 ): { command: string; stdin?: string } {
   validateVmid(vmid);
   if (!STORAGE_ID_PATTERN.test(opts.storage)) {
-    throw new Error("Ungültige Storage-ID");
+    throw new Error("Invalid storage ID");
   }
   if (!BACKUP_MODES.includes(opts.mode)) {
-    throw new Error("Ungültiger Backup-Modus");
+    throw new Error("Invalid backup mode");
   }
   if (!BACKUP_COMPRESS.includes(opts.compress)) {
-    throw new Error("Ungültige Kompression");
+    throw new Error("Invalid compression");
   }
   const cmd = `vzdump ${vmid} --storage ${shellQuote(opts.storage)} --mode ${opts.mode} --compress ${opts.compress} --quiet 1`;
   return buildRootCommand(server, cmd);
@@ -893,10 +893,10 @@ export function buildBackupDeleteCommand(
   volid: string
 ): { command: string; stdin?: string } {
   if (!STORAGE_ID_PATTERN.test(storageId)) {
-    throw new Error("Ungültige Storage-ID");
+    throw new Error("Invalid storage ID");
   }
   if (!VOLID_PATTERN.test(volid)) {
-    throw new Error("Ungültige Volume-ID");
+    throw new Error("Invalid volume ID");
   }
   const cmd = `pvesh delete /nodes/${PVE_NODE}/storage/${shellQuote(storageId)}/content/${shellQuote(volid)}`;
   return buildRootCommand(server, cmd);
@@ -912,10 +912,10 @@ export function buildBackupRestoreCommand(
 ): { command: string; stdin?: string } {
   validateVmid(targetVmid);
   if (!STORAGE_ID_PATTERN.test(storage)) {
-    throw new Error("Ungültige Storage-ID");
+    throw new Error("Invalid storage ID");
   }
   if (!VOLID_PATTERN.test(volid)) {
-    throw new Error("Ungültige Volume-ID");
+    throw new Error("Invalid volume ID");
   }
   const cmd =
     type === "qemu"

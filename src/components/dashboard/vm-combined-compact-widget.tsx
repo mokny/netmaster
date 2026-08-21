@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -23,6 +24,7 @@ export function VmCombinedCompactWidget({
   serverId: string;
   vmid: number;
 }) {
+  const t = useTranslations("common");
   const [vm, setVm] = useState<ProxmoxVmDTO | null>(null);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function VmCombinedCompactWidget({
   });
 
   if (!vm) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 
   return (

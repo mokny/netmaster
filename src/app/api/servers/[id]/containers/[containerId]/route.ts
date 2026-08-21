@@ -28,13 +28,13 @@ export async function GET(
       where: { id },
       select: { id: true, name: true },
     });
-    if (!server) throw new ApiError(404, "Server nicht gefunden");
+    if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
 
     const latest = await prisma.dockerContainerSnapshot.findFirst({
       where: { serverId: id, containerId },
       orderBy: { timestamp: "desc" },
     });
-    if (!latest) throw new ApiError(404, "Container nicht gefunden");
+    if (!latest) throw new ApiError(404, "CONTAINER_NOT_FOUND");
 
     const samples = await prisma.dockerContainerSnapshot.findMany({
       where: { serverId: id, containerId, timestamp: { gte: since } },
@@ -68,18 +68,18 @@ export async function DELETE(
       where: { serverId: id, containerId },
       orderBy: { timestamp: "desc" },
     });
-    if (!latest) throw new ApiError(404, "Container nicht gefunden");
+    if (!latest) throw new ApiError(404, "CONTAINER_NOT_FOUND");
 
     let command: string;
     try {
       command = buildDockerRemoveContainerCommand(containerId, force);
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Container-ID");
+      throw new ApiError(400, "INVALID_CONTAINER_ID", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 30_000);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Löschen fehlgeschlagen");
+      throw new ApiError(500, "DELETE_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "docker.container.remove", {

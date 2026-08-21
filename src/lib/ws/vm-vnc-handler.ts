@@ -23,7 +23,7 @@ export async function handleVmVncSocket(
     return;
   }
   if (!server.proxmoxEnabled) {
-    ws.close(4403, "Proxmox ist für diesen Server nicht aktiviert");
+    ws.close(4403, "Proxmox is not enabled for this server");
     return;
   }
 

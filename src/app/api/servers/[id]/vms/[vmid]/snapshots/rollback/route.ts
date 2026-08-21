@@ -12,18 +12,18 @@ export async function POST(
     const session = await requireRole("EDITOR");
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
-    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
     const body = await req.json();
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) throw new ApiError(400, "Snapshot-Name erforderlich");
+    if (!name) throw new ApiError(400, "SNAPSHOT_NAME_REQUIRED");
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireProxmoxEnabled(server);
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
     });
-    if (!vm) throw new ApiError(404, "VM nicht gefunden");
+    if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
     const type = vm.type === "QEMU" ? "qemu" : "lxc";
 
     let command: string;
@@ -31,12 +31,12 @@ export async function POST(
     try {
       ({ command, stdin } = buildSnapshotRollbackCommand(server, type, vmidNum, name));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Eingabe");
+      throw new ApiError(400, "INVALID_INPUT", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 5 * 60_000, stdin);
     if (result.code !== 0 && result.code !== null) {
-      throw new ApiError(500, result.stderr.trim() || "Rollback fehlgeschlagen");
+      throw new ApiError(500, "ROLLBACK_FAILED", result.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "vm.snapshot.rollback", {

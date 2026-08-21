@@ -11,7 +11,7 @@ export async function GET(
     await requireSession();
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
-    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
     const { searchParams } = new URL(req.url);
     const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));
@@ -21,7 +21,7 @@ export async function GET(
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
       include: { server: { select: { id: true, name: true } } },
     });
-    if (!vm) throw new ApiError(404, "VM nicht gefunden");
+    if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
 
     const samples = await prisma.proxmoxVmSample.findMany({
       where: { vmId: vm.id, timestamp: { gte: since } },

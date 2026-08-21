@@ -93,7 +93,7 @@ export async function handleExecFilesSocket(
         }
         case "chmod": {
           const mode = parseInt(msg.mode, 8);
-          if (Number.isNaN(mode)) throw new ExecFileOpError("Ungültiger Modus", "OTHER");
+          if (Number.isNaN(mode)) throw new ExecFileOpError("Invalid mode", "OTHER");
           await backend.chmod(msg.path, mode);
           audit("chmod", `${msg.path} -> ${msg.mode}`);
           send({ type: "ok", reqId: msg.reqId });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -36,6 +37,7 @@ export function ServerCard({
   onSaved: () => void;
   onDelete: (id: string) => void;
 }) {
+  const t = useTranslations("servers.card");
   const [editOpen, setEditOpen] = useState(false);
   const [rebootOpen, setRebootOpen] = useState(false);
   const [shutdownOpen, setShutdownOpen] = useState(false);
@@ -43,7 +45,7 @@ export function ServerCard({
 
   async function recheck() {
     const res = await fetch(`/api/servers/${server.id}/check`, { method: "POST" });
-    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    if (!res.ok) throw new Error(t("checkFailed"));
     onSaved();
   }
 
@@ -71,19 +73,19 @@ export function ServerCard({
               {canEdit && (
                 <DropdownMenuItem onClick={() => setRebootOpen(true)}>
                   <RotateCw className="size-4" />
-                  Neu starten
+                  {t("restart")}
                 </DropdownMenuItem>
               )}
               {canEdit && (
                 <DropdownMenuItem onClick={() => setShutdownOpen(true)}>
                   <Power className="size-4" />
-                  Herunterfahren
+                  {t("shutdown")}
                 </DropdownMenuItem>
               )}
               {canEdit && (
                 <DropdownMenuItem onClick={() => setEditOpen(true)}>
                   <Pencil className="size-4" />
-                  Bearbeiten
+                  {t("edit")}
                 </DropdownMenuItem>
               )}
               {canDelete && (
@@ -92,7 +94,7 @@ export function ServerCard({
                   onClick={() => onDelete(server.id)}
                 >
                   <Trash2 className="size-4" />
-                  Löschen
+                  {t("delete")}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -112,7 +114,7 @@ export function ServerCard({
         <div className="flex flex-wrap gap-1 pt-1">
           {server.tags
             .split(",")
-            .map((t) => t.trim())
+            .map((tagValue) => tagValue.trim())
             .filter(Boolean)
             .map((tag) => (
               <span
@@ -161,9 +163,9 @@ export function ServerCard({
         checkedAt={server.lastCheckedAt}
         metrics={[
           { label: "CPU", status: server.lastCpuStatus },
-          { label: "Arbeitsspeicher", status: server.lastMemStatus },
-          { label: "Speicherplatz", status: server.lastDiskStatus },
-          { label: "Netzwerk", status: server.lastNetStatus },
+          { label: t("memory"), status: server.lastMemStatus },
+          { label: t("diskSpace"), status: server.lastDiskStatus },
+          { label: t("network"), status: server.lastNetStatus },
         ]}
         onRecheck={recheck}
       />

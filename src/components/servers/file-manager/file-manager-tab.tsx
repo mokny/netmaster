@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { FilePanel } from "./file-panel";
 import { EditorArea, type EditorTab } from "./editor-area";
@@ -19,6 +20,7 @@ export function FileManagerTab({
   wsPath: string;
   restBasePath: string;
 }) {
+  const t = useTranslations("servers.fileManager.tab");
   const confirm = useConfirm();
   const [tabs, setTabs] = useState<EditorTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function FileManagerTab({
           prev.map((t) => (t.id === id ? { ...t, content, savedContent: content, loading: false } : t))
         );
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Datei konnte nicht geladen werden";
+        const message = err instanceof Error ? err.message : t("loadFailed");
         setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, loading: false, error: message } : t)));
         toast.error(`${node.name}: ${message}`);
       }
@@ -63,9 +65,9 @@ export function FileManagerTab({
       const tab = tabs.find((t) => t.id === id);
       if (tab && tab.content !== tab.savedContent) {
         const ok = await confirm({
-          title: "Ungespeicherte Änderungen",
-          description: `"${tab.name}" hat ungespeicherte Änderungen. Trotzdem schließen?`,
-          confirmText: "Schließen",
+          title: t("unsavedChangesTitle"),
+          description: t("unsavedChangesDescription", { name: tab.name }),
+          confirmText: t("close"),
           variant: "destructive",
         });
         if (!ok) return;
@@ -96,10 +98,10 @@ export function FileManagerTab({
         setTabs((prev) =>
           prev.map((t) => (t.id === id ? { ...t, saving: false, savedContent: t.content } : t))
         );
-        toast.success(`${tab.name} gespeichert`);
+        toast.success(t("saved", { name: tab.name }));
       } catch (err) {
         setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, saving: false } : t)));
-        toast.error(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+        toast.error(err instanceof Error ? err.message : t("saveFailed"));
       }
     },
     [tabs]

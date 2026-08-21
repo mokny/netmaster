@@ -29,7 +29,7 @@ export async function handleDockerTerminalSocket(
     return;
   }
   if (!server.dockerEnabled) {
-    send({ type: "error", message: "Docker ist für diesen Server nicht aktiviert" });
+    send({ type: "error", message: "Docker is not enabled for this server" });
     ws.close();
     return;
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KeyRound, Trash2, Pencil, Check } from "lucide-react";
@@ -17,9 +18,10 @@ export function PasskeyList({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const t = useTranslations("account.passkeyList");
 
   if (passkeys.length === 0) {
-    return <p className="text-sm text-muted-foreground">Keine Passkeys hinterlegt.</p>;
+    return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
   }
 
   return (
@@ -58,8 +60,9 @@ export function PasskeyList({
               <p className="truncate text-sm font-medium">{p.name}</p>
             )}
             <p className="truncate text-xs text-muted-foreground">
-              Angelegt {new Date(p.createdAt).toLocaleDateString()}
-              {p.lastUsedAt && ` · Zuletzt genutzt ${new Date(p.lastUsedAt).toLocaleDateString()}`}
+              {t("created", { date: new Date(p.createdAt).toLocaleDateString() })}
+              {p.lastUsedAt &&
+                ` · ${t("lastUsed", { date: new Date(p.lastUsedAt).toLocaleDateString() })}`}
             </p>
           </div>
           {editingId !== p.id && (
@@ -67,7 +70,7 @@ export function PasskeyList({
               variant="ghost"
               size="icon"
               className="size-7 shrink-0"
-              aria-label="Umbenennen"
+              aria-label={t("rename")}
               onClick={() => {
                 setEditingId(p.id);
                 setEditValue(p.name);
@@ -80,7 +83,7 @@ export function PasskeyList({
             variant="ghost"
             size="icon"
             className="size-7 shrink-0"
-            aria-label="Passkey entfernen"
+            aria-label={t("removePasskey")}
             onClick={() => onRemove(p.id)}
           >
             <Trash2 className="size-3.5" />

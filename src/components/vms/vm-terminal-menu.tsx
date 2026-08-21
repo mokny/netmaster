@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function VmTerminalMenu({
   vmType: "QEMU" | "LXC";
   size?: ButtonSize;
 }) {
+  const t = useTranslations("vms.terminalMenu");
   const { openVmTerminal, openVmVnc } = useTerminalManager();
 
   if (vmType === "LXC") {
@@ -37,11 +39,11 @@ export function VmTerminalMenu({
         variant="ghost"
         size={size}
         className={size === "icon" ? "size-6" : undefined}
-        title="Terminal"
+        title={t("terminal")}
         onClick={() => openVmTerminal(serverId, vmid, vmName, vmType)}
       >
         <TerminalSquare className="size-3.5" />
-        {size !== "icon" && "Terminal"}
+        {size !== "icon" && t("terminal")}
       </Button>
     );
   }
@@ -54,21 +56,21 @@ export function VmTerminalMenu({
             variant="ghost"
             size={size}
             className={size === "icon" ? "size-6" : undefined}
-            title="Terminal"
+            title={t("terminal")}
           >
             <TerminalSquare className="size-3.5" />
-            {size !== "icon" && "Terminal"}
+            {size !== "icon" && t("terminal")}
           </Button>
         }
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => openVmVnc(serverId, vmid, vmName)}>
           <MonitorSmartphone className="size-4" />
-          VNC-Konsole
+          {t("vncConsole")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => openVmTerminal(serverId, vmid, vmName, vmType)}>
           <TerminalSquare className="size-4" />
-          Serielle Konsole
+          {t("serialConsole")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

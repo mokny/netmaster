@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,8 @@ import type { SessionDTO, PasskeyDTO } from "@/lib/types";
 export default function AccountPage() {
   const session = useSession();
   const confirm = useConfirm();
+  const t = useTranslations("account");
+  const tErrors = useTranslations("errors");
   const [sessions, setSessions] = useState<SessionDTO[] | null>(null);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -49,20 +52,19 @@ export default function AccountPage() {
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) {
-      toast.error("Passwort muss mindestens 8 Zeichen lang sein");
+      toast.error(t("passwordTooShort"));
       return;
     }
     if (password !== passwordConfirm) {
-      toast.error("Passwörter stimmen nicht überein");
+      toast.error(t("passwordMismatch"));
       return;
     }
 
     const revokeOtherSessions = await confirm({
-      title: "Passwort geändert",
-      description:
-        "Sollen alle anderen aktiven Sessions (andere Geräte/Browser) jetzt beendet werden?",
-      confirmText: "Beenden",
-      cancelText: "Nicht beenden",
+      title: t("passwordChangedTitle"),
+      description: t("passwordChangedDescription"),
+      confirmText: t("end"),
+      cancelText: t("dontEnd"),
     });
 
     setSaving(true);
@@ -74,10 +76,10 @@ export default function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Ändern fehlgeschlagen");
+        toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
         return;
       }
-      toast.success("Passwort geändert");
+      toast.success(t("passwordChanged"));
       setPassword("");
       setPasswordConfirm("");
       loadSessions();
@@ -90,54 +92,54 @@ export default function AccountPage() {
     const isCurrent = sessions?.find((s) => s.id === id)?.isCurrent ?? false;
     const res = await fetch(`/api/account/sessions/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Beenden fehlgeschlagen");
+      toast.error(t("endFailed"));
       return;
     }
     if (isCurrent) {
       window.location.href = "/login";
       return;
     }
-    toast.success("Session beendet");
+    toast.success(t("sessionEnded"));
     loadSessions();
   }
 
   async function revokeOtherSessions() {
     if (
       !(await confirm({
-        title: "Sessions beenden",
-        description: "Alle anderen Sessions wirklich beenden?",
-        confirmText: "Beenden",
+        title: t("endSessionsTitle"),
+        description: t("endSessionsDescription"),
+        confirmText: t("end"),
         variant: "destructive",
       }))
     )
       return;
     const res = await fetch("/api/account/sessions", { method: "DELETE" });
     if (res.ok) {
-      toast.success("Andere Sessions beendet");
+      toast.success(t("otherSessionsEnded"));
       loadSessions();
     } else {
-      toast.error("Beenden fehlgeschlagen");
+      toast.error(t("endFailed"));
     }
   }
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Konto</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          {session ? `${session.name} · ${session.email}` : "Passwort und aktive Sessions verwalten."}
+          {session ? `${session.name} · ${session.email}` : t("subtitle")}
         </p>
       </div>
 
       {passkeys.length === 0 && (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Passwort ändern</CardTitle>
+          <CardTitle className="text-base">{t("changePassword")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={changePassword} className="space-y-3">
             <div className="space-y-2">
-              <Label>Neues Passwort</Label>
+              <Label>{t("newPassword")}</Label>
               <Input
                 type="password"
                 minLength={8}
@@ -147,7 +149,7 @@ export default function AccountPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Neues Passwort bestätigen</Label>
+              <Label>{t("confirmNewPassword")}</Label>
               <Input
                 type="password"
                 minLength={8}
@@ -158,7 +160,7 @@ export default function AccountPage() {
             </div>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              Passwort ändern
+              {t("changePassword")}
             </Button>
           </form>
         </CardContent>
@@ -179,10 +181,10 @@ export default function AccountPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Aktive Sessions</CardTitle>
+          <CardTitle className="text-base">{t("activeSessions")}</CardTitle>
           {sessions && sessions.length > 1 && (
             <Button variant="outline" size="sm" onClick={revokeOtherSessions}>
-              Alle anderen beenden
+              {t("endAllOthers")}
             </Button>
           )}
         </CardHeader>

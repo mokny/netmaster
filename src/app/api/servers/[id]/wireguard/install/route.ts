@@ -18,7 +18,7 @@ export async function POST(
     const { command, stdin } = buildInstallCommand(server);
     const res = await execOnServer(server, command, 120_000, stdin);
     if (res.code !== 0) {
-      throw new ApiError(500, res.stderr.trim() || "Installation fehlgeschlagen");
+      throw new ApiError(500, "INSTALL_FAILED", res.stderr.trim() || undefined);
     }
 
     await writeAuditLog(session, "wireguard.install", { serverId: id });

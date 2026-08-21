@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,8 @@ export function TotpSetupCard({
   onChanged: () => void;
 }) {
   const confirm = useConfirm();
+  const t = useTranslations("account.totp");
+  const tErrors = useTranslations("errors");
   const [setup, setSetup] = useState<SetupState>(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,7 +44,7 @@ export function TotpSetupCard({
       const res = await fetch("/api/account/totp/setup", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Setup fehlgeschlagen");
+        toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
         return;
       }
       setSetup(data);
@@ -60,7 +63,7 @@ export function TotpSetupCard({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Code ungültig");
+        toast.error(tErrors(data.error ?? "INVALID_TOTP_CODE"));
         return;
       }
       setSetup(null);
@@ -75,9 +78,9 @@ export function TotpSetupCard({
   async function disable() {
     if (
       !(await confirm({
-        title: "2FA deaktivieren",
-        description: "2FA wirklich deaktivieren? Andere aktive Sessions werden beendet.",
-        confirmText: "Deaktivieren",
+        title: t("disableTitle"),
+        description: t("disableDescription"),
+        confirmText: t("disable"),
         variant: "destructive",
       }))
     )
@@ -86,10 +89,10 @@ export function TotpSetupCard({
     try {
       const res = await fetch("/api/account/totp/disable", { method: "POST" });
       if (!res.ok) {
-        toast.error("Deaktivieren fehlgeschlagen");
+        toast.error(t("disableFailed"));
         return;
       }
-      toast.success("2FA deaktiviert");
+      toast.success(t("disabled"));
       onChanged();
     } finally {
       setLoading(false);
@@ -99,42 +102,37 @@ export function TotpSetupCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Zwei-Faktor-Authentifizierung (TOTP)</CardTitle>
+        <CardTitle className="text-base">{t("title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {hasPasskeys ? (
-          <p className="text-sm text-muted-foreground">
-            Nicht verfügbar, solange ein Passkey hinterlegt ist – dieser ersetzt Passwort- und
-            2FA-Login vollständig.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("unavailableWithPasskey")}</p>
         ) : enabled ? (
           <div className="flex items-center justify-between gap-3">
             <p className="flex items-center gap-2 text-sm">
               <ShieldCheck className="size-4 text-primary" />
-              2FA ist aktiv.
+              {t("active")}
             </p>
             <Button variant="outline" size="sm" disabled={loading} onClick={disable}>
-              Deaktivieren
+              {t("disable")}
             </Button>
           </div>
         ) : setup ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Scanne den QR-Code mit deiner Authenticator-App und gib den angezeigten Code ein.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("scanHint")}</p>
             <Image
               src={setup.qrCodeDataUrl}
-              alt="TOTP QR-Code"
+              alt={t("qrCodeAlt")}
               width={180}
               height={180}
               className="rounded-md border"
               unoptimized
             />
             <p className="text-xs text-muted-foreground">
-              Manuell: <code className="rounded bg-muted px-1 py-0.5">{setup.secret}</code>
+              {t("manual")} <code className="rounded bg-muted px-1 py-0.5">{setup.secret}</code>
             </p>
             <div className="space-y-2">
-              <Label>Bestätigungscode</Label>
+              <Label>{t("confirmationCode")}</Label>
               <Input
                 autoFocus
                 value={code}
@@ -148,19 +146,19 @@ export function TotpSetupCard({
             <div className="flex gap-2">
               <Button disabled={loading || !code} onClick={confirmSetup}>
                 {loading && <Loader2 className="size-4 animate-spin" />}
-                Aktivieren
+                {t("enable")}
               </Button>
               <Button variant="ghost" onClick={() => setSetup(null)}>
-                Abbrechen
+                {t("cancel")}
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">2FA ist derzeit nicht aktiv.</p>
+            <p className="text-sm text-muted-foreground">{t("inactive")}</p>
             <Button size="sm" disabled={loading} onClick={startSetup}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Einrichten
+              {t("setUp")}
             </Button>
           </div>
         )}
@@ -169,17 +167,14 @@ export function TotpSetupCard({
       <Dialog open={!!backupCodes} onOpenChange={(open) => !open && setBackupCodes(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Backup-Codes</DialogTitle>
-            <DialogDescription>
-              Bewahre diese Codes sicher auf. Jeder Code funktioniert einmalig als Ersatz für
-              deinen Authenticator, falls du das Gerät verlierst. Sie werden nur jetzt angezeigt.
-            </DialogDescription>
+            <DialogTitle>{t("backupCodes")}</DialogTitle>
+            <DialogDescription>{t("backupCodesDescription")}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/40 p-3 font-mono text-sm">
             {backupCodes?.map((c) => <div key={c}>{c}</div>)}
           </div>
           <DialogFooter>
-            <Button onClick={() => setBackupCodes(null)}>Verstanden, gespeichert</Button>
+            <Button onClick={() => setBackupCodes(null)}>{t("backupCodesSaved")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

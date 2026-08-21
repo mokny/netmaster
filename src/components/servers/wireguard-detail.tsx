@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import {
@@ -118,6 +119,8 @@ function formatHandshake(ts: number): string {
 }
 
 export function WireguardDetail({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const session = useSession();
   const confirm = useConfirm();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
@@ -141,7 +144,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
         setSelected(data.interfaces[0]);
       }
     } else {
-      toast.error(data.error ?? "Fehler beim Laden");
+      toast.error(data.error ? tErrors(data.error) : t("loadFailed"));
     }
   }, [serverId, selected]);
 
@@ -153,7 +156,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       if (res.ok) {
         setDetail(data);
       } else {
-        toast.error(data.error ?? "Fehler beim Laden des Interfaces");
+        toast.error(data.error ? tErrors(data.error) : t("loadInterfaceFailed"));
       }
     } finally {
       setLoadingDetail(false);
@@ -182,13 +185,13 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       const res = await fetch(`/api/servers/${serverId}/wireguard/install`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Installation fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("installFailed"));
         return;
       }
-      toast.success("WireGuard wurde installiert");
+      toast.success(t("installSuccess"));
       await loadList();
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setInstalling(false);
     }
@@ -197,9 +200,9 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
   async function deleteIface(name: string) {
     if (
       !(await confirm({
-        title: "Interface löschen",
-        description: `Interface "${name}" wird gestoppt, deaktiviert und die Konfigurationsdatei gelöscht. Fortfahren?`,
-        confirmText: "Löschen",
+        title: t("deleteInterfaceTitle"),
+        description: t("deleteInterfaceDescription", { name }),
+        confirmText: t("delete"),
         variant: "destructive",
       }))
     )
@@ -211,10 +214,10 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Löschen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("deleteFailed"));
         return;
       }
-      toast.success("Interface gelöscht");
+      toast.success(t("interfaceDeleted"));
       setSelected(null);
       setDetail(null);
       await loadList();
@@ -233,10 +236,10 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? `${action} fehlgeschlagen`);
+        toast.error(data.error ? tErrors(data.error) : t("actionFailed", { action }));
         return;
       }
-      toast.success(`${name}: ${action} ausgeführt`);
+      toast.success(t("actionExecuted", { name, action }));
       await loadDetail(name);
     } finally {
       setBusy(false);
@@ -244,7 +247,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
   }
 
   if (!server) {
-    return <p className="text-sm text-muted-foreground">Lade…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 
   return (
@@ -265,20 +268,20 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       {installed === false && (
         <Card>
           <CardHeader>
-            <CardTitle>WireGuard nicht installiert</CardTitle>
+            <CardTitle>{t("notInstalledTitle")}</CardTitle>
             <CardDescription>
-              Auf diesem Server wurde WireGuard (wg/wg-quick) nicht gefunden.
+              {t("notInstalledDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {canEdit ? (
               <Button onClick={install} disabled={installing}>
                 {installing && <Loader2 className="size-4 animate-spin" />}
-                WireGuard installieren
+                {t("installWireguard")}
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Keine Berechtigung zur Installation.
+                {t("noInstallPermission")}
               </p>
             )}
           </CardContent>
@@ -289,7 +292,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
         <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
           <Card className="h-fit">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">Interfaces</CardTitle>
+              <CardTitle className="text-base">{t("interfaces")}</CardTitle>
               {canEdit && (
                 <CreateInterfaceDialog
                   serverId={serverId}
@@ -302,7 +305,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
             </CardHeader>
             <CardContent className="space-y-1">
               {interfaces.length === 0 && (
-                <p className="text-sm text-muted-foreground">Keine Interfaces angelegt.</p>
+                <p className="text-sm text-muted-foreground">{t("noInterfacesCreated")}</p>
               )}
               {interfaces.map((name) => (
                 <button
@@ -333,7 +336,7 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
               />
             )}
             {!loadingDetail && !detail && interfaces.length > 0 && (
-              <p className="text-sm text-muted-foreground">Interface wählen…</p>
+              <p className="text-sm text-muted-foreground">{t("selectInterface")}</p>
             )}
           </div>
         </div>
@@ -363,6 +366,7 @@ function InterfacePanel({
   onControl: (action: "start" | "stop" | "restart" | "enable" | "disable") => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
   const { config, status, publicKey, raw } = detail;
   const statusByKey = new Map(status.peers.map((p) => [p.publicKey, p]));
 
@@ -374,32 +378,32 @@ function InterfacePanel({
             <CardTitle className="flex items-center gap-2">
               {config.name}
               <Badge variant={status.up ? "default" : "secondary"}>
-                {status.up ? "aktiv" : "inaktiv"}
+                {status.up ? t("active") : t("inactive")}
               </Badge>
-              <Badge variant="outline">{status.enabled ? "Autostart an" : "Autostart aus"}</Badge>
+              <Badge variant="outline">{status.enabled ? t("autostartOn") : t("autostartOff")}</Badge>
             </CardTitle>
             <CardDescription>
-              {config.address ?? "–"} · Port {status.listenPort ?? config.listenPort ?? "–"}
+              {config.address ?? "–"} · {t("portLabel", { port: status.listenPort ?? config.listenPort ?? "–" })}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={onRefresh}>
               <RefreshCw className="size-4" />
-              Aktualisieren
+              {t("refresh")}
             </Button>
             {canEdit && (
               <>
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onControl("start")}>
                   <Play className="size-4" />
-                  Start
+                  {t("start")}
                 </Button>
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onControl("stop")}>
                   <Square className="size-4" />
-                  Stop
+                  {t("stop")}
                 </Button>
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onControl("restart")}>
                   <RotateCw className="size-4" />
-                  Neustart
+                  {t("restart")}
                 </Button>
                 <Button
                   variant="outline"
@@ -407,11 +411,11 @@ function InterfacePanel({
                   disabled={busy}
                   onClick={() => onControl(status.enabled ? "disable" : "enable")}
                 >
-                  {status.enabled ? "Autostart aus" : "Autostart an"}
+                  {status.enabled ? t("autostartOff") : t("autostartOn")}
                 </Button>
                 <Button variant="destructive" size="sm" disabled={busy} onClick={onDelete}>
                   <Trash2 className="size-4" />
-                  Löschen
+                  {t("delete")}
                 </Button>
               </>
             )}
@@ -429,8 +433,8 @@ function InterfacePanel({
           <Tabs defaultValue="peers">
             <TabsList>
               <TabsTrigger value="peers">Peers</TabsTrigger>
-              <TabsTrigger value="form">Formular</TabsTrigger>
-              <TabsTrigger value="raw">Config (roh)</TabsTrigger>
+              <TabsTrigger value="form">{t("tabForm")}</TabsTrigger>
+              <TabsTrigger value="raw">{t("tabRawConfig")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="peers" className="space-y-4 pt-4">
@@ -457,11 +461,11 @@ function InterfacePanel({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
+                      <TableHead>{t("name")}</TableHead>
                       <TableHead>AllowedIPs</TableHead>
                       <TableHead>Endpoint</TableHead>
                       <TableHead>Handshake</TableHead>
-                      <TableHead>Transfer</TableHead>
+                      <TableHead>{t("transfer")}</TableHead>
                       {canEdit && <TableHead className="w-8" />}
                     </TableRow>
                   </TableHeader>
@@ -469,7 +473,7 @@ function InterfacePanel({
                     {config.peers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-sm text-muted-foreground">
-                          Keine Peers.
+                          {t("noPeers")}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -478,7 +482,7 @@ function InterfacePanel({
                         return (
                           <TableRow key={peer.publicKey}>
                             <TableCell>
-                              <div className="font-medium">{peer.name || "(unbenannt)"}</div>
+                              <div className="font-medium">{peer.name || t("unnamed")}</div>
                               <div className="font-mono text-xs text-muted-foreground">
                                 {peer.publicKey.slice(0, 16)}…
                               </div>
@@ -514,8 +518,7 @@ function InterfacePanel({
 
             <TabsContent value="form" className="space-y-3 pt-4">
               <p className="text-sm text-muted-foreground">
-                Grundlegende Interface-Einstellungen. Änderungen werden über die
-                Roh-Config-Ansicht gespeichert.
+                {t("formTabHint")}
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
@@ -537,13 +540,13 @@ function InterfacePanel({
                 {(config.postUp || config.postDown) && (
                   <div className="col-span-2">
                     <Label className="text-xs text-muted-foreground">
-                      NAT/Forwarding (PostUp/PostDown) aktiv
+                      {t("natForwardingActive")}
                     </Label>
                   </div>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Für Detailänderungen an einzelnen Feldern die Roh-Config bearbeiten.
+                {t("editRawConfigHint")}
               </p>
             </TabsContent>
 
@@ -570,6 +573,8 @@ function RawEditor({
   canEdit: boolean;
   onSaved: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const [text, setText] = useState(raw);
   const [saving, setSaving] = useState(false);
 
@@ -585,10 +590,10 @@ function RawEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success("Config gespeichert. Zum Anwenden ggf. Neustart ausführen.");
+      toast.success(t("configSaved"));
       onSaved();
     } finally {
       setSaving(false);
@@ -598,9 +603,7 @@ function RawEditor({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Vor dem Schreiben wird die Syntax geprüft (wg-quick strip) und die vorherige
-        Version als .bak gesichert. Änderungen werden nicht automatisch angewendet –
-        dazu im Tab &quot;Peers&quot; oben auf &quot;Neustart&quot; klicken.
+        {t("rawEditorHint")}
       </p>
       <textarea
         className="min-h-64 w-full rounded-md border bg-transparent p-2 font-mono text-xs shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -611,7 +614,7 @@ function RawEditor({
       {canEdit && (
         <Button onClick={save} disabled={saving}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Speichern
+          {t("save")}
         </Button>
       )}
     </div>
@@ -627,6 +630,8 @@ function CreateInterfaceDialog({
   networkToolsEnabled: boolean;
   onCreated: () => Promise<void>;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -676,19 +681,19 @@ function CreateInterfaceDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Anlegen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("createFailed"));
         return;
       }
-      toast.success("Interface angelegt");
+      toast.success(t("interfaceCreated"));
       setOpen(false);
       await onCreated();
 
       if (networkToolsEnabled) {
         const wantsRule = await confirm({
-          title: "Firewall-Regel anlegen?",
-          description: `Soll UDP-Port ${form.listenPort} in der Firewall freigegeben werden?`,
-          confirmText: "Freigeben",
-          cancelText: "Nein",
+          title: t("createFirewallRuleTitle"),
+          description: t("createFirewallRuleDescription", { port: form.listenPort }),
+          confirmText: t("allow"),
+          cancelText: t("no"),
         });
         if (wantsRule) {
           const fwRes = await fetch(`/api/servers/${serverId}/firewall/rules`, {
@@ -696,12 +701,12 @@ function CreateInterfaceDialog({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "allow", protocol: "udp", port: Number(form.listenPort) }),
           });
-          if (fwRes.ok) toast.success("Firewall-Regel angelegt");
-          else toast.error("Firewall-Regel konnte nicht angelegt werden");
+          if (fwRes.ok) toast.success(t("firewallRuleCreated"));
+          else toast.error(t("firewallRuleFailed"));
         }
       }
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -713,18 +718,18 @@ function CreateInterfaceDialog({
         render={
           <Button size="sm">
             <Plus className="size-4" />
-            Neu
+            {t("new")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Neues WireGuard-Interface</DialogTitle>
-          <DialogDescription>Schlüsselpaar wird automatisch erzeugt.</DialogDescription>
+          <DialogTitle>{t("newInterfaceTitle")}</DialogTitle>
+          <DialogDescription>{t("keypairAutoGenerated")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{t("name")}</Label>
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -744,11 +749,11 @@ function CreateInterfaceDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>DNS (optional)</Label>
+              <Label>{t("dnsOptional")}</Label>
               <Input value={form.dns} onChange={(e) => set("dns", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>MTU (optional)</Label>
+              <Label>{t("mtuOptional")}</Label>
               <Input value={form.mtu} onChange={(e) => set("mtu", e.target.value)} />
             </div>
           </div>
@@ -758,28 +763,28 @@ function CreateInterfaceDialog({
             open={natOpen}
             onToggle={(e) => setNatOpen((e.target as HTMLDetailsElement).open)}
           >
-            <summary className="cursor-pointer font-medium">Erweitert</summary>
+            <summary className="cursor-pointer font-medium">{t("advanced")}</summary>
             <div className="mt-3 flex items-center justify-between">
               <div>
-                <Label htmlFor="nat-enabled">Gateway/Exit-Node aktivieren</Label>
+                <Label htmlFor="nat-enabled">{t("enableGateway")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  IP-Forwarding + NAT-Masquerade über das ausgehende Interface
+                  {t("enableGatewayHint")}
                 </p>
               </div>
               <Switch id="nat-enabled" checked={form.natEnabled} onCheckedChange={(c) => set("natEnabled", !!c)} />
             </div>
             {form.natEnabled && (
               <div className="mt-2 space-y-2">
-                <Label className="text-xs">Ausgehendes Interface</Label>
+                <Label className="text-xs">{t("egressInterface")}</Label>
                 <Select value={form.egressIface} onValueChange={(v) => set("egressIface", v ?? "")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={netInfo?.defaultIface ?? "wählen…"} />
+                    <SelectValue placeholder={netInfo?.defaultIface ?? t("selectEllipsis")} />
                   </SelectTrigger>
                   <SelectContent>
                     {(netInfo?.interfaces ?? []).map((i) => (
                       <SelectItem key={i} value={i}>
                         {i}
-                        {i === netInfo?.defaultIface ? " (erkannt)" : ""}
+                        {i === netInfo?.defaultIface ? t("detectedSuffix") : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -791,7 +796,7 @@ function CreateInterfaceDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Anlegen
+              {t("create")}
             </Button>
           </DialogFooter>
         </form>
@@ -809,6 +814,8 @@ function AddPeerDialog({
   iface: string;
   onAdded: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ peerConfig: string; qr: string } | null>(null);
@@ -845,14 +852,14 @@ function AddPeerDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Peer konnte nicht angelegt werden");
+        toast.error(data.error ? tErrors(data.error) : t("peerCreateFailed"));
         return;
       }
       const qr = await QRCode.toDataURL(data.peerConfig, { margin: 1, width: 256 });
       setResult({ peerConfig: data.peerConfig, qr });
       onAdded();
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -892,26 +899,26 @@ function AddPeerDialog({
         render={
           <Button size="sm" variant="outline">
             <Plus className="size-4" />
-            Peer hinzufügen
+            {t("addPeer")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Peer hinzufügen</DialogTitle>
+          <DialogTitle>{t("addPeer")}</DialogTitle>
           <DialogDescription>
-            Schlüsselpaar wird erzeugt und nur einmalig angezeigt – nicht gespeichert.
+            {t("peerKeypairHint")}
           </DialogDescription>
         </DialogHeader>
 
         {!result ? (
           <form onSubmit={submit} className="space-y-3">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>{t("name")}</Label>
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} required placeholder="Laptop" />
             </div>
             <div className="space-y-2">
-              <Label>Client-Adresse (im VPN)</Label>
+              <Label>{t("clientAddress")}</Label>
               <Input
                 value={form.clientAddress}
                 onChange={(e) => set("clientAddress", e.target.value)}
@@ -920,16 +927,16 @@ function AddPeerDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>AllowedIPs (serverseitig für diesen Peer)</Label>
+              <Label>{t("allowedIpsForPeer")}</Label>
               <Input value={form.allowedIps} onChange={(e) => set("allowedIps", e.target.value)} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Endpoint (optional)</Label>
+                <Label>{t("endpointOptional")}</Label>
                 <Input value={form.endpoint} onChange={(e) => set("endpoint", e.target.value)} placeholder="host:port" />
               </div>
               <div className="space-y-2">
-                <Label>Keepalive (Sek., optional)</Label>
+                <Label>{t("keepaliveOptional")}</Label>
                 <Input
                   type="number"
                   value={form.persistentKeepalive}
@@ -939,17 +946,17 @@ function AddPeerDialog({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Client-DNS (optional)</Label>
+              <Label>{t("clientDnsOptional")}</Label>
               <Input value={form.clientDns} onChange={(e) => set("clientDns", e.target.value)} />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <Label htmlFor="use-psk">Preshared Key verwenden</Label>
+              <Label htmlFor="use-psk">{t("usePresharedKey")}</Label>
               <Switch id="use-psk" checked={form.usePsk} onCheckedChange={(c) => set("usePsk", !!c)} />
             </div>
             <DialogFooter>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="size-4 animate-spin" />}
-                Erzeugen
+                {t("generate")}
               </Button>
             </DialogFooter>
           </form>
@@ -957,15 +964,15 @@ function AddPeerDialog({
           <div className="space-y-3">
             <div className="flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={result.qr} alt="QR-Code für Client-Config" className="size-56" />
+              <img src={result.qr} alt={t("qrCodeAlt")} className="size-56" />
             </div>
             <pre className="max-h-40 overflow-auto rounded-md bg-muted p-2 text-xs">{result.peerConfig}</pre>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={downloadConfig}>
                 <Download className="size-4" />
-                .conf herunterladen
+                {t("downloadConf")}
               </Button>
-              <Button onClick={() => setOpen(false)}>Fertig</Button>
+              <Button onClick={() => setOpen(false)}>{t("done")}</Button>
             </div>
           </div>
         )}
@@ -983,6 +990,8 @@ function BulkPeersDialog({
   iface: string;
   onAdded: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lines, setLines] = useState("");
@@ -998,7 +1007,7 @@ function BulkPeersDialog({
         return { name, clientAddress, allowedIps: allowedIps || "0.0.0.0/0, ::/0", usePsk: true };
       });
     if (specs.length === 0 || specs.some((s) => !s.name || !s.clientAddress)) {
-      toast.error("Format je Zeile: Name, Client-Adresse[, AllowedIPs]");
+      toast.error(t("bulkFormatHint"));
       return;
     }
     setLoading(true);
@@ -1010,7 +1019,7 @@ function BulkPeersDialog({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? "Bulk-Anlage fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("bulkCreateFailed"));
         return;
       }
       const blob = await res.blob();
@@ -1020,12 +1029,12 @@ function BulkPeersDialog({
       a.download = `${iface}-peers.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`${specs.length} Peer(s) angelegt`);
+      toast.success(t("peersCreated", { count: specs.length }));
       setOpen(false);
       setLines("");
       onAdded();
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -1037,17 +1046,15 @@ function BulkPeersDialog({
         render={
           <Button size="sm" variant="outline">
             <Download className="size-4" />
-            Mehrere Peers (ZIP)
+            {t("bulkPeersZip")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mehrere Peers anlegen</DialogTitle>
+          <DialogTitle>{t("createMultiplePeers")}</DialogTitle>
           <DialogDescription>
-            Eine Zeile pro Peer: Name, Client-Adresse[, AllowedIPs]. Alle
-            Client-Configs werden direkt als ZIP heruntergeladen – die privaten
-            Schlüssel werden danach nicht mehr gespeichert.
+            {t("bulkPeersHint")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -1060,7 +1067,7 @@ function BulkPeersDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Anlegen &amp; herunterladen
+              {t("createAndDownload")}
             </Button>
           </DialogFooter>
         </form>
@@ -1080,15 +1087,17 @@ function RemovePeerButton({
   peer: WgPeer;
   onRemoved: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function remove() {
     if (
       !(await confirm({
-        title: "Peer entfernen",
-        description: `Peer "${peer.name || peer.publicKey.slice(0, 12)}" wirklich entfernen?`,
-        confirmText: "Entfernen",
+        title: t("removePeerTitle"),
+        description: t("removePeerConfirm", { name: peer.name || peer.publicKey.slice(0, 12) }),
+        confirmText: t("remove"),
         variant: "destructive",
       }))
     )
@@ -1101,10 +1110,10 @@ function RemovePeerButton({
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Entfernen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("removeFailed"));
         return;
       }
-      toast.success("Peer entfernt");
+      toast.success(t("peerRemoved"));
       onRemoved();
     } finally {
       setBusy(false);
@@ -1127,6 +1136,8 @@ function LinkServerDialog({
   iface: string;
   onLinked: () => void;
 }) {
+  const t = useTranslations("servers.wireguard");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [servers, setServers] = useState<ServerDTO[]>([]);
@@ -1181,14 +1192,14 @@ function LinkServerDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Verknüpfung fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("linkFailed"));
         return;
       }
-      toast.success("Server verknüpft");
+      toast.success(t("serverLinked"));
       setOpen(false);
       onLinked();
     } catch {
-      toast.error("Verbindung fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -1200,15 +1211,15 @@ function LinkServerDialog({
         render={
           <Button size="sm" variant="outline">
             <Network className="size-4" />
-            Mit Server verknüpfen
+            {t("linkWithServer")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mit anderem Server verknüpfen</DialogTitle>
+          <DialogTitle>{t("linkWithAnotherServer")}</DialogTitle>
           <DialogDescription>
-            Trägt beide Interfaces gegenseitig als Peer ein.
+            {t("linkServerHint")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -1216,7 +1227,7 @@ function LinkServerDialog({
             <Label>Server</Label>
             <Select value={form.peerServerId} onValueChange={(v) => set("peerServerId", v ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Server wählen" />
+                <SelectValue placeholder={t("selectServer")} />
               </SelectTrigger>
               <SelectContent>
                 {servers.map((s) => (
@@ -1231,7 +1242,7 @@ function LinkServerDialog({
             <Label>Interface</Label>
             <Select value={form.peerIface} onValueChange={(v) => set("peerIface", v ?? "")} disabled={!form.peerServerId}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Interface wählen" />
+                <SelectValue placeholder={t("selectInterfacePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {peerIfaces.map((i) => (
@@ -1243,7 +1254,7 @@ function LinkServerDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>AllowedIPs für den anderen Server (auf diesem Interface)</Label>
+            <Label>{t("allowedIpsForOtherServer")}</Label>
             <Input
               value={form.peerAllowedIps}
               onChange={(e) => set("peerAllowedIps", e.target.value)}
@@ -1252,7 +1263,7 @@ function LinkServerDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>AllowedIPs für diesen Server (auf dem anderen Interface)</Label>
+            <Label>{t("allowedIpsForThisServer")}</Label>
             <Input
               value={form.thisAllowedIps}
               onChange={(e) => set("thisAllowedIps", e.target.value)}
@@ -1261,7 +1272,7 @@ function LinkServerDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Keepalive (Sek.)</Label>
+            <Label>{t("keepaliveSeconds")}</Label>
             <Input
               type="number"
               value={form.persistentKeepalive}
@@ -1271,7 +1282,7 @@ function LinkServerDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading || !form.peerIface}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Verknüpfen
+              {t("link")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ export function PromptDialog({
   description,
   label,
   initialValue = "",
-  confirmLabel = "Speichern",
+  confirmLabel,
   onConfirm,
 }: {
   open: boolean;
@@ -33,6 +34,7 @@ export function PromptDialog({
   confirmLabel?: string;
   onConfirm: (value: string) => void;
 }) {
+  const t = useTranslations("servers.fileManager.dialogs");
   const [value, setValue] = useState(initialValue);
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -64,7 +66,7 @@ export function PromptDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t("cancel")}
           </Button>
           <Button
             disabled={!value.trim()}
@@ -73,7 +75,7 @@ export function PromptDialog({
               onOpenChange(false);
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -96,6 +98,7 @@ export function ChmodDialog({
   onConfirmChmod: (mode: string) => void;
   onConfirmChown: (uid: number, gid: number) => void;
 }) {
+  const t = useTranslations("servers.fileManager.dialogs");
   const [mode, setMode] = useState(modeToOctal(initialMode));
   const [uid, setUid] = useState("");
   const [gid, setGid] = useState("");
@@ -113,12 +116,12 @@ export function ChmodDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rechte ändern</DialogTitle>
+          <DialogTitle>{t("chmodTitle")}</DialogTitle>
           <DialogDescription className="break-all">{path}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="chmod-mode">Modus (oktal, z.B. 755)</Label>
+            <Label htmlFor="chmod-mode">{t("chmodModeLabel")}</Label>
             <div className="flex gap-2">
               <Input
                 id="chmod-mode"
@@ -127,12 +130,12 @@ export function ChmodDialog({
                 className="w-28"
               />
               <Button variant="outline" onClick={() => onConfirmChmod(mode)} disabled={!mode}>
-                Anwenden
+                {t("apply")}
               </Button>
             </div>
           </div>
           <div className="flex flex-col gap-2 border-t pt-4">
-            <Label>Besitzer ändern (numerische UID/GID)</Label>
+            <Label>{t("chownLabel")}</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="UID"
@@ -151,14 +154,14 @@ export function ChmodDialog({
                 disabled={!uid || !gid}
                 onClick={() => onConfirmChown(Number(uid), Number(gid))}
               >
-                Anwenden
+                {t("apply")}
               </Button>
             </div>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Schließen
+            {t("close")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -179,24 +182,25 @@ export function ConflictDialog({
   name: string;
   onChoose: (choice: ConflictChoice) => void;
 }) {
+  const t = useTranslations("servers.fileManager.dialogs");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Datei existiert bereits</DialogTitle>
+          <DialogTitle>{t("conflictTitle")}</DialogTitle>
           <DialogDescription className="break-all">
-            &quot;{name}&quot; existiert am Zielort bereits. Wie soll verfahren werden?
+            {t("conflictDescription", { name })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onChoose("cancel")}>
-            Abbrechen
+            {t("cancel")}
           </Button>
           <Button variant="outline" onClick={() => onChoose("rename")}>
-            Umbenennen
+            {t("rename")}
           </Button>
           <Button variant="destructive" onClick={() => onChoose("overwrite")}>
-            Überschreiben
+            {t("overwrite")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -209,7 +213,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Löschen",
+  confirmLabel,
   destructive = true,
   onConfirm,
 }: {
@@ -221,6 +225,7 @@ export function ConfirmDialog({
   destructive?: boolean;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("servers.fileManager.dialogs");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -230,7 +235,7 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t("cancel")}
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
@@ -239,7 +244,7 @@ export function ConfirmDialog({
               onOpenChange(false);
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

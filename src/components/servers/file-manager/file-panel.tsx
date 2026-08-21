@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Folder,
@@ -71,6 +72,8 @@ export function FilePanel({
     node: FileNodeDTO
   ) => void;
 }) {
+  const t = useTranslations("servers.fileManager.panel");
+  const tErrors = useTranslations("errors");
   const connection = useFileManagerConnection(wsPath);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState("");
@@ -103,7 +106,7 @@ export function FilePanel({
         setPathInput(dir);
         setSelected(new Set());
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Verzeichnis konnte nicht geladen werden");
+        toast.error(err instanceof Error ? err.message : t("loadDirFailed"));
       } finally {
         setLoading(false);
       }
@@ -160,7 +163,7 @@ export function FilePanel({
       await connection.mkdir(joinPath(currentPath, name));
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ordner konnte nicht erstellt werden");
+      toast.error(err instanceof Error ? err.message : t("createFolderFailed"));
     }
   }
 
@@ -170,7 +173,7 @@ export function FilePanel({
       await connection.touch(joinPath(currentPath, name));
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Datei konnte nicht erstellt werden");
+      toast.error(err instanceof Error ? err.message : t("createFileFailed"));
     }
   }
 
@@ -181,7 +184,7 @@ export function FilePanel({
       await connection.rename(node.path, joinPath(currentPath, name));
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Umbenennen fehlgeschlagen");
+      toast.error(err instanceof Error ? err.message : t("renameFailed"));
     }
   }
 
@@ -190,7 +193,7 @@ export function FilePanel({
       try {
         await connection.remove(node.path);
       } catch (err) {
-        toast.error(`${node.name}: ${err instanceof Error ? err.message : "Löschen fehlgeschlagen"}`);
+        toast.error(`${node.name}: ${err instanceof Error ? err.message : t("deleteFailed")}`);
       }
     }
     refresh();
@@ -202,7 +205,7 @@ export function FilePanel({
       await connection.chmod(selectedNodes[0].path, mode);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "chmod fehlgeschlagen");
+      toast.error(err instanceof Error ? err.message : t("chmodFailed"));
     }
   }
 
@@ -212,7 +215,7 @@ export function FilePanel({
       await connection.chown(selectedNodes[0].path, uid, gid);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "chown fehlgeschlagen");
+      toast.error(err instanceof Error ? err.message : t("chownFailed"));
     }
   }
 
@@ -246,12 +249,12 @@ export function FilePanel({
             if (copyMode) await connection.copy(entry.path, dest).catch(() => {});
             else await connection.move(entry.path, dest).catch(() => {});
           } else {
-            const renamed = joinPath(targetDir, `${entry.name} (Kopie)`);
+            const renamed = joinPath(targetDir, t("copySuffix", { name: entry.name }));
             if (copyMode) await connection.copy(entry.path, renamed).catch(() => {});
             else await connection.move(entry.path, renamed).catch(() => {});
           }
         } else {
-          toast.error(`${entry.name}: ${err instanceof Error ? err.message : "Fehler"}`);
+          toast.error(`${entry.name}: ${err instanceof Error ? err.message : t("error")}`);
         }
       }
     }
@@ -315,7 +318,7 @@ export function FilePanel({
       });
       if (res.status === 409) {
         const body = await res.json().catch(() => null);
-        const choice = await askConflict(body?.error ?? "Datei");
+        const choice = await askConflict(body?.detail ?? t("file"));
         if (choice === "overwrite") {
           const form2 = new FormData();
           form2.set("targetDir", currentPath);
@@ -331,13 +334,13 @@ export function FilePanel({
           form2.set("overwrite", "false");
           for (const f of files) {
             form2.append("files", f.file);
-            form2.append("relPaths", `${f.relPath} (Kopie)`);
+            form2.append("relPaths", t("copySuffix", { name: f.relPath }));
           }
           await fetch(`${restBasePath}/upload`, { method: "POST", body: form2 });
         }
       } else if (!res.ok) {
         const body = await res.json().catch(() => null);
-        toast.error(body?.error ?? "Upload fehlgeschlagen");
+        toast.error(body?.error ? tErrors(body.error) : t("uploadFailed"));
       }
     } finally {
       setUploading(false);
@@ -372,7 +375,7 @@ export function FilePanel({
           variant="ghost"
           disabled={!currentPath || currentPath === "/"}
           onClick={() => currentPath && load(parentPath(currentPath))}
-          title="Übergeordnetes Verzeichnis"
+          title={t("parentDirectory")}
         >
           <ArrowUp className="size-4" />
         </Button>
@@ -384,7 +387,7 @@ export function FilePanel({
           }}
           className="h-7 flex-1 font-mono text-xs"
         />
-        <Button size="icon-sm" variant="ghost" onClick={refresh} title="Aktualisieren">
+        <Button size="icon-sm" variant="ghost" onClick={refresh} title={t("refresh")}>
           {loading || uploading ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -395,10 +398,10 @@ export function FilePanel({
 
       <div className="flex flex-wrap items-center gap-1 border-b bg-muted/20 px-1.5 py-1">
         <Button size="xs" variant="ghost" onClick={() => setNewFolderOpen(true)}>
-          <FolderPlus className="size-3.5" /> Ordner
+          <FolderPlus className="size-3.5" /> {t("folder")}
         </Button>
         <Button size="xs" variant="ghost" onClick={() => setNewFileOpen(true)}>
-          <FilePlus className="size-3.5" /> Datei
+          <FilePlus className="size-3.5" /> {t("file")}
         </Button>
         <Button
           size="xs"
@@ -406,7 +409,7 @@ export function FilePanel({
           disabled={selectedNodes.length !== 1}
           onClick={() => setRenameOpen(true)}
         >
-          <Pencil className="size-3.5" /> Umbenennen
+          <Pencil className="size-3.5" /> {t("rename")}
         </Button>
         <Button
           size="xs"
@@ -414,7 +417,7 @@ export function FilePanel({
           disabled={selectedNodes.length !== 1}
           onClick={() => setChmodOpen(true)}
         >
-          <ShieldEllipsis className="size-3.5" /> Rechte
+          <ShieldEllipsis className="size-3.5" /> {t("permissions")}
         </Button>
         <Button
           size="xs"
@@ -422,10 +425,10 @@ export function FilePanel({
           disabled={selectedNodes.length === 0}
           onClick={() => setDeleteOpen(true)}
         >
-          <Trash2 className="size-3.5" /> Löschen
+          <Trash2 className="size-3.5" /> {t("delete")}
         </Button>
         <Button size="xs" variant="ghost" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="size-3.5" /> Hochladen
+          <Upload className="size-3.5" /> {t("upload")}
         </Button>
         <input
           ref={fileInputRef}
@@ -487,10 +490,10 @@ export function FilePanel({
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
-              <TableHead>Name</TableHead>
-              <TableHead className="w-20 text-right">Größe</TableHead>
-              <TableHead className="w-32">Rechte</TableHead>
-              <TableHead className="w-32">Geändert</TableHead>
+              <TableHead>{t("nameColumn")}</TableHead>
+              <TableHead className="w-20 text-right">{t("sizeColumn")}</TableHead>
+              <TableHead className="w-32">{t("permissionsColumn")}</TableHead>
+              <TableHead className="w-32">{t("modifiedColumn")}</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -565,7 +568,7 @@ export function FilePanel({
                             onOpenFile(connection, node);
                           }}
                         >
-                          <Pencil /> Öffnen/Editieren
+                          <Pencil /> {t("openEdit")}
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
@@ -574,7 +577,7 @@ export function FilePanel({
                           triggerDownload(node.path, node.isDirectory);
                         }}
                       >
-                        <Download /> {node.isDirectory ? "Als ZIP herunterladen" : "Herunterladen"}
+                        <Download /> {node.isDirectory ? t("downloadAsZip") : t("download")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
@@ -582,7 +585,7 @@ export function FilePanel({
                           setRenameOpen(true);
                         }}
                       >
-                        <Pencil /> Umbenennen
+                        <Pencil /> {t("rename")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
@@ -590,7 +593,7 @@ export function FilePanel({
                           setChmodOpen(true);
                         }}
                       >
-                        <ShieldEllipsis /> Rechte ändern
+                        <ShieldEllipsis /> {t("changePermissions")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -600,7 +603,7 @@ export function FilePanel({
                           setDeleteOpen(true);
                         }}
                       >
-                        <Trash2 /> Löschen
+                        <Trash2 /> {t("delete")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -610,7 +613,7 @@ export function FilePanel({
             {visibleEntries.length === 0 && !loading && (
               <TableRow>
                 <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                  Verzeichnis ist leer
+                  {t("directoryEmpty")}
                 </TableCell>
               </TableRow>
             )}
@@ -621,26 +624,26 @@ export function FilePanel({
       <PromptDialog
         open={newFolderOpen}
         onOpenChange={setNewFolderOpen}
-        title="Neuer Ordner"
-        label="Ordnername"
-        confirmLabel="Anlegen"
+        title={t("newFolderTitle")}
+        label={t("folderNameLabel")}
+        confirmLabel={t("createLabel")}
         onConfirm={handleCreateFolder}
       />
       <PromptDialog
         open={newFileOpen}
         onOpenChange={setNewFileOpen}
-        title="Neue Datei"
-        label="Dateiname"
-        confirmLabel="Anlegen"
+        title={t("newFileTitle")}
+        label={t("fileNameLabel")}
+        confirmLabel={t("createLabel")}
         onConfirm={handleCreateFile}
       />
       <PromptDialog
         open={renameOpen}
         onOpenChange={setRenameOpen}
-        title="Umbenennen"
-        label="Neuer Name"
+        title={t("rename")}
+        label={t("newNameLabel")}
         initialValue={selectedNodes[0]?.name ?? ""}
-        confirmLabel="Umbenennen"
+        confirmLabel={t("rename")}
         onConfirm={handleRename}
       />
       {selectedNodes.length === 1 && (
@@ -656,7 +659,7 @@ export function FilePanel({
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`${selectedNodes.length} Element(e) löschen`}
+        title={t("deleteElementsTitle", { count: selectedNodes.length })}
         description={selectedNodes.map((n) => n.name).join(", ")}
         onConfirm={handleDelete}
       />

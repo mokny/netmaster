@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const pollIntervalSec = Number(body.pollIntervalSec ?? 60);
 
     if (!name || !hostname || !username || !password) {
-      throw new ApiError(400, "Name, Host, Nutzername und Passwort sind erforderlich");
+      throw new ApiError(400, "MISSING_REQUIRED_FIELDS");
     }
 
     const device = await prisma.routerDevice.create({

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactGridLayout, { WidthProvider, type Layout } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
@@ -51,9 +52,11 @@ interface WidgetItem {
   spec: WidgetSpec;
 }
 
-const DEFAULT_LAYOUT: WidgetItem[] = [
-  { i: "overview", x: 0, y: 0, w: 4, h: 4, title: "Übersicht", spec: { type: "overview" } },
-];
+function buildDefaultLayout(overviewTitle: string): WidgetItem[] {
+  return [
+    { i: "overview", x: 0, y: 0, w: 4, h: 4, title: overviewTitle, spec: { type: "overview" } },
+  ];
+}
 
 function renderWidgetContent(spec: WidgetSpec) {
   switch (spec.type) {
@@ -101,6 +104,14 @@ function renderWidgetContent(spec: WidgetSpec) {
 }
 
 export function DashboardGrid() {
+  const t = useTranslations("dashboard");
+  const titleLabels = {
+    overview: t("widgetTitles.overview"),
+    proxmoxOverview: t("widgetTitles.proxmoxOverview"),
+    dockerOverview: t("widgetTitles.dockerOverview"),
+    unknown: t("widgetTitles.unknown"),
+    history: t("widgetTitles.history"),
+  };
   const [widgets, setWidgets] = useState<WidgetItem[] | null>(null);
   const [editing, setEditing] = useState(false);
   const isMobile = useIsMobile();
@@ -111,8 +122,13 @@ export function DashboardGrid() {
     fetch("/api/dashboard/layout")
       .then((res) => (res.ok ? res.json() : { layout: [] }))
       .then((data) => {
-        setWidgets(data.layout && data.layout.length > 0 ? data.layout : DEFAULT_LAYOUT);
+        setWidgets(
+          data.layout && data.layout.length > 0
+            ? data.layout
+            : buildDefaultLayout(titleLabels.overview)
+        );
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadLookups = useCallback(() => {
@@ -208,10 +224,8 @@ export function DashboardGrid() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Frei anordenbare Live-Übersicht deiner Infrastruktur.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {editing && <AddWidgetDialog onAdd={addWidget} />}
@@ -221,7 +235,7 @@ export function DashboardGrid() {
             onClick={() => setEditing((e) => !e)}
           >
             {editing ? <Check className="size-4" /> : <Pencil className="size-4" />}
-            {editing ? "Fertig" : "Layout bearbeiten"}
+            {editing ? t("done") : t("editLayout")}
           </Button>
         </div>
       </div>
@@ -229,7 +243,7 @@ export function DashboardGrid() {
       {widgets.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <LayoutGrid className="size-10 text-muted-foreground" />
-          <p className="text-muted-foreground">Noch keine Widgets auf dem Dashboard.</p>
+          <p className="text-muted-foreground">{t("empty")}</p>
           <AddWidgetDialog onAdd={addWidget} />
         </div>
       ) : isMobile ? (
@@ -246,7 +260,7 @@ export function DashboardGrid() {
               // explizit gesetzt werden, sonst kollabiert der Chart auf 0px.
               <div key={w.i} style={{ height: w.h * 48 + (w.h - 1) * 12 }}>
                 <WidgetCard
-                  title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
+                  title={lookups ? resolveWidgetTitle(w.spec, lookups, titleLabels) : w.title}
                   editing={editing}
                   onRemove={() => removeWidget(w.i)}
                 >
@@ -270,7 +284,7 @@ export function DashboardGrid() {
           {widgets.map((w) => (
             <div key={w.i}>
               <WidgetCard
-                title={lookups ? resolveWidgetTitle(w.spec, lookups) : w.title}
+                title={lookups ? resolveWidgetTitle(w.spec, lookups, titleLabels) : w.title}
                 editing={editing}
                 onRemove={() => removeWidget(w.i)}
               >

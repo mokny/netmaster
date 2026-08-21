@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Props {
   onSaved: () => void;
@@ -40,6 +41,9 @@ export function RouterDeviceDialog({
   onOpenChange,
   initial,
 }: Props) {
+  const t = useTranslations("router.deviceDialog");
+  const tErrors = useTranslations("errors");
+  const tc = useTranslations("common");
   const controlled = openProp !== undefined;
   const [openState, setOpenState] = useState(false);
   const open = controlled ? openProp : openState;
@@ -71,10 +75,10 @@ export function RouterDeviceDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success("Gerät hinzugefügt");
+      toast.success(t("deviceAdded"));
       setOpen(false);
       onSaved();
     } finally {
@@ -90,7 +94,7 @@ export function RouterDeviceDialog({
             trigger ?? (
               <Button size="sm">
                 <Plus className="size-4" />
-                Gerät hinzufügen
+                {t("addDevice")}
               </Button>
             )
           }
@@ -98,21 +102,21 @@ export function RouterDeviceDialog({
       )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Router-Gerät hinzufügen</DialogTitle>
+          <DialogTitle>{t("addRouterDevice")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>{tc("name")}</Label>
               <Input
                 required
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="FritzBox Wohnzimmer"
+                placeholder={t("namePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label>Typ</Label>
+              <Label>{t("type")}</Label>
               <Select value={form.type} onValueChange={(v) => set("type", v as typeof form.type)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -126,7 +130,7 @@ export function RouterDeviceDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Host / IP</Label>
+              <Label>{t("hostIp")}</Label>
               <Input
                 required
                 value={form.hostname}
@@ -134,7 +138,7 @@ export function RouterDeviceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>TR-064-Port</Label>
+              <Label>{t("tr064Port")}</Label>
               <Input
                 type="number"
                 value={form.port}
@@ -143,7 +147,7 @@ export function RouterDeviceDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Benutzername</Label>
+            <Label>{t("username")}</Label>
             <Input
               required
               value={form.username}
@@ -151,7 +155,7 @@ export function RouterDeviceDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Passwort</Label>
+            <Label>{t("password")}</Label>
             <Input
               required
               type="password"
@@ -160,11 +164,11 @@ export function RouterDeviceDialog({
             />
           </div>
           <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label className="font-normal">TLS verwenden (Port 49443)</Label>
+            <Label className="font-normal">{t("useTls")}</Label>
             <Switch checked={form.useTls} onCheckedChange={(c) => set("useTls", !!c)} />
           </div>
           <div className="space-y-2">
-            <Label>Abfrageintervall (s)</Label>
+            <Label>{t("pollInterval")}</Label>
             <Input
               type="number"
               value={form.pollIntervalSec}
@@ -174,7 +178,7 @@ export function RouterDeviceDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Hinzufügen
+              {tc("add")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ import { useSession } from "@/hooks/use-session";
 import type { ProxmoxVmWithServerDTO } from "@/lib/types";
 
 export function VmsOverview() {
+  const t = useTranslations("vms.overview");
   const [vms, setVms] = useState<ProxmoxVmWithServerDTO[] | null>(null);
   const [search, setSearch] = useState("");
   const session = useSession();
@@ -61,11 +63,11 @@ export function VmsOverview() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">VMs</h1>
           <p className="text-sm text-muted-foreground">
-            Virtuelle Maschinen und LXC-Container aller Proxmox-Hosts.
+            {t("subtitle")}
           </p>
         </div>
         <Input
-          placeholder="Suche nach Name, Host oder ID…"
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
@@ -83,8 +85,7 @@ export function VmsOverview() {
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Boxes className="size-10 text-muted-foreground" />
             <p className="text-muted-foreground">
-              Keine Proxmox-VMs/LXC-Container gefunden. Server werden automatisch erkannt, sobald
-              sie per SSH erreichbar sind.
+              {t("emptyState")}
             </p>
           </CardContent>
         </Card>
@@ -93,10 +94,10 @@ export function VmsOverview() {
           <Card>
             <CardContent className="space-y-2 pt-6">
               <h2 className="text-sm font-medium text-muted-foreground">
-                Virtuelle Maschinen ({qemu.length})
+                {t("virtualMachines", { count: qemu.length })}
               </h2>
               {qemu.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Keine Treffer.</p>
+                <p className="text-sm text-muted-foreground">{t("noMatches")}</p>
               ) : (
                 qemu.map((vm) => (
                   <VmRow
@@ -113,10 +114,10 @@ export function VmsOverview() {
           <Card>
             <CardContent className="space-y-2 pt-6">
               <h2 className="text-sm font-medium text-muted-foreground">
-                LXC-Container ({lxc.length})
+                {t("lxcContainers", { count: lxc.length })}
               </h2>
               {lxc.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Keine Treffer.</p>
+                <p className="text-sm text-muted-foreground">{t("noMatches")}</p>
               ) : (
                 lxc.map((vm) => (
                   <VmRow

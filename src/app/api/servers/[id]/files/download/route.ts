@@ -19,7 +19,7 @@ export async function GET(
     const url = new URL(req.url);
     const filePath = url.searchParams.get("path");
     if (!filePath || !filePath.startsWith("/")) {
-      throw new ApiError(400, "Ungültiger Pfad");
+      throw new ApiError(400, "INVALID_PATH");
     }
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
@@ -28,7 +28,7 @@ export async function GET(
     const info = await stat(sftp, filePath);
     if (info.isDirectory) {
       conn.end();
-      throw new ApiError(400, "Verzeichnisse können nur als ZIP heruntergeladen werden");
+      throw new ApiError(400, "DIRECTORY_DOWNLOAD_REQUIRES_ZIP");
     }
 
     void writeAuditLog(session, "files.download", { serverId: id, detail: filePath });

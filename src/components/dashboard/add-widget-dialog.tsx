@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,28 +47,37 @@ export type WidgetSpec =
     }
   | { type: "docker-global" };
 
-const WIDGET_TYPES = [
-  { value: "server-metric", label: "Server-Metrik (einzeln)" },
-  { value: "server-combined-compact", label: "Server: CPU/RAM/Disk (Kompakt)" },
-  { value: "server-combined-chart", label: "Server: CPU/RAM/Disk (Verlauf)" },
-  { value: "vm-combined-compact", label: "VM: CPU/RAM/Disk (Kompakt)" },
-  { value: "vm-combined-chart", label: "VM: CPU/RAM/Disk (Verlauf)" },
-  { value: "proxmox-host", label: "Proxmox-Host-Übersicht" },
-  { value: "proxmox-global", label: "Proxmox-Gesamtübersicht" },
-  { value: "docker-container-compact", label: "Docker-Container (Kompakt)" },
-  { value: "docker-container-chart", label: "Docker-Container (Verlauf)" },
-  { value: "docker-host", label: "Docker-Host-Übersicht" },
-  { value: "docker-global", label: "Docker-Gesamtübersicht" },
-  { value: "overview", label: "Übersicht (alle Server)" },
+const WIDGET_TYPE_VALUES = [
+  "server-metric",
+  "server-combined-compact",
+  "server-combined-chart",
+  "vm-combined-compact",
+  "vm-combined-chart",
+  "proxmox-host",
+  "proxmox-global",
+  "docker-container-compact",
+  "docker-container-chart",
+  "docker-host",
+  "docker-global",
+  "overview",
 ] as const;
 
-type WidgetType = (typeof WIDGET_TYPES)[number]["value"];
+type WidgetType = (typeof WIDGET_TYPE_VALUES)[number];
+
+function buildWidgetTypeOptions(t: (key: string) => string) {
+  return WIDGET_TYPE_VALUES.map((value) => ({
+    value,
+    label: t(`widgetTypes.${value}`),
+  }));
+}
 
 export function AddWidgetDialog({
   onAdd,
 }: {
   onAdd: (widget: WidgetSpec, title: string) => void;
 }) {
+  const t = useTranslations("dashboard.addWidgetDialog");
+  const widgetTypeOptions = buildWidgetTypeOptions(t);
   const [open, setOpen] = useState(false);
   const [servers, setServers] = useState<ServerDTO[]>([]);
   const [widgetType, setWidgetType] = useState<WidgetType>("server-metric");
@@ -119,55 +129,57 @@ export function AddWidgetDialog({
   function add() {
     const server = servers.find((s) => s.id === serverId);
 
+    const history = t("historySuffix");
+
     if (widgetType === "overview") {
-      onAdd({ type: "overview" }, "Übersicht");
+      onAdd({ type: "overview" }, t("widgetTypes.overview"));
     } else if (widgetType === "proxmox-global") {
-      onAdd({ type: "proxmox-global" }, "Proxmox-Übersicht");
+      onAdd({ type: "proxmox-global" }, t("proxmoxOverviewTitle"));
     } else if (widgetType === "docker-global") {
-      onAdd({ type: "docker-global" }, "Docker-Übersicht");
+      onAdd({ type: "docker-global" }, t("dockerOverviewTitle"));
     } else if (widgetType === "server-combined-compact") {
       onAdd(
         { type: "server-combined-compact", serverId },
-        `${server?.name ?? "Server"} – CPU/RAM/Disk`
+        `${server?.name ?? t("fallbackServer")} – CPU/RAM/Disk`
       );
     } else if (widgetType === "server-combined-chart") {
       onAdd(
         { type: "server-combined-chart", serverId },
-        `${server?.name ?? "Server"} – CPU/RAM/Disk (Verlauf)`
+        `${server?.name ?? t("fallbackServer")} – CPU/RAM/Disk (${history})`
       );
     } else if (widgetType === "proxmox-host") {
       onAdd(
         { type: "proxmox-host", serverId, aggregation, showProblematic },
-        `${server?.name ?? "Host"} – Proxmox`
+        `${server?.name ?? t("fallbackHost")} – Proxmox`
       );
     } else if (widgetType === "docker-host") {
       onAdd(
         { type: "docker-host", serverId, aggregation, showProblematic },
-        `${server?.name ?? "Host"} – Docker`
+        `${server?.name ?? t("fallbackHost")} – Docker`
       );
     } else if (widgetType === "vm-combined-compact" || widgetType === "vm-combined-chart") {
       const vm = vms.find((v) => String(v.vmid) === vmid);
-      const suffix = widgetType === "vm-combined-chart" ? " (Verlauf)" : "";
+      const suffix = widgetType === "vm-combined-chart" ? ` (${history})` : "";
       onAdd(
         { type: widgetType, serverId, vmid: Number(vmid) },
-        `${vm?.name ?? "VM"} – CPU/RAM/Disk${suffix}`
+        `${vm?.name ?? t("fallbackVm")} – CPU/RAM/Disk${suffix}`
       );
     } else if (
       widgetType === "docker-container-compact" ||
       widgetType === "docker-container-chart"
     ) {
       const container = containers.find((c) => c.containerId === containerId);
-      const suffix = widgetType === "docker-container-chart" ? " (Verlauf)" : "";
+      const suffix = widgetType === "docker-container-chart" ? ` (${history})` : "";
       onAdd(
         { type: widgetType, serverId, containerId },
-        `${container?.name ?? "Container"} – Docker${suffix}`
+        `${container?.name ?? t("fallbackContainer")} – Docker${suffix}`
       );
     } else {
       const metricLabel =
         metric === "cpuPercent" ? "CPU" : metric === "memPercent" ? "RAM" : "Disk";
       onAdd(
         { type: "server-metric", serverId, metric },
-        `${server?.name ?? "Server"} – ${metricLabel}`
+        `${server?.name ?? t("fallbackServer")} – ${metricLabel}`
       );
     }
     setOpen(false);
@@ -179,25 +191,25 @@ export function AddWidgetDialog({
         render={
           <Button size="sm" variant="outline">
             <Plus className="size-4" />
-            Widget hinzufügen
+            {t("trigger")}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Widget hinzufügen</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label>Widget-Typ</Label>
+            <Label>{t("widgetTypeLabel")}</Label>
             <Select value={widgetType} onValueChange={(v) => setWidgetType(v as WidgetType)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {WIDGET_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {widgetTypeOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -206,10 +218,12 @@ export function AddWidgetDialog({
 
           {needsServer && (
             <div className="space-y-2">
-              <Label>{needsVm || needsContainer || needsAggregation ? "Host" : "Server"}</Label>
+              <Label>
+                {needsVm || needsContainer || needsAggregation ? t("hostLabel") : t("serverLabel")}
+              </Label>
               <Select value={serverId} onValueChange={(v) => setServerId(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Server wählen" />
+                  <SelectValue placeholder={t("selectServerPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {servers.map((s) => (
@@ -224,7 +238,7 @@ export function AddWidgetDialog({
 
           {widgetType === "server-metric" && (
             <div className="space-y-2">
-              <Label>Metrik</Label>
+              <Label>{t("metricLabel")}</Label>
               <Select value={metric} onValueChange={(v) => setMetric(v ?? "cpuPercent")}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -243,7 +257,7 @@ export function AddWidgetDialog({
               <Label>VM</Label>
               <Select value={vmid} onValueChange={(v) => setVmid(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="VM wählen" />
+                  <SelectValue placeholder={t("selectVmPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {vms.map((v) => (
@@ -261,7 +275,7 @@ export function AddWidgetDialog({
               <Label>Container</Label>
               <Select value={containerId} onValueChange={(v) => setContainerId(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Container wählen" />
+                  <SelectValue placeholder={t("selectContainerPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {containers.map((c) => (
@@ -277,7 +291,7 @@ export function AddWidgetDialog({
           {needsAggregation && (
             <>
               <div className="space-y-2">
-                <Label>Aggregation</Label>
+                <Label>{t("aggregationLabel")}</Label>
                 <Select
                   value={aggregation}
                   onValueChange={(v) => setAggregation((v as typeof aggregation) ?? "weighted")}
@@ -286,16 +300,16 @@ export function AddWidgetDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="weighted">Gewichtet (Σused/Σtotal)</SelectItem>
-                    <SelectItem value="average">Einfacher Durchschnitt</SelectItem>
+                    <SelectItem value="weighted">{t("aggregationWeighted")}</SelectItem>
+                    <SelectItem value="average">{t("aggregationAverage")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="show-problematic">
                   {widgetType === "docker-host"
-                    ? "Problematische Container anzeigen"
-                    : "Problematische VMs anzeigen"}
+                    ? t("showProblematicContainers")
+                    : t("showProblematicVms")}
                 </Label>
                 <Switch
                   id="show-problematic"
@@ -315,7 +329,7 @@ export function AddWidgetDialog({
               (needsContainer && !containerId)
             }
           >
-            Hinzufügen
+            {t("addButton")}
           </Button>
         </DialogFooter>
       </DialogContent>

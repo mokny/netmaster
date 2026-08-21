@@ -20,6 +20,7 @@ import { formatBitRate } from "@/lib/format";
 import { Trash2, RotateCcw, RefreshCw, Wifi, Router as RouterIcon } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import type { RouterDeviceDTO, RouterHostEntry, RouterWifiNetwork, RouterSampleDTO } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 function formatUptime(sec: number | null): string {
   if (sec == null) return "-";
@@ -38,6 +39,8 @@ function DeviceCard({
   device: RouterDeviceDTO;
   onChanged: () => void;
 }) {
+  const t = useTranslations("router.deviceCard");
+  const tErrors = useTranslations("errors");
   const [busy, setBusy] = useState<string | null>(null);
   const [samples, setSamples] = useState<RouterSampleDTO[]>([]);
   const hosts: RouterHostEntry[] = JSON.parse(device.connectedHostsJson || "[]");
@@ -80,10 +83,10 @@ function DeviceCard({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Aktion fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("actionFailed"));
         return;
       }
-      toast.success("Befehl gesendet");
+      toast.success(t("commandSent"));
       onChanged();
     } finally {
       setBusy(null);
@@ -93,7 +96,7 @@ function DeviceCard({
   async function deleteDevice() {
     const res = await fetch(`/api/router-devices/${device.id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error(t("deleteFailed"));
       return;
     }
     onChanged();
@@ -127,26 +130,26 @@ function DeviceCard({
 
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-xs text-muted-foreground">Modell</p>
+            <p className="text-xs text-muted-foreground">{t("model")}</p>
             <p className="truncate font-medium">{device.modelName ?? "-"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Firmware</p>
+            <p className="text-xs text-muted-foreground">{t("firmware")}</p>
             <p className="truncate font-medium">{device.firmwareVersion ?? "-"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Laufzeit</p>
+            <p className="text-xs text-muted-foreground">{t("uptime")}</p>
             <p className="font-medium">{formatUptime(device.uptimeSec)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Verbundene Geräte</p>
+            <p className="text-xs text-muted-foreground">{t("connectedDevices")}</p>
             <p className="font-medium">{activeHosts.length}</p>
           </div>
         </div>
 
         {device.wanConnectionStatus && (
           <div className="rounded-md border px-3 py-2 text-sm">
-            <p className="text-xs text-muted-foreground">WAN-Verbindung</p>
+            <p className="text-xs text-muted-foreground">{t("wanConnection")}</p>
             <div className="mt-1 flex items-center gap-2">
               <Badge variant={device.wanConnectionStatus === "Connected" ? "secondary" : "destructive"}>
                 {device.wanConnectionStatus}
@@ -160,7 +163,7 @@ function DeviceCard({
 
         {ratePoints.length > 0 && (
           <div>
-            <p className="mb-1 text-xs text-muted-foreground">Durchsatz</p>
+            <p className="mb-1 text-xs text-muted-foreground">{t("throughput")}</p>
             <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
           </div>
         )}
@@ -168,14 +171,14 @@ function DeviceCard({
         {wifi.length > 0 && (
           <div className="space-y-1.5">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Wifi className="size-3.5" /> WLAN
+              <Wifi className="size-3.5" /> {t("wifi")}
             </p>
             {wifi.map((w) => (
               <div
                 key={w.index}
                 className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm"
               >
-                <span className="truncate">{w.ssid || `Netz ${w.index}`}</span>
+                <span className="truncate">{w.ssid || t("wifiNetworkFallback", { index: w.index })}</span>
                 <Switch
                   checked={w.enabled}
                   disabled={busy !== null}
@@ -191,7 +194,7 @@ function DeviceCard({
         {activeHosts.length > 0 && (
           <details className="text-sm">
             <summary className="cursor-pointer text-xs text-muted-foreground">
-              Verbundene Geräte anzeigen
+              {t("showConnectedDevices")}
             </summary>
             <div className="mt-2 space-y-1">
               {activeHosts.map((h) => (
@@ -219,7 +222,7 @@ function DeviceCard({
             ) : (
               <RotateCcw className="size-3.5" />
             )}
-            Neu starten
+            {t("restart")}
           </Button>
           {device.wanConnectionStatus && (
             <Button
@@ -233,7 +236,7 @@ function DeviceCard({
               ) : (
                 <RefreshCw className="size-3.5" />
               )}
-              Verbindung neu aufbauen
+              {t("reconnect")}
             </Button>
           )}
         </div>
@@ -243,6 +246,7 @@ function DeviceCard({
 }
 
 export function RouterOverview() {
+  const t = useTranslations("router.overview");
   const [devices, setDevices] = useState<RouterDeviceDTO[] | null>(null);
 
   const load = useCallback(async () => {
@@ -263,8 +267,8 @@ export function RouterOverview() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Router</h1>
-          <p className="text-sm text-muted-foreground">FritzBox &amp; FritzRepeater</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <RouterDeviceDialog onSaved={load} />
       </div>
@@ -277,7 +281,7 @@ export function RouterOverview() {
       ) : devices.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Noch keine Router-Geräte hinzugefügt.
+            {t("empty")}
           </CardContent>
         </Card>
       ) : (

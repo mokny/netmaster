@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,33 +31,33 @@ type PrefKey = keyof Omit<NotificationPreferenceDTO, "serverId" | "serverName">;
 type BoolPrefKey = { [K in PrefKey]: NotificationPreferenceDTO[K] extends boolean ? K : never }[PrefKey];
 type NumPrefKey = { [K in PrefKey]: NotificationPreferenceDTO[K] extends number ? K : never }[PrefKey];
 
-const EVENT_LABELS: { key: BoolPrefKey; label: string }[] = [
-  { key: "offlineEnabled", label: "Offline" },
-  { key: "dockerStoppedEnabled", label: "Docker gestoppt" },
+const EVENT_LABELS: { key: BoolPrefKey; labelKey: string }[] = [
+  { key: "offlineEnabled", labelKey: "offline" },
+  { key: "dockerStoppedEnabled", labelKey: "dockerStopped" },
 ];
 
 // Pro Metrik zwei Spalten (Warnung/Kritisch), statt eines generischen
 // Warning/Critical-Schalters für den gesamten Server-Status.
-const METRIC_EVENT_LABELS: { warnKey: BoolPrefKey; critKey: BoolPrefKey; label: string }[] = [
-  { warnKey: "cpuWarnEnabled", critKey: "cpuCritEnabled", label: "CPU" },
-  { warnKey: "memWarnEnabled", critKey: "memCritEnabled", label: "RAM" },
-  { warnKey: "diskWarnEnabled", critKey: "diskCritEnabled", label: "Disk" },
-  { warnKey: "netWarnEnabled", critKey: "netCritEnabled", label: "Netzwerk" },
+const METRIC_EVENT_LABELS: { warnKey: BoolPrefKey; critKey: BoolPrefKey; labelKey: string }[] = [
+  { warnKey: "cpuWarnEnabled", critKey: "cpuCritEnabled", labelKey: "cpu" },
+  { warnKey: "memWarnEnabled", critKey: "memCritEnabled", labelKey: "ram" },
+  { warnKey: "diskWarnEnabled", critKey: "diskCritEnabled", labelKey: "disk" },
+  { warnKey: "netWarnEnabled", critKey: "netCritEnabled", labelKey: "network" },
 ];
 
 // Alle 10 Ereignisse mit ihren zugehörigen Verzögerung-/Recovery-Feldern -
 // Basis für den Konfigurieren-Dialog pro Server.
-const ALL_EVENTS: { enabledKey: BoolPrefKey; delayKey: NumPrefKey; recoveryKey: BoolPrefKey; label: string }[] = [
-  { enabledKey: "offlineEnabled", delayKey: "offlineDelayMin", recoveryKey: "offlineRecoveryEnabled", label: "Offline" },
-  { enabledKey: "dockerStoppedEnabled", delayKey: "dockerStoppedDelayMin", recoveryKey: "dockerStoppedRecoveryEnabled", label: "Docker gestoppt" },
-  { enabledKey: "cpuWarnEnabled", delayKey: "cpuWarnDelayMin", recoveryKey: "cpuWarnRecoveryEnabled", label: "CPU Warnung" },
-  { enabledKey: "cpuCritEnabled", delayKey: "cpuCritDelayMin", recoveryKey: "cpuCritRecoveryEnabled", label: "CPU Kritisch" },
-  { enabledKey: "memWarnEnabled", delayKey: "memWarnDelayMin", recoveryKey: "memWarnRecoveryEnabled", label: "RAM Warnung" },
-  { enabledKey: "memCritEnabled", delayKey: "memCritDelayMin", recoveryKey: "memCritRecoveryEnabled", label: "RAM Kritisch" },
-  { enabledKey: "diskWarnEnabled", delayKey: "diskWarnDelayMin", recoveryKey: "diskWarnRecoveryEnabled", label: "Disk Warnung" },
-  { enabledKey: "diskCritEnabled", delayKey: "diskCritDelayMin", recoveryKey: "diskCritRecoveryEnabled", label: "Disk Kritisch" },
-  { enabledKey: "netWarnEnabled", delayKey: "netWarnDelayMin", recoveryKey: "netWarnRecoveryEnabled", label: "Netz Warnung" },
-  { enabledKey: "netCritEnabled", delayKey: "netCritDelayMin", recoveryKey: "netCritRecoveryEnabled", label: "Netz Kritisch" },
+const ALL_EVENTS: { enabledKey: BoolPrefKey; delayKey: NumPrefKey; recoveryKey: BoolPrefKey; labelKey: string }[] = [
+  { enabledKey: "offlineEnabled", delayKey: "offlineDelayMin", recoveryKey: "offlineRecoveryEnabled", labelKey: "offline" },
+  { enabledKey: "dockerStoppedEnabled", delayKey: "dockerStoppedDelayMin", recoveryKey: "dockerStoppedRecoveryEnabled", labelKey: "dockerStopped" },
+  { enabledKey: "cpuWarnEnabled", delayKey: "cpuWarnDelayMin", recoveryKey: "cpuWarnRecoveryEnabled", labelKey: "cpuWarn" },
+  { enabledKey: "cpuCritEnabled", delayKey: "cpuCritDelayMin", recoveryKey: "cpuCritRecoveryEnabled", labelKey: "cpuCrit" },
+  { enabledKey: "memWarnEnabled", delayKey: "memWarnDelayMin", recoveryKey: "memWarnRecoveryEnabled", labelKey: "ramWarn" },
+  { enabledKey: "memCritEnabled", delayKey: "memCritDelayMin", recoveryKey: "memCritRecoveryEnabled", labelKey: "ramCrit" },
+  { enabledKey: "diskWarnEnabled", delayKey: "diskWarnDelayMin", recoveryKey: "diskWarnRecoveryEnabled", labelKey: "diskWarn" },
+  { enabledKey: "diskCritEnabled", delayKey: "diskCritDelayMin", recoveryKey: "diskCritRecoveryEnabled", labelKey: "diskCrit" },
+  { enabledKey: "netWarnEnabled", delayKey: "netWarnDelayMin", recoveryKey: "netWarnRecoveryEnabled", labelKey: "netWarn" },
+  { enabledKey: "netCritEnabled", delayKey: "netCritDelayMin", recoveryKey: "netCritRecoveryEnabled", labelKey: "netCrit" },
 ];
 
 function pushSupported() {
@@ -73,6 +74,7 @@ function NotificationSettingsDialog({
   onUpdate: (serverId: string, patch: Partial<NotificationPreferenceDTO>) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("account.pushNotifications");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -85,20 +87,20 @@ function NotificationSettingsDialog({
       />
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Benachrichtigungen: {pref.serverName}</DialogTitle>
+          <DialogTitle>{t("settingsDialogTitle", { server: pref.serverName })}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {ALL_EVENTS.map((e) => (
             <div key={e.enabledKey} className="space-y-2 rounded-md border p-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{e.label}</p>
+                <p className="text-sm font-medium">{t(`events.${e.labelKey}`)}</p>
                 <Switch
                   checked={pref[e.enabledKey]}
                   onCheckedChange={(c) => onUpdate(pref.serverId, { [e.enabledKey]: !!c })}
                 />
               </div>
               <div className="flex items-center justify-between gap-3">
-                <Label className="font-normal text-muted-foreground">Verzögerung (Min)</Label>
+                <Label className="font-normal text-muted-foreground">{t("delayMinutes")}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -108,7 +110,7 @@ function NotificationSettingsDialog({
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label className="font-normal text-muted-foreground">Wieder normal benachrichtigen</Label>
+                <Label className="font-normal text-muted-foreground">{t("notifyOnRecovery")}</Label>
                 <Switch
                   checked={pref[e.recoveryKey]}
                   onCheckedChange={(c) => onUpdate(pref.serverId, { [e.recoveryKey]: !!c })}
@@ -118,7 +120,7 @@ function NotificationSettingsDialog({
           ))}
         </div>
         <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Fertig</Button>
+          <Button onClick={() => setOpen(false)}>{t("done")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -126,6 +128,8 @@ function NotificationSettingsDialog({
 }
 
 export function PushNotificationsCard() {
+  const t = useTranslations("account.pushNotifications");
+  const tErrors = useTranslations("errors");
   const [permission, setPermission] = useState<NotificationPermission>(() =>
     pushSupported() ? Notification.permission : "default"
   );
@@ -158,7 +162,7 @@ export function PushNotificationsCard() {
 
   async function enable() {
     if (!pushSupported()) {
-      toast.error("Dieser Browser unterstützt keine Push-Benachrichtigungen");
+      toast.error(t("browserUnsupported"));
       return;
     }
     setBusy(true);
@@ -166,14 +170,14 @@ export function PushNotificationsCard() {
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
       if (permissionResult !== "granted") {
-        toast.error("Benachrichtigungen wurden nicht erlaubt");
+        toast.error(t("permissionDenied"));
         return;
       }
 
       const keyRes = await fetch("/api/push/vapid-public-key");
       const { publicKey } = await keyRes.json();
       if (!publicKey) {
-        toast.error("Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlt)");
+        toast.error(t("notConfigured"));
         return;
       }
 
@@ -189,15 +193,15 @@ export function PushNotificationsCard() {
         body: JSON.stringify(sub.toJSON()),
       });
       if (!res.ok) {
-        toast.error("Registrierung fehlgeschlagen");
+        toast.error(t("registrationFailed"));
         return;
       }
 
       setSubscribedHere(true);
-      toast.success("Push-Benachrichtigungen aktiviert");
+      toast.success(t("enabled"));
       loadSubscriptions();
     } catch {
-      toast.error("Push-Benachrichtigungen konnten nicht aktiviert werden");
+      toast.error(t("enableFailed"));
     } finally {
       setBusy(false);
     }
@@ -217,7 +221,7 @@ export function PushNotificationsCard() {
         await sub.unsubscribe();
       }
       setSubscribedHere(false);
-      toast.success("Push-Benachrichtigungen deaktiviert");
+      toast.success(t("disabled"));
       loadSubscriptions();
     } finally {
       setBusy(false);
@@ -230,7 +234,7 @@ export function PushNotificationsCard() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (!sub) {
-        toast.error("Push-Benachrichtigungen sind auf diesem Gerät nicht aktiviert");
+        toast.error(t("notEnabledHere"));
         return;
       }
 
@@ -241,10 +245,10 @@ export function PushNotificationsCard() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Test-Benachrichtigung fehlgeschlagen");
+        toast.error(tErrors(data.error ?? "TEST_NOTIFICATION_FAILED"));
         return;
       }
-      toast.success("Test-Benachrichtigung gesendet");
+      toast.success(t("testSent"));
     } finally {
       setTesting(false);
     }
@@ -253,10 +257,10 @@ export function PushNotificationsCard() {
   async function removeSubscription(id: string) {
     const res = await fetch(`/api/push/subscriptions/${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Gerät entfernt");
+      toast.success(t("deviceRemoved"));
       loadSubscriptions();
     } else {
-      toast.error("Entfernen fehlgeschlagen");
+      toast.error(t("removeFailed"));
     }
   }
 
@@ -273,7 +277,7 @@ export function PushNotificationsCard() {
       body: JSON.stringify(next),
     });
     if (!res.ok) {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("saveFailed"));
       loadPrefs();
     }
   }
@@ -282,45 +286,40 @@ export function PushNotificationsCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle className="text-base">Push-Benachrichtigungen</CardTitle>
-          <CardDescription>
-            Auf einem iPhone: Seite über &quot;Zum Home-Bildschirm&quot; installieren, bevor
-            Push aktiviert werden kann.
-          </CardDescription>
+          <CardTitle className="text-base">{t("title")}</CardTitle>
+          <CardDescription>{t("iphoneHint")}</CardDescription>
         </div>
         <div className="flex items-center gap-2">
           {subscribedHere && (
             <Button variant="outline" size="sm" onClick={sendTest} disabled={testing}>
               {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              Test senden
+              {t("sendTest")}
             </Button>
           )}
           {subscribedHere ? (
             <Button variant="outline" size="sm" onClick={disableHere} disabled={busy}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <BellOff className="size-4" />}
-              Auf diesem Gerät deaktivieren
+              {t("disableHere")}
             </Button>
           ) : (
             <Button size="sm" onClick={enable} disabled={busy}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Bell className="size-4" />}
-              Aktivieren
+              {t("enable")}
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {permission === "denied" && (
-          <p className="text-sm text-red-500">
-            Benachrichtigungen sind für diese Seite im Browser blockiert.
-          </p>
+          <p className="text-sm text-red-500">{t("browserBlocked")}</p>
         )}
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Registrierte Geräte</p>
+          <p className="text-sm font-medium">{t("registeredDevices")}</p>
           {subscriptions === null ? (
             <Skeleton className="h-10 w-full" />
           ) : subscriptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Geräte registriert.</p>
+            <p className="text-sm text-muted-foreground">{t("noDevices")}</p>
           ) : (
             <div className="space-y-1">
               {subscriptions.map((s) => (
@@ -329,7 +328,7 @@ export function PushNotificationsCard() {
                   className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
                 >
                   <span className="truncate text-muted-foreground">
-                    {s.userAgent || "Unbekanntes Gerät"}
+                    {s.userAgent || t("unknownDevice")}
                   </span>
                   <Button
                     variant="ghost"
@@ -346,38 +345,38 @@ export function PushNotificationsCard() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Ereignisse pro Server</p>
+          <p className="text-sm font-medium">{t("eventsPerServer")}</p>
           {prefs === null ? (
             <Skeleton className="h-24 w-full" />
           ) : prefs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Server vorhanden.</p>
+            <p className="text-sm text-muted-foreground">{t("noServers")}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
                     <th rowSpan={2} className="p-2 text-left font-medium align-bottom">
-                      Server
+                      {t("server")}
                     </th>
                     {EVENT_LABELS.map((e) => (
                       <th key={e.key} rowSpan={2} className="p-2 text-center font-medium align-bottom">
-                        {e.label}
+                        {t(`events.${e.labelKey}`)}
                       </th>
                     ))}
                     {METRIC_EVENT_LABELS.map((m) => (
-                      <th key={m.label} colSpan={2} className="p-2 text-center font-medium">
-                        {m.label}
+                      <th key={m.labelKey} colSpan={2} className="p-2 text-center font-medium">
+                        {t(`events.${m.labelKey}`)}
                       </th>
                     ))}
                     <th rowSpan={2} className="p-2 text-center font-medium align-bottom">
-                      Details
+                      {t("details")}
                     </th>
                   </tr>
                   <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
                     {METRIC_EVENT_LABELS.map((m) => (
-                      <Fragment key={m.label}>
-                        <th className="p-2 text-center font-normal">Warnung</th>
-                        <th className="p-2 text-center font-normal">Kritisch</th>
+                      <Fragment key={m.labelKey}>
+                        <th className="p-2 text-center font-normal">{t("warning")}</th>
+                        <th className="p-2 text-center font-normal">{t("critical")}</th>
                       </Fragment>
                     ))}
                   </tr>
@@ -395,7 +394,7 @@ export function PushNotificationsCard() {
                         </td>
                       ))}
                       {METRIC_EVENT_LABELS.map((m) => (
-                        <Fragment key={m.label}>
+                        <Fragment key={m.labelKey}>
                           <td className="p-2 text-center">
                             <Switch
                               checked={p[m.warnKey]}

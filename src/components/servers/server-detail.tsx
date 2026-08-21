@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -51,6 +52,7 @@ import type {
 } from "@/lib/types";
 
 export function ServerDetail({ serverId }: { serverId: string }) {
+  const t = useTranslations("servers.detail");
   const router = useRouter();
   const session = useSession();
   const confirm = useConfirm();
@@ -90,7 +92,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
 
   async function recheck() {
     const res = await fetch(`/api/servers/${serverId}/check`, { method: "POST" });
-    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    if (!res.ok) throw new Error(t("checkFailed"));
     await loadAll();
   }
 
@@ -181,7 +183,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   async function deleteCheck(id: string) {
     const res = await fetch(`/api/checks/${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Check gelöscht");
+      toast.success(t("checkDeleted"));
       setChecks((prev) => prev.filter((c) => c.id !== id));
     }
   }
@@ -189,9 +191,9 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   async function deleteServer() {
     if (
       !(await confirm({
-        title: "Server löschen",
-        description: "Diesen Server wirklich löschen?",
-        confirmText: "Löschen",
+        title: t("deleteServerTitle"),
+        description: t("deleteServerConfirm"),
+        confirmText: t("delete"),
         variant: "destructive",
       }))
     )
@@ -334,7 +336,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           {canDelete && (
             <Button variant="destructive" size="sm" onClick={deleteServer}>
               <Trash2 className="size-4" />
-              Löschen
+              {t("delete")}
             </Button>
           )}
         </div>
@@ -415,7 +417,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           <CardContent>
             {!server.dockerEnabled ? (
               <p className="text-sm text-muted-foreground">
-                Docker ist für diesen Server nicht aktiviert. Aktivierbar unter „Bearbeiten“.
+                {t("dockerNotEnabled")}
               </p>
             ) : containers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -516,12 +518,12 @@ export function ServerDetail({ serverId }: { serverId: string }) {
       {!server.proxmoxEnabled ? (
         <Card>
           <CardHeader>
-            <CardTitle>Virtuelle Maschinen</CardTitle>
+            <CardTitle>{t("virtualMachines")}</CardTitle>
             <CardDescription>Proxmox QEMU-VMs / LXC-Container</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Proxmox ist für diesen Server nicht aktiviert. Aktivierbar unter „Bearbeiten“.
+              {t("proxmoxNotEnabled")}
             </p>
           </CardContent>
         </Card>
@@ -530,7 +532,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle>Virtuelle Maschinen</CardTitle>
+                <CardTitle>{t("virtualMachines")}</CardTitle>
                 <CardDescription>Proxmox QEMU-VMs auf diesem Host</CardDescription>
               </div>
               <Cpu className="size-4 text-muted-foreground" />

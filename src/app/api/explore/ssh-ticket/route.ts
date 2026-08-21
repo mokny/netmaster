@@ -19,10 +19,10 @@ export async function POST(req: Request) {
     const passphrase = body.passphrase ? String(body.passphrase) : undefined;
 
     if (!host || !username || !secret) {
-      throw new ApiError(400, "Host, Benutzername und Passwort/Key sind erforderlich");
+      throw new ApiError(400, "SSH_CREDENTIALS_REQUIRED");
     }
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new ApiError(400, "Ungültiger Port");
+      throw new ApiError(400, "INVALID_PORT");
     }
 
     const ticket = createAdhocSshTicket({ host, port, username, authType, secret, passphrase });

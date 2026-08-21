@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,8 @@ export function ServerFormDialog({
   onOpenChange,
   initialHostname,
 }: Props) {
+  const t = useTranslations("servers.formDialog");
+  const tErrors = useTranslations("errors");
   const isEdit = Boolean(server);
   const controlled = openProp !== undefined;
   const [openState, setOpenState] = useState(false);
@@ -110,14 +113,14 @@ export function ServerFormDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success(isEdit ? "Server aktualisiert" : "Server hinzugefügt");
+      toast.success(isEdit ? t("serverUpdated") : t("serverAdded"));
       setOpen(false);
       onSaved();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -131,7 +134,7 @@ export function ServerFormDialog({
             trigger ?? (
               <Button size="sm">
                 <Plus className="size-4" />
-                Server hinzufügen
+                {t("addServer")}
               </Button>
             )
           }
@@ -139,40 +142,40 @@ export function ServerFormDialog({
       )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Server bearbeiten" : "Server hinzufügen"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("editServer") : t("addServer")}</DialogTitle>
           <DialogDescription>
-            Zugangsdaten werden AES-256-verschlüsselt gespeichert.
+            {t("credentialsEncrypted")}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <Tabs defaultValue="general">
             <TabsList className="w-full">
-              <TabsTrigger value="general">Allgemein</TabsTrigger>
-              <TabsTrigger value="ssh">SSH-Zugang</TabsTrigger>
-              <TabsTrigger value="thresholds">Schwellwerte</TabsTrigger>
+              <TabsTrigger value="general">{t("tabGeneral")}</TabsTrigger>
+              <TabsTrigger value="ssh">{t("tabSsh")}</TabsTrigger>
+              <TabsTrigger value="thresholds">{t("tabThresholds")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="general" className="space-y-3">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>{t("name")}</Label>
                 <Input
                   required
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
-                  placeholder="Produktiv-Server 1"
+                  placeholder={t("namePlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Beschreibung</Label>
+                <Label>{t("description")}</Label>
                 <Input
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
-                  placeholder="z.B. Haupt-Webserver"
+                  placeholder={t("descriptionPlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Tags (kommagetrennt)</Label>
+                <Label>{t("tagsLabel")}</Label>
                 <Input
                   value={form.tags}
                   onChange={(e) => set("tags", e.target.value)}
@@ -181,7 +184,7 @@ export function ServerFormDialog({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Poll-Intervall (Sek.)</Label>
+                  <Label>{t("pollInterval")}</Label>
                   <Input
                     type="number"
                     min={5}
@@ -190,7 +193,7 @@ export function ServerFormDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Retention (Tage)</Label>
+                  <Label>{t("retention")}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -202,9 +205,9 @@ export function ServerFormDialog({
               <div className="space-y-3 rounded-md border p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="docker-enabled">Docker aktivieren</Label>
+                    <Label htmlFor="docker-enabled">{t("enableDocker")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Container/Images erkennen und verwalten
+                      {t("enableDockerHint")}
                     </p>
                   </div>
                   <Switch
@@ -215,9 +218,9 @@ export function ServerFormDialog({
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="proxmox-enabled">Proxmox aktivieren</Label>
+                    <Label htmlFor="proxmox-enabled">{t("enableProxmox")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      VMs/LXC-Container erkennen und verwalten
+                      {t("enableProxmoxHint")}
                     </p>
                   </div>
                   <Switch
@@ -228,10 +231,9 @@ export function ServerFormDialog({
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="network-tools-enabled">Netzwerk-Tools aktivieren</Label>
+                    <Label htmlFor="network-tools-enabled">{t("enableNetworkTools")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Firewall-Verwaltung, Port-Übersicht und Netzwerk-Graph (benötigt
-                      root oder Sudo-Passwort)
+                      {t("enableNetworkToolsHint")}
                     </p>
                   </div>
                   <Switch
@@ -242,10 +244,9 @@ export function ServerFormDialog({
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="wireguard-enabled">WireGuard aktivieren</Label>
+                    <Label htmlFor="wireguard-enabled">{t("enableWireguard")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      VPN-Interfaces und Peers verwalten (benötigt root oder
-                      Sudo-Passwort)
+                      {t("enableWireguardHint")}
                     </p>
                   </div>
                   <Switch
@@ -260,7 +261,7 @@ export function ServerFormDialog({
             <TabsContent value="ssh" className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-2">
-                  <Label>Hostname / IP</Label>
+                  <Label>{t("hostnameIp")}</Label>
                   <Input
                     required
                     value={form.hostname}
@@ -278,7 +279,7 @@ export function ServerFormDialog({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>SSH-Benutzername</Label>
+                <Label>{t("sshUsername")}</Label>
                 <Input
                   required
                   value={form.sshUsername}
@@ -286,7 +287,7 @@ export function ServerFormDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Authentifizierung</Label>
+                <Label>{t("authentication")}</Label>
                 <Select
                   value={form.authType}
                   onValueChange={(v) => set("authType", v as "PASSWORD" | "PRIVATE_KEY")}
@@ -295,17 +296,17 @@ export function ServerFormDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PASSWORD">Passwort</SelectItem>
-                    <SelectItem value="PRIVATE_KEY">Privater Schlüssel</SelectItem>
+                    <SelectItem value="PASSWORD">{t("password")}</SelectItem>
+                    <SelectItem value="PRIVATE_KEY">{t("privateKey")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>
-                  {form.authType === "PASSWORD" ? "Passwort" : "Privater Schlüssel (PEM)"}
+                  {form.authType === "PASSWORD" ? t("password") : t("privateKeyPem")}
                   {isEdit && (
                     <span className="ml-1 font-normal text-muted-foreground">
-                      (leer lassen, um beizubehalten)
+                      {t("leaveEmptyToKeep")}
                     </span>
                   )}
                 </Label>
@@ -331,8 +332,8 @@ export function ServerFormDialog({
                   <Label>
                     Passphrase
                     <span className="ml-1 font-normal text-muted-foreground">
-                      (optional, falls Schlüssel geschützt ist
-                      {isEdit ? " — leer lassen, um beizubehalten" : ""})
+                      {t("passphraseHint")}
+                      {isEdit ? t("keepOnEmptySuffix") : ""})
                     </span>
                   </Label>
                   <Input
@@ -344,10 +345,10 @@ export function ServerFormDialog({
               )}
               <div className="space-y-2">
                 <Label>
-                  Sudo-Passwort
+                  {t("sudoPassword")}
                   <span className="ml-1 font-normal text-muted-foreground">
-                    (optional, für reboot/shutdown als Nicht-root-User
-                    {isEdit ? " — leer lassen, um beizubehalten" : ""})
+                    {t("sudoPasswordHint")}
+                    {isEdit ? t("keepOnEmptySuffix") : ""})
                   </span>
                 </Label>
                 <Input
@@ -371,7 +372,7 @@ export function ServerFormDialog({
                 <div key={label} className="grid grid-cols-3 items-end gap-3">
                   <Label className="col-span-3 sm:col-span-1">{label}</Label>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Warnung</Label>
+                    <Label className="text-xs text-muted-foreground">{t("warning")}</Label>
                     <Input
                       type="number"
                       value={form[warnKey]}
@@ -379,7 +380,7 @@ export function ServerFormDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Kritisch</Label>
+                    <Label className="text-xs text-muted-foreground">{t("critical")}</Label>
                     <Input
                       type="number"
                       value={form[critKey]}
@@ -394,7 +395,7 @@ export function ServerFormDialog({
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Speichern
+              {t("save")}
             </Button>
           </DialogFooter>
         </form>

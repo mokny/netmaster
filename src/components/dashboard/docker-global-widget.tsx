@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -8,6 +9,8 @@ import type { ContainerWithServerDTO } from "@/lib/types";
 const RUNNING_STATES = new Set(["running"]);
 
 export function DockerGlobalWidget() {
+  const t = useTranslations("dashboard.widgets.docker");
+  const tCommon = useTranslations("common");
   const [containers, setContainers] = useState<ContainerWithServerDTO[] | null>(null);
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export function DockerGlobalWidget() {
   }, [containers]);
 
   if (!containers) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
   }
 
   const running = containers.filter((c) => RUNNING_STATES.has(c.state)).length;
@@ -75,17 +78,17 @@ export function DockerGlobalWidget() {
       <div className="grid grid-cols-2 gap-2 text-center text-xs">
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{running}</p>
-          <p className="truncate text-muted-foreground">Laufend</p>
+          <p className="truncate text-muted-foreground">{t("running")}</p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{stopped}</p>
-          <p className="truncate text-muted-foreground">Gestoppt</p>
+          <p className="truncate text-muted-foreground">{t("stopped")}</p>
         </div>
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {byHost.length === 0 ? (
-          <p className="truncate text-sm text-muted-foreground">Keine Docker-Hosts gefunden.</p>
+          <p className="truncate text-sm text-muted-foreground">{t("noHostsFound")}</p>
         ) : (
           <ul className="space-y-1">
             {byHost.map((host) => {
@@ -100,7 +103,7 @@ export function DockerGlobalWidget() {
                   >
                     <span className="min-w-0 truncate">{host.serverName}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {hostRunning}/{host.containers.length} laufend
+                      {t("runningOfTotal", { running: hostRunning, total: host.containers.length })}
                     </span>
                   </Link>
                 </li>

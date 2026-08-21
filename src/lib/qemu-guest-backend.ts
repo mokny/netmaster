@@ -49,7 +49,7 @@ async function runGuestScript(
   if (res.code !== 0 || !res.stdout.trim()) {
     throw new ExecFileOpError(
       res.stderr.includes("QEMU guest agent is not running") || res.stderr.includes("No QEMU guest agent")
-        ? "QEMU-Guest-Agent nicht verfügbar"
+        ? "QEMU guest agent not available"
         : res.stderr || "Guest-Exec fehlgeschlagen",
       "OTHER"
     );
@@ -136,7 +136,7 @@ export function createQemuGuestBackend(server: ServerModel, vmid: number): FileB
 
     async remove(targetPath) {
       const res = await run('rm -rf "$1"', [targetPath]);
-      if (res.code !== 0) throw new ExecFileOpError(res.stderr || "Löschen fehlgeschlagen", "OTHER");
+      if (res.code !== 0) throw new ExecFileOpError(res.stderr || "Delete failed", "OTHER");
     },
 
     async rename(from, to) {
@@ -178,11 +178,11 @@ export function createQemuGuestBackend(server: ServerModel, vmid: number): FileB
       const info = await statRaw(filePath);
       if (!info) throw new ExecFileOpError("Nicht gefunden", "NOT_FOUND");
       if ((info.mode & 0xf000) === 0x4000) throw new ExecFileOpError("Ist ein Verzeichnis", "IS_DIR");
-      if (info.size > MAX_EDITABLE_BYTES) throw new ExecFileOpError("Datei ist zu groß zum Bearbeiten", "TOO_LARGE");
+      if (info.size > MAX_EDITABLE_BYTES) throw new ExecFileOpError("File is too large to edit", "TOO_LARGE");
       const res = await run('base64 "$1" 2>/dev/null', [filePath]);
       if (res.code !== 0) throw new ExecFileOpError(res.stderr || "Datei konnte nicht gelesen werden", "OTHER");
       const buf = Buffer.from(res.stdout.replace(/\n/g, ""), "base64");
-      if (buf.subarray(0, 8000).includes(0)) throw new ExecFileOpError("Datei scheint binär zu sein", "BINARY");
+      if (buf.subarray(0, 8000).includes(0)) throw new ExecFileOpError("File appears to be binary", "BINARY");
       return buf.toString("utf8");
     },
 
@@ -194,14 +194,14 @@ export function createQemuGuestBackend(server: ServerModel, vmid: number): FileB
       const info = await statRaw(filePath);
       if (!info) throw new ExecFileOpError("Nicht gefunden", "NOT_FOUND");
       if ((info.mode & 0xf000) === 0x4000) throw new ExecFileOpError("Ist ein Verzeichnis", "IS_DIR");
-      if (info.size > MAX_TRANSFER_BYTES) throw new ExecFileOpError("Datei ist zu groß für den Transfer", "TOO_LARGE");
+      if (info.size > MAX_TRANSFER_BYTES) throw new ExecFileOpError("File is too large to transfer", "TOO_LARGE");
       const res = await run('base64 "$1" 2>/dev/null', [filePath], { timeoutMs: 60_000 });
       if (res.code !== 0) throw new ExecFileOpError(res.stderr || "Datei konnte nicht gelesen werden", "OTHER");
       return Buffer.from(res.stdout.replace(/\n/g, ""), "base64");
     },
 
     async writeFileBuffer(filePath, data) {
-      if (data.length > MAX_TRANSFER_BYTES) throw new ExecFileOpError("Datei ist zu groß für den Transfer", "TOO_LARGE");
+      if (data.length > MAX_TRANSFER_BYTES) throw new ExecFileOpError("File is too large to transfer", "TOO_LARGE");
       const res = await run('base64 -d > "$1"', [filePath], {
         stdin: data.toString("base64"),
         timeoutMs: 60_000,

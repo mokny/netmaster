@@ -26,12 +26,12 @@ export async function POST(
     const body = await req.json();
     const script = String(body.script ?? "").trim();
     if (!script) {
-      throw new ApiError(400, "Skript darf nicht leer sein");
+      throw new ApiError(400, "SCRIPT_EMPTY");
     }
 
     const backend = await detectFirewallBackend(server);
     if (backend === "none") {
-      throw new ApiError(400, "Kein unterstütztes Firewall-Backend (nft/iptables/ufw) erkannt");
+      throw new ApiError(400, "UNSUPPORTED_FIREWALL_BACKEND");
     }
 
     const result = await applyGuarded(server, backend, script, (confirmed) => {

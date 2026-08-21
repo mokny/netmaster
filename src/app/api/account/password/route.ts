@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const revokeOtherSessions = body?.revokeOtherSessions === true;
 
     if (password.length < 8) {
-      throw new ApiError(400, "Passwort muss mindestens 8 Zeichen lang sein");
+      throw new ApiError(400, "PASSWORD_TOO_SHORT");
     }
 
     await prisma.user.update({

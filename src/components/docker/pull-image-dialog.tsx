@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ export function PullImageDialog({
   serverId: string;
   onDone?: () => void;
 }) {
+  const t = useTranslations("docker.pullImageDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [image, setImage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,15 +41,15 @@ export function PullImageDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Pull fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("pullFailed"));
         return;
       }
-      toast.success(`„${image.trim()}“ gepullt`);
+      toast.success(t("pullSuccess", { image: image.trim() }));
       setOpen(false);
       setImage("");
       onDone?.();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -58,15 +61,15 @@ export function PullImageDialog({
         render={
           <Button size="sm">
             <Download className="size-4" />
-            Image pullen
+            {t("trigger")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Image pullen</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            Lädt ein Image von einer Registry (z.B. Docker Hub) auf den Server.
+            {t("description")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -84,7 +87,7 @@ export function PullImageDialog({
         <DialogFooter>
           <Button disabled={loading || !image.trim()} onClick={run}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Pullen
+            {t("pull")}
           </Button>
         </DialogFooter>
       </DialogContent>

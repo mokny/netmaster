@@ -6,7 +6,7 @@ function getKey(): Buffer {
   const secret = process.env.MASTER_SECRET;
   if (!secret || secret.length < 64) {
     throw new Error(
-      "MASTER_SECRET fehlt oder ist zu kurz (benötigt: 64 Hex-Zeichen / 32 Byte)."
+      "MASTER_SECRET is missing or too short (needs: 64 hex characters / 32 bytes)."
     );
   }
   return Buffer.from(secret.slice(0, 64), "hex");
@@ -32,7 +32,7 @@ export function decryptSecret(payload: string): string {
   const key = getKey();
   const [ivB64, authTagB64, ciphertextB64] = payload.split(":");
   if (!ivB64 || !authTagB64 || !ciphertextB64) {
-    throw new Error("Ungültiges verschlüsseltes Secret-Format.");
+    throw new Error("Invalid encrypted secret format.");
   }
   const iv = Buffer.from(ivB64, "base64");
   const authTag = Buffer.from(authTagB64, "base64");

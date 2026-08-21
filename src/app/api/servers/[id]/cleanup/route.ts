@@ -23,7 +23,7 @@ export async function POST(
     };
 
     if (!opts.apt && !opts.docker && !opts.journal) {
-      throw new ApiError(400, "Keine Bereinigungs-Option ausgewählt");
+      throw new ApiError(400, "NO_CLEANUP_OPTION_SELECTED");
     }
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
@@ -37,7 +37,7 @@ export async function POST(
     try {
       ({ command, stdin } = buildCleanupCommand(server, opts));
     } catch (err) {
-      throw new ApiError(400, err instanceof Error ? err.message : "Ungültige Konfiguration");
+      throw new ApiError(400, "INVALID_CONFIG", err instanceof Error ? err.message : undefined);
     }
 
     const result = await execOnServer(server, command, 120_000, stdin);

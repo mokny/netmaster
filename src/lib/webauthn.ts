@@ -69,7 +69,7 @@ export async function createRegistrationOptions(
   userName: string
 ) {
   const rp = getRelyingParty(req);
-  if (!rp) throw new Error("Passkeys benötigen eine Domain, keine IP-Adresse.");
+  if (!rp) throw new Error("Passkeys require a domain, not an IP address.");
 
   const existing = await prisma.webAuthnCredential.findMany({ where: { userId } });
 
@@ -99,7 +99,7 @@ export async function verifyRegistration(
   response: RegistrationResponseJSON
 ): Promise<VerifiedRegistrationResponse> {
   const rp = getRelyingParty(req);
-  if (!rp) throw new Error("Passkeys benötigen eine Domain, keine IP-Adresse.");
+  if (!rp) throw new Error("Passkeys require a domain, not an IP address.");
 
   const expectedChallenge = takeChallenge(`reg:${userId}`);
   if (!expectedChallenge) throw new Error("Registrierung abgelaufen, bitte erneut versuchen.");
@@ -121,7 +121,7 @@ const LOGIN_CHALLENGE_KEY = "login";
 
 export async function createAuthenticationOptions(req: Request) {
   const rp = getRelyingParty(req);
-  if (!rp) throw new Error("Passkeys benötigen eine Domain, keine IP-Adresse.");
+  if (!rp) throw new Error("Passkeys require a domain, not an IP address.");
 
   const options = await generateAuthenticationOptions({
     rpID: rp.rpID,
@@ -137,7 +137,7 @@ export async function verifyAuthentication(
   response: AuthenticationResponseJSON
 ): Promise<{ result: VerifiedAuthenticationResponse; credential: { id: string; userId: string } }> {
   const rp = getRelyingParty(req);
-  if (!rp) throw new Error("Passkeys benötigen eine Domain, keine IP-Adresse.");
+  if (!rp) throw new Error("Passkeys require a domain, not an IP address.");
 
   const clientChallenge = JSON.parse(
     Buffer.from(response.response.clientDataJSON, "base64url").toString("utf8")

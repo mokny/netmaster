@@ -20,13 +20,13 @@ export async function POST(
 
     const body = (await req.json()) as { action: WgAction };
     if (!ACTIONS.includes(body.action)) {
-      throw new ApiError(400, "Ungültige Aktion");
+      throw new ApiError(400, "INVALID_ACTION");
     }
 
     const { command, stdin } = buildControlCommand(server, iface, body.action);
     const res = await execOnServer(server, command, 15_000, stdin);
     if (res.code !== 0) {
-      throw new ApiError(500, res.stderr.trim() || `${body.action} fehlgeschlagen`);
+      throw new ApiError(500, "ACTION_FAILED", res.stderr.trim() || body.action);
     }
 
     await writeAuditLog(session, `wireguard.interface.${body.action}`, {

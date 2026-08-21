@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   Server,
@@ -44,19 +45,20 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WakeLockManager } from "@/components/wake-lock-manager";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import type { SessionPayload } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "VIEWER" },
-  { href: "/servers", label: "Server", icon: Server, minRole: "VIEWER" },
-  { href: "/vms", label: "VMs", icon: Boxes, minRole: "VIEWER" },
-  { href: "/docker", label: "Docker", icon: Container, minRole: "VIEWER" },
-  { href: "/network", label: "Netzwerk", icon: Waypoints, minRole: "VIEWER" },
-  { href: "/upchecker", label: "Upchecker", icon: ActivitySquare, minRole: "VIEWER" },
-  { href: "/explore", label: "Explore", icon: Radar, minRole: "VIEWER" },
-  { href: "/router", label: "Router", icon: Router, minRole: "ADMIN" },
-  { href: "/admin/users", label: "Nutzer", icon: Users, minRole: "ADMIN" },
+  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, minRole: "VIEWER" },
+  { href: "/servers", labelKey: "servers", icon: Server, minRole: "VIEWER" },
+  { href: "/vms", labelKey: "vms", icon: Boxes, minRole: "VIEWER" },
+  { href: "/docker", labelKey: "docker", icon: Container, minRole: "VIEWER" },
+  { href: "/network", labelKey: "network", icon: Waypoints, minRole: "VIEWER" },
+  { href: "/upchecker", labelKey: "upchecker", icon: ActivitySquare, minRole: "VIEWER" },
+  { href: "/explore", labelKey: "explore", icon: Radar, minRole: "VIEWER" },
+  { href: "/router", labelKey: "router", icon: Router, minRole: "ADMIN" },
+  { href: "/admin/users", labelKey: "users", icon: Users, minRole: "ADMIN" },
 ] as const;
 
 const roleRank: Record<string, number> = { VIEWER: 0, EDITOR: 1, ADMIN: 2 };
@@ -73,6 +75,7 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const t = useTranslations("shell");
   const [version, setVersion] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -138,14 +141,14 @@ export function AppShell({
                 )}
               >
                 <item.icon className="size-4" />
-                {!collapsed && item.label}
+                {!collapsed && t(`nav.${item.labelKey}`)}
               </Link>
             );
             if (!collapsed) return <div key={item.href}>{link}</div>;
             return (
               <Tooltip key={item.href}>
                 <TooltipTrigger render={link} />
-                <TooltipContent side="right">{item.label}</TooltipContent>
+                <TooltipContent side="right">{t(`nav.${item.labelKey}`)}</TooltipContent>
               </Tooltip>
             );
           })}
@@ -156,26 +159,28 @@ export function AppShell({
             size="icon"
             className="w-full"
             onClick={toggleCollapsed}
-            aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
+            aria-label={collapsed ? t("expandNav") : t("collapseNav")}
           >
             {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
           </Button>
         </div>
         <div className="border-t p-3 text-xs text-muted-foreground">
-          {!collapsed && "Angemeldet als"}
+          {!collapsed && t("signedInAs")}
           <div className={cn("mt-1 flex items-center gap-2", collapsed && "justify-center")}>
             <Badge variant="secondary">{session.role}</Badge>
           </div>
-          {version && (
-            <div
-              className={cn(
-                "mt-2 text-[11px] text-muted-foreground/70",
-                collapsed && "text-center"
-              )}
-            >
-              v{version}
-            </div>
-          )}
+          <div
+            className={cn(
+              "mt-2 flex items-center gap-1.5",
+              collapsed ? "justify-center" : "justify-between"
+            )}
+          >
+            {version && (
+              <span className="text-[11px] text-muted-foreground/70">v{version}</span>
+            )}
+            {!collapsed && <LanguageSwitcher className="ml-auto" />}
+          </div>
+          {collapsed && <LanguageSwitcher className="mt-1 w-full justify-center" />}
         </div>
       </aside>
 
@@ -185,7 +190,7 @@ export function AppShell({
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
               <SheetTrigger
                 render={
-                  <Button variant="ghost" size="icon" aria-label="Menü öffnen">
+                  <Button variant="ghost" size="icon" aria-label={t("openMenu")}>
                     <Menu className="size-5" />
                   </Button>
                 }
@@ -216,7 +221,7 @@ export function AppShell({
                         )}
                       >
                         <item.icon className="size-4" />
-                        {item.label}
+                        {t(`nav.${item.labelKey}`)}
                       </Link>
                     );
                   })}
@@ -228,7 +233,7 @@ export function AppShell({
                     className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     <UserCog className="size-4" />
-                    Konto
+                    {t("account")}
                   </Link>
                   <button
                     type="button"
@@ -239,13 +244,14 @@ export function AppShell({
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-accent"
                   >
                     <LogOut className="size-4" />
-                    Abmelden
+                    {t("logout")}
                   </button>
-                  {version && (
-                    <div className="px-3 pt-1 text-[11px] text-muted-foreground/70">
-                      v{version}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between px-3 pt-1">
+                    {version && (
+                      <span className="text-[11px] text-muted-foreground/70">v{version}</span>
+                    )}
+                    <LanguageSwitcher className="ml-auto" />
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
@@ -258,7 +264,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label="Theme wechseln"
+              aria-label={t("toggleTheme")}
             >
               <Sun className="size-4 scale-100 dark:scale-0" />
               <Moon className="absolute size-4 scale-0 dark:scale-100" />
@@ -286,11 +292,11 @@ export function AppShell({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push("/account")}>
                   <UserCog className="size-4" />
-                  Konto
+                  {t("account")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={logout} variant="destructive">
                   <LogOut className="size-4" />
-                  Abmelden
+                  {t("logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

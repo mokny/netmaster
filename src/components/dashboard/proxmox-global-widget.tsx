@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -8,6 +9,8 @@ import type { ProxmoxVmWithServerDTO } from "@/lib/types";
 const RUNNING_STATES = new Set(["running"]);
 
 export function ProxmoxGlobalWidget() {
+  const t = useTranslations("dashboard.widgets.proxmox");
+  const tCommon = useTranslations("common");
   const [vms, setVms] = useState<ProxmoxVmWithServerDTO[] | null>(null);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export function ProxmoxGlobalWidget() {
   }, [vms]);
 
   if (!vms) {
-    return <p className="text-sm text-muted-foreground">Lädt…</p>;
+    return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
   }
 
   const running = vms.filter((v) => RUNNING_STATES.has(v.status)).length;
@@ -53,11 +56,11 @@ export function ProxmoxGlobalWidget() {
       <div className="grid grid-cols-2 gap-2 text-center text-xs @xs:grid-cols-4">
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{running}</p>
-          <p className="truncate text-muted-foreground">Laufend</p>
+          <p className="truncate text-muted-foreground">{t("running")}</p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{stopped}</p>
-          <p className="truncate text-muted-foreground">Gestoppt</p>
+          <p className="truncate text-muted-foreground">{t("stopped")}</p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{qemu}</p>
@@ -71,7 +74,7 @@ export function ProxmoxGlobalWidget() {
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {byHost.length === 0 ? (
-          <p className="truncate text-sm text-muted-foreground">Keine Proxmox-Hosts gefunden.</p>
+          <p className="truncate text-sm text-muted-foreground">{t("noHostsFound")}</p>
         ) : (
           <ul className="space-y-1">
             {byHost.map((host) => {
@@ -84,7 +87,7 @@ export function ProxmoxGlobalWidget() {
                   >
                     <span className="min-w-0 truncate">{host.serverName}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {hostRunning}/{host.vms.length} laufend
+                      {t("runningOfTotal", { running: hostRunning, total: host.vms.length })}
                     </span>
                   </Link>
                 </li>

@@ -22,8 +22,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
+  const t = useTranslations("checks.globalDialog");
+  const tErrors = useTranslations("errors");
+  const tc = useTranslations("common");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notifyMe, setNotifyMe] = useState(true);
@@ -55,10 +59,10 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success("Check hinzugefügt");
+      toast.success(t("checkAdded"));
       setOpen(false);
       setForm({ name: "", url: "https://", checkType: "HTTP", expectedStatus: 200, intervalSec: 60, timeoutMs: 5000 });
       onSaved();
@@ -73,17 +77,17 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
         render={
           <Button size="sm">
             <Plus className="size-4" />
-            Check hinzufügen
+            {t("addCheck")}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Check hinzufügen</DialogTitle>
+          <DialogTitle>{t("addCheck")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Typ</Label>
+            <Label>{t("type")}</Label>
             <Select value={form.checkType} onValueChange={(v) => setCheckType(v as "HTTP" | "PING")}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -95,12 +99,12 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{tc("name")}</Label>
             <Input
               required
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Meine Domain"
+              placeholder={t("namePlaceholder")}
             />
           </div>
           <div className="space-y-2">
@@ -116,7 +120,7 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
           <div className="grid grid-cols-3 gap-3">
             {form.checkType === "HTTP" && (
               <div className="space-y-2">
-                <Label>Erw. Status</Label>
+                <Label>{t("expectedStatus")}</Label>
                 <Input
                   type="number"
                   value={form.expectedStatus}
@@ -127,7 +131,7 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
               </div>
             )}
             <div className="space-y-2">
-              <Label>Intervall (s)</Label>
+              <Label>{t("intervalSec")}</Label>
               <Input
                 type="number"
                 value={form.intervalSec}
@@ -137,7 +141,7 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Timeout (ms)</Label>
+              <Label>{t("timeoutMs")}</Label>
               <Input
                 type="number"
                 value={form.timeoutMs}
@@ -148,13 +152,13 @@ export function GlobalCheckDialog({ onSaved }: { onSaved: () => void }) {
             </div>
           </div>
           <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label className="font-normal">Mich bei Ausfall benachrichtigen</Label>
+            <Label className="font-normal">{t("notifyMeOnDown")}</Label>
             <Switch checked={notifyMe} onCheckedChange={(c) => setNotifyMe(!!c)} />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Hinzufügen
+              {tc("add")}
             </Button>
           </DialogFooter>
         </form>

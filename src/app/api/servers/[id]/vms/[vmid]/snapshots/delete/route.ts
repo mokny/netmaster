@@ -17,20 +17,20 @@ export async function POST(
     const session = await requireRole("EDITOR");
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
-    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "Ungültige VM-ID");
+    if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
     const body = await req.json();
     const names: string[] = Array.isArray(body.names)
       ? body.names.filter((n: unknown) => typeof n === "string")
       : [];
-    if (names.length === 0) throw new ApiError(400, "Keine Snapshots ausgewählt");
+    if (names.length === 0) throw new ApiError(400, "NO_SNAPSHOTS_SELECTED");
 
     const server = await prisma.server.findUniqueOrThrow({ where: { id } });
     requireProxmoxEnabled(server);
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
     });
-    if (!vm) throw new ApiError(404, "VM nicht gefunden");
+    if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
     const type = vm.type === "QEMU" ? "qemu" : "lxc";
 
     const results: BatchResult = { ok: [], failed: [] };
@@ -39,14 +39,14 @@ export async function POST(
         const { command, stdin } = buildSnapshotDeleteCommand(server, type, vmidNum, name);
         const result = await execOnServer(server, command, 60_000, stdin);
         if (result.code !== 0 && result.code !== null) {
-          results.failed.push({ name, error: result.stderr.trim() || "Löschen fehlgeschlagen" });
+          results.failed.push({ name, error: result.stderr.trim() || "DELETE_FAILED" });
         } else {
           results.ok.push(name);
         }
       } catch (err) {
         results.failed.push({
           name,
-          error: err instanceof Error ? err.message : "Löschen fehlgeschlagen",
+          error: err instanceof Error ? err.message : "DELETE_FAILED",
         });
       }
     }

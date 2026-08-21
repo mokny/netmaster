@@ -34,7 +34,7 @@ export async function POST(
 
     const backend = await detectFirewallBackend(server);
     if (backend === "none") {
-      throw new ApiError(400, "Kein unterstütztes Firewall-Backend (nft/iptables/ufw) erkannt");
+      throw new ApiError(400, "UNSUPPORTED_FIREWALL_BACKEND");
     }
 
     const ruleId = randomBytes(4).toString("hex");

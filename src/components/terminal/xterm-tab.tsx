@@ -5,6 +5,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useTerminalManager, type TerminalSession } from "@/hooks/use-terminal-manager";
+import { useTranslations } from "next-intl";
 
 function buildWsUrl(session: TerminalSession): string {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -22,6 +23,7 @@ function buildWsUrl(session: TerminalSession): string {
 }
 
 export function XtermTab({ session, active }: { session: TerminalSession; active: boolean }) {
+  const t = useTranslations("terminal.xtermTab");
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "closed" | "error">(
     "connecting"
@@ -69,7 +71,7 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
           if (msg.type === "connected") applyStatus("connected");
           if (msg.type === "error") {
             applyStatus("error");
-            setErrorMessage(msg.message ?? "Verbindung fehlgeschlagen");
+            setErrorMessage(msg.message ?? t("connectionFailed"));
           }
           if (msg.type === "closed") applyStatus("closed");
         } catch {
@@ -206,13 +208,12 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
     <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-black p-1">
       {session.kind === "vm-serial" && session.vmType === "QEMU" && status !== "error" && (
         <div className="absolute inset-x-0 top-0 z-10 bg-amber-950/90 px-3 py-1 text-xs text-amber-200">
-          Erfordert eine im Gast-OS eingerichtete serielle Konsole (z.B. ttyS0) – schlägt sonst
-          fehl. Alternativ die VNC-Konsole verwenden.
+          {t("serialConsoleHint")}
         </div>
       )}
       {status === "connecting" && (
         <div className="absolute inset-x-0 bottom-0 z-10 bg-muted/90 px-3 py-1 text-xs text-muted-foreground">
-          verbinde…
+          {t("connecting")}
         </div>
       )}
       <div ref={containerRef} className="h-full w-full" />
@@ -223,7 +224,7 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
       )}
       {status === "closed" && (
         <div className="absolute inset-x-0 bottom-0 bg-muted/90 px-3 py-1 text-xs text-muted-foreground">
-          getrennt
+          {t("disconnected")}
         </div>
       )}
     </div>

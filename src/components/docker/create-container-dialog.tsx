@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ export function CreateContainerDialog({
   images: DockerImageDTO[];
   onDone?: () => void;
 }) {
+  const t = useTranslations("docker.createContainerDialog");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -83,15 +86,15 @@ export function CreateContainerDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Erstellen fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("createFailed"));
         return;
       }
-      toast.success("Container erstellt");
+      toast.success(t("createSuccess"));
       setOpen(false);
       reset();
       onDone?.();
     } catch {
-      toast.error("Verbindung zum Server fehlgeschlagen");
+      toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -109,14 +112,14 @@ export function CreateContainerDialog({
         render={
           <Button size="sm">
             <ContainerIcon className="size-4" />
-            Container erstellen
+            {t("trigger")}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Container erstellen</DialogTitle>
-          <DialogDescription>Führt „docker run -d“ auf dem Server aus.</DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
@@ -136,12 +139,12 @@ export function CreateContainerDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Name (optional)</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="mein-container" />
+            <Label>{t("nameOptional")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-container" />
           </div>
 
           <div className="space-y-2">
-            <Label>Port-Mappings</Label>
+            <Label>{t("portMappings")}</Label>
             {ports.map((p, i) => (
               <div key={i} className="flex gap-2">
                 <Input
@@ -168,12 +171,12 @@ export function CreateContainerDialog({
               onClick={() => setPorts((prev) => [...prev, ""])}
             >
               <Plus className="size-4" />
-              Port hinzufügen
+              {t("addPort")}
             </Button>
           </div>
 
           <div className="space-y-2">
-            <Label>Umgebungsvariablen</Label>
+            <Label>{t("envVars")}</Label>
             {envs.map((e, i) => (
               <div key={i} className="flex gap-2">
                 <Input
@@ -213,12 +216,12 @@ export function CreateContainerDialog({
               onClick={() => setEnvs((prev) => [...prev, { key: "", value: "" }])}
             >
               <Plus className="size-4" />
-              Variable hinzufügen
+              {t("addVariable")}
             </Button>
           </div>
 
           <div className="space-y-2">
-            <Label>Volumes (Bind-Mounts)</Label>
+            <Label>{t("volumes")}</Label>
             {volumes.map((v, i) => (
               <div key={i} className="flex gap-2">
                 <Input
@@ -226,7 +229,7 @@ export function CreateContainerDialog({
                   onChange={(e) =>
                     setVolumes((prev) => prev.map((vv, idx) => (idx === i ? e.target.value : vv)))
                   }
-                  placeholder="/host/pfad:/container/pfad"
+                  placeholder="/host/path:/container/path"
                 />
                 <Button
                   variant="ghost"
@@ -245,19 +248,19 @@ export function CreateContainerDialog({
               onClick={() => setVolumes((prev) => [...prev, ""])}
             >
               <Plus className="size-4" />
-              Volume hinzufügen
+              {t("addVolume")}
             </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Restart-Policy</Label>
+              <Label>{t("restartPolicy")}</Label>
               <Select value={restartPolicy} onValueChange={(v) => setRestartPolicy(v as typeof restartPolicy)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="no">Kein Neustart</SelectItem>
+                  <SelectItem value="no">{t("restartPolicyNo")}</SelectItem>
                   <SelectItem value="unless-stopped">unless-stopped</SelectItem>
                   <SelectItem value="always">always</SelectItem>
                   <SelectItem value="on-failure">on-failure</SelectItem>
@@ -265,15 +268,15 @@ export function CreateContainerDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Netzwerk-Modus (optional)</Label>
+              <Label>{t("networkModeOptional")}</Label>
               <Input value={network} onChange={(e) => setNetwork(e.target.value)} placeholder="bridge" />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>
-              Zusätzliche docker-run-Flags (optional)
-              <span className="ml-1 font-normal text-muted-foreground">für Power-User</span>
+              {t("extraFlags")}
+              <span className="ml-1 font-normal text-muted-foreground">{t("extraFlagsHint")}</span>
             </Label>
             <textarea
               className="min-h-16 w-full rounded-md border bg-transparent p-2 font-mono text-xs shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -287,7 +290,7 @@ export function CreateContainerDialog({
         <DialogFooter>
           <Button disabled={loading || !image.trim()} onClick={run}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Erstellen
+            {t("create")}
           </Button>
         </DialogFooter>
       </DialogContent>

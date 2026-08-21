@@ -68,10 +68,10 @@ export async function POST(
     const body = (await req.json()) as CreateBody;
     validateIfaceName(body.name);
     if (!body.address || typeof body.address !== "string") {
-      throw new ApiError(400, "Address ist erforderlich");
+      throw new ApiError(400, "ADDRESS_REQUIRED");
     }
     if (!Number.isInteger(body.listenPort) || body.listenPort < 1 || body.listenPort > 65535) {
-      throw new ApiError(400, "Ungültiger ListenPort");
+      throw new ApiError(400, "INVALID_LISTEN_PORT");
     }
 
     const { privateKey } = await generateKeypair(server);
@@ -96,7 +96,7 @@ export async function POST(
     const { command, stdin } = buildWriteConfigCommand(server, body.name, raw);
     const writeRes = await execOnServer(server, command, 15_000, stdin);
     if (writeRes.code !== 0) {
-      throw new ApiError(400, writeRes.stderr.trim() || "Config konnte nicht geschrieben werden");
+      throw new ApiError(400, "WRITE_CONFIG_FAILED", writeRes.stderr.trim() || undefined);
     }
 
     if (body.autoStart !== false) {

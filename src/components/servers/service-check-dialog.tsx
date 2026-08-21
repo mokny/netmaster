@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,8 @@ export function ServiceCheckDialog({
   serverId: string;
   onSaved: () => void;
 }) {
+  const t = useTranslations("servers.serviceCheck");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notifyMe, setNotifyMe] = useState(false);
@@ -61,10 +64,10 @@ export function ServiceCheckDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
         return;
       }
-      toast.success("Health-Check hinzugefügt");
+      toast.success(t("healthCheckAdded"));
       setOpen(false);
       onSaved();
     } finally {
@@ -78,34 +81,34 @@ export function ServiceCheckDialog({
         render={
           <Button size="sm" variant="outline">
             <Plus className="size-4" />
-            HTTP-Check
+            {t("httpCheck")}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>HTTP-Health-Check hinzufügen</DialogTitle>
+          <DialogTitle>{t("addHealthCheck")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Typ</Label>
+            <Label>{t("type")}</Label>
             <Select value={form.checkType} onValueChange={(v) => setCheckType(v as "HTTP" | "PING")}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="HTTP">HTTP</SelectItem>
-                <SelectItem value="PING">Ping</SelectItem>
+                <SelectItem value="PING">{t("ping")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Name</Label>
+            <Label>{t("name")}</Label>
             <Input
               required
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Website erreichbar"
+              placeholder={t("namePlaceholder")}
             />
           </div>
           <div className="space-y-2">
@@ -121,7 +124,7 @@ export function ServiceCheckDialog({
           <div className="grid grid-cols-3 gap-3">
             {form.checkType === "HTTP" && (
               <div className="space-y-2">
-                <Label>Erw. Status</Label>
+                <Label>{t("expectedStatus")}</Label>
                 <Input
                   type="number"
                   value={form.expectedStatus}
@@ -132,7 +135,7 @@ export function ServiceCheckDialog({
               </div>
             )}
             <div className="space-y-2">
-              <Label>Intervall (s)</Label>
+              <Label>{t("intervalSeconds")}</Label>
               <Input
                 type="number"
                 value={form.intervalSec}
@@ -142,7 +145,7 @@ export function ServiceCheckDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Timeout (ms)</Label>
+              <Label>{t("timeoutMs")}</Label>
               <Input
                 type="number"
                 value={form.timeoutMs}
@@ -153,13 +156,13 @@ export function ServiceCheckDialog({
             </div>
           </div>
           <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label className="font-normal">Mich bei Ausfall benachrichtigen</Label>
+            <Label className="font-normal">{t("notifyOnFailure")}</Label>
             <Switch checked={notifyMe} onCheckedChange={(c) => setNotifyMe(!!c)} />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Hinzufügen
+              {t("add")}
             </Button>
           </DialogFooter>
         </form>

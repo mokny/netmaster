@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
+import { useTranslations } from "next-intl";
 
 interface Props {
   host: string;
@@ -35,6 +36,9 @@ interface Props {
 // gehen als kurzlebiges Ticket an den internen SSH-Client (siehe
 // adhoc-ssh-tickets.ts) und öffnen direkt einen Terminal-Tab.
 export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
+  const t = useTranslations("explore.sshConnectDialog");
+  const tErrors = useTranslations("errors");
+  const tc = useTranslations("common");
   const { openAdhocTerminal } = useTerminalManager();
   const [sshPort, setSshPort] = useState(port);
   const [username, setUsername] = useState("root");
@@ -60,7 +64,7 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Ticket konnte nicht erstellt werden");
+        toast.error(data.error ? tErrors(data.error) : t("ticketCreateFailed"));
         return;
       }
       openAdhocTerminal(data.ticket, `${username}@${host}`);
@@ -76,11 +80,8 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Per SSH verbinden</DialogTitle>
-          <DialogDescription>
-            Zugangsdaten für {host} werden nur einmalig für diese Verbindung verwendet, nicht
-            gespeichert.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description", { host })}</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -91,7 +92,7 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
         >
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div className="space-y-2">
-              <Label>Benutzername</Label>
+              <Label>{t("username")}</Label>
               <Input required value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -105,19 +106,19 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Authentifizierung</Label>
+            <Label>{t("authentication")}</Label>
             <Select value={authType} onValueChange={(v) => setAuthType(v as typeof authType)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="PASSWORD">Passwort</SelectItem>
-                <SelectItem value="PRIVATE_KEY">Privater Schlüssel</SelectItem>
+                <SelectItem value="PASSWORD">{t("password")}</SelectItem>
+                <SelectItem value="PRIVATE_KEY">{t("privateKey")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>{authType === "PASSWORD" ? "Passwort" : "Privater Schlüssel (PEM)"}</Label>
+            <Label>{authType === "PASSWORD" ? t("password") : t("privateKeyPem")}</Label>
             {authType === "PASSWORD" ? (
               <Input
                 type="password"
@@ -139,7 +140,7 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
             <div className="space-y-2">
               <Label>
                 Passphrase
-                <span className="ml-1 font-normal text-muted-foreground">(optional)</span>
+                <span className="ml-1 font-normal text-muted-foreground">({tc("optional")})</span>
               </Label>
               <Input
                 type="password"
@@ -151,7 +152,7 @@ export function SshConnectDialog({ host, port, open, onOpenChange }: Props) {
           <DialogFooter>
             <Button type="submit" disabled={connecting}>
               {connecting && <Loader2 className="size-4 animate-spin" />}
-              Verbinden
+              {t("connect")}
             </Button>
           </DialogFooter>
         </form>

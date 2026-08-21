@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export type StatusValue = "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
@@ -9,11 +12,11 @@ const STATUS_STYLES: Record<StatusValue, string> = {
   UNKNOWN: "bg-muted text-muted-foreground border-border",
 };
 
-const STATUS_LABELS: Record<StatusValue, string> = {
-  OK: "OK",
-  WARNING: "Warnung",
-  CRITICAL: "Kritisch",
-  UNKNOWN: "Unbekannt",
+const STATUS_LABEL_KEYS: Record<StatusValue, string> = {
+  OK: "ok",
+  WARNING: "warning",
+  CRITICAL: "critical",
+  UNKNOWN: "unknown",
 };
 
 const STATUS_DOT: Record<StatusValue, string> = {
@@ -34,6 +37,7 @@ export function StatusBadge({
   // ob es für den jeweiligen Status überhaupt interaktiv sein soll.
   onClick?: () => void;
 }) {
+  const t = useTranslations("status");
   const value = (status in STATUS_STYLES ? status : "UNKNOWN") as StatusValue;
   const clickable = Boolean(onClick) && (value === "WARNING" || value === "CRITICAL");
   return (
@@ -67,7 +71,7 @@ export function StatusBadge({
       )}
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[value])} />
-      <span className="truncate">{STATUS_LABELS[value]}</span>
+      <span className="truncate">{t(STATUS_LABEL_KEYS[value])}</span>
     </span>
   );
 }
