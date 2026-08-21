@@ -47,13 +47,18 @@ function runNmap(args: string[], timeoutMs: number): Promise<string> {
 // kein Port-Scan. MAC/Vendor sind nur verfügbar, wenn nmap mit ausreichenden
 // Rechten läuft (NET_RAW/NET_ADMIN) und der Host per ARP erreichbar ist.
 // `ranges` kann mehrere CIDR-Targets enthalten - nmap scannt sie in einem
-// einzigen Lauf.
+// einzigen Lauf. `dnsServers` überschreibt, welche Nameserver nmap für die
+// Reverse-DNS-Auflösung (Hostnamen) befragt - z.B. das Gateway/Router-DNS
+// einer Range, damit auch lokale DHCP-Hostnamen aufgelöst werden, selbst
+// wenn der System-Resolver einen anderen Server priorisiert.
 export async function runHostDiscovery(
   ranges: string | string[],
-  timeoutMs = 120_000
+  timeoutMs = 120_000,
+  dnsServers?: string[]
 ): Promise<DiscoveredAddress[]> {
   const targets = Array.isArray(ranges) ? ranges : [ranges];
-  const xml = await runNmap(["-sn", "-oX", "-", ...targets], timeoutMs);
+  const dnsArgs = dnsServers && dnsServers.length > 0 ? ["--dns-servers", dnsServers.join(",")] : [];
+  const xml = await runNmap(["-sn", ...dnsArgs, "-oX", "-", ...targets], timeoutMs);
   const parsed = parser.parse(xml);
   const hosts = ensureArray(parsed?.nmaprun?.host);
 

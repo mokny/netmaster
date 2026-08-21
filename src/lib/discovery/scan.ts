@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { detectLocalRanges, ipInCidr } from "./range";
+import { detectGatewayForInterface, readSystemDnsServers } from "./gateway";
 import { DEFAULT_SCAN_PORTS, resolveNetbiosName, runHostDiscovery, runPortScan } from "./nmap";
 import type { ExploreRange } from "@/generated/prisma/client";
 
@@ -87,6 +88,22 @@ function findRangeForIp(ip: string, ranges: ExploreRange[]): ExploreRange | unde
   return ranges.find((r) => ipInCidr(ip, r.cidr));
 }
 
+// Ermittelt zusätzliche Reverse-DNS-Server für den Scan: die Gateways der
+// LAN-Ranges (die als Router meist die DHCP-Hostnamen kennen) plus die
+// ohnehin konfigurierten System-Nameserver. Wird an nmap --dns-servers
+// übergeben, damit lokale Hostnamen auch dann aufgelöst werden, wenn der
+// System-Resolver primär einen anderen Server (z.B. Pi-hole/AdGuard)
+// anspricht, der keine lokalen PTR-Einträge kennt.
+async function resolveDnsServers(ranges: ExploreRange[]): Promise<string[]> {
+  const lanInterfaces = ranges
+    .filter((r) => r.source === "LAN_AUTO" && r.interfaceName)
+    .map((r) => r.interfaceName as string);
+
+  const gateways = await Promise.all(lanInterfaces.map(detectGatewayForInterface));
+  const servers = [...readSystemDnsServers(), ...gateways.filter((g): g is string => g !== null)];
+  return Array.from(new Set(servers));
+}
+
 // Führt async-Aufgaben mit begrenzter Konkurrenz aus (einfacher Worker-Pool),
 // damit nicht beliebig viele nmap-Prozesse gleichzeitig gestartet werden.
 async function mapWithConcurrency<T, R>(
@@ -127,7 +144,12 @@ export async function runDiscoveryScan(): Promise<void> {
       resolveEnabledRanges(),
       getOrCreateExploreSettings(),
     ]);
-    const hosts = await runHostDiscovery(ranges.map((r) => r.cidr));
+    const dnsServers = await resolveDnsServers(ranges);
+    const hosts = await runHostDiscovery(
+      ranges.map((r) => r.cidr),
+      120_000,
+      dnsServers
+    );
     const withMac = hosts.filter((h) => h.mac);
 
     state.progress = { phase: "ports", current: 0, total: withMac.length };
