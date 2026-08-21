@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -34,6 +34,9 @@ import {
   Globe,
   FolderUp,
   X,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
@@ -146,12 +149,101 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE");
 }
 
+function ipToSortableNumber(ip: string): number {
+  const parts = ip.split(".").map((p) => Number(p));
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return -1;
+  return parts.reduce((acc, p) => acc * 256 + p, 0);
+}
+
+type SortKey = "ip" | "hostname" | "vendor" | "mac" | "source" | "lastSeenAt" | "status";
+type SortDirection = "asc" | "desc";
+
+function getSortValue(host: DiscoveredHostRow, key: SortKey): string | number {
+  switch (key) {
+    case "ip":
+      return ipToSortableNumber(host.ip);
+    case "hostname":
+      return host.hostname ?? "";
+    case "vendor":
+      return host.vendor ?? "";
+    case "mac":
+      return host.mac ?? "";
+    case "source":
+      return host.range?.source ?? "";
+    case "lastSeenAt":
+      return new Date(host.lastSeenAt).getTime();
+    case "status":
+      return host.lastSeenOnline ? 1 : 0;
+  }
+}
+
+function sortHosts(
+  hosts: DiscoveredHostRow[],
+  sortKey: SortKey | null,
+  sortDirection: SortDirection
+): DiscoveredHostRow[] {
+  if (!sortKey) return hosts;
+  const dir = sortDirection === "asc" ? 1 : -1;
+  return [...hosts].sort((a, b) => {
+    const va = getSortValue(a, sortKey);
+    const vb = getSortValue(b, sortKey);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+}
+
+function SortableTableHead({
+  sortKey,
+  currentSortKey,
+  sortDirection,
+  onSort,
+  className,
+  children,
+}: {
+  sortKey: SortKey;
+  currentSortKey: SortKey | null;
+  sortDirection: SortDirection;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  const active = currentSortKey === sortKey;
+  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="flex items-center gap-1 hover:text-foreground"
+      >
+        {children}
+        <Icon className={`size-3.5 ${active ? "" : "text-muted-foreground/50"}`} />
+      </button>
+    </TableHead>
+  );
+}
+
 export function ExploreOverview() {
   const session = useSession();
   const canScan = session?.role === "EDITOR" || session?.role === "ADMIN";
   const { openTerminal } = useTerminalManager();
 
   const [hosts, setHosts] = useState<DiscoveredHostRow[] | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDirection("asc");
+    } else if (sortDirection === "asc") {
+      setSortDirection("desc");
+    } else {
+      setSortKey(null);
+      setSortDirection("asc");
+    }
+  }
   const [scanStatus, setScanStatus] = useState<ScanStatusDTO | null>(null);
   const [settings, setSettings] = useState<ExploreSettingsDTO | null>(null);
   const [ranges, setRanges] = useState<ExploreRangeDTO[] | null>(null);
@@ -554,20 +646,34 @@ export function ExploreOverview() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>IP</TableHead>
-                  <TableHead>Hostname</TableHead>
-                  <TableHead>Hersteller</TableHead>
-                  <TableHead>MAC</TableHead>
-                  <TableHead>Quelle</TableHead>
+                  <SortableTableHead sortKey="ip" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    IP
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="hostname" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    Hostname
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="vendor" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    Hersteller
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="mac" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    MAC
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="source" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    Quelle
+                  </SortableTableHead>
                   <TableHead>Verbindung</TableHead>
                   <TableHead>Offene Ports</TableHead>
-                  <TableHead>Zuletzt gesehen</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableTableHead sortKey="lastSeenAt" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    Zuletzt gesehen
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="status" currentSortKey={sortKey} sortDirection={sortDirection} onSort={toggleSort}>
+                    Status
+                  </SortableTableHead>
                   <TableHead className="text-right">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {hosts.map((host) => {
+                {sortHosts(hosts, sortKey, sortDirection).map((host) => {
                   const connections = detectConnections(host.openPorts, host.ip);
                   return (
                   <TableRow key={host.id}>
