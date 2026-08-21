@@ -9,6 +9,19 @@ interface VapidKeySet {
 
 let vapidKeys: Promise<VapidKeySet> | null = null;
 
+// Fällt ohne VAPID_SUBJECT-Env auf die E-Mail des ältesten Admin-Accounts
+// zurück. "mailto:admin@localhost" (früherer Default) wird von Apples
+// Push-Dienst mit "BadJwtToken" abgelehnt, siehe
+// node_modules/web-push/src/vapid-helper.js (localhost-Hostname-Check).
+async function defaultSubject(): Promise<string> {
+  const admin = await prisma.user.findFirst({
+    where: { role: "ADMIN" },
+    orderBy: { createdAt: "asc" },
+    select: { email: true },
+  });
+  return `mailto:${admin?.email ?? "admin@example.com"}`;
+}
+
 async function loadOrGenerateVapidKeys(): Promise<VapidKeySet> {
   // Manuell per .env gesetzte Keys haben Vorrang (z.B. wenn mehrere
   // Instanzen dieselben Keys teilen müssen).
@@ -18,7 +31,7 @@ async function loadOrGenerateVapidKeys(): Promise<VapidKeySet> {
     return {
       publicKey: envPublic,
       privateKey: envPrivate,
-      subject: process.env.VAPID_SUBJECT || "mailto:admin@localhost",
+      subject: process.env.VAPID_SUBJECT || (await defaultSubject()),
     };
   }
 
@@ -39,7 +52,7 @@ async function loadOrGenerateVapidKeys(): Promise<VapidKeySet> {
       id: "singleton",
       publicKey: generated.publicKey,
       privateKey: generated.privateKey,
-      subject: process.env.VAPID_SUBJECT || "mailto:admin@localhost",
+      subject: process.env.VAPID_SUBJECT || (await defaultSubject()),
     },
   });
 }

@@ -22,6 +22,11 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@netmaster.local}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-change-me-now}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}
+      # Kontaktangabe im VAPID-JWT für Web-Push. Muss auf eine mailto:- oder
+      # https:-Adresse mit echtem Hostnamen zeigen - "localhost" (der
+      # bisherige interne Default) wird von Apples Push-Dienst mit
+      # "BadJwtToken" abgelehnt, siehe web-push/src/vapid-helper.js.
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     volumes:
       - netmaster-data:/app/data
     restart: unless-stopped
