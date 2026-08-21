@@ -31,7 +31,10 @@ export async function GET() {
     await requireSession();
 
     const [hosts, servers, routers] = await Promise.all([
-      prisma.discoveredHost.findMany({ orderBy: { lastSeenAt: "desc" } }),
+      prisma.discoveredHost.findMany({
+        orderBy: { lastSeenAt: "desc" },
+        include: { range: { select: { source: true, interfaceName: true, cidr: true } } },
+      }),
       prisma.server.findMany({ select: { id: true, name: true, hostname: true } }),
       prisma.routerDevice.findMany({ select: { id: true, name: true, hostname: true } }),
     ]);
@@ -52,6 +55,7 @@ export async function GET() {
       firstSeenAt: host.firstSeenAt,
       lastSeenAt: host.lastSeenAt,
       matched: matchHost(host.ip, host.hostname, servers, routers),
+      range: host.range,
     }));
 
     return NextResponse.json({ hosts: result });

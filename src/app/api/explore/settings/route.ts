@@ -2,15 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
 import { getOrCreateExploreSettings } from "@/lib/discovery/scan";
-import { detectDefaultRange } from "@/lib/discovery/range";
-
-const CIDR_PATTERN = /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/;
 
 export async function GET() {
   try {
     await requireSession();
     const settings = await getOrCreateExploreSettings();
-    return NextResponse.json({ settings, detectedRange: detectDefaultRange() });
+    return NextResponse.json({ settings });
   } catch (err) {
     return handleApiError(err);
   }
@@ -22,33 +19,27 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const current = await getOrCreateExploreSettings();
 
-    let scanRangeOverride = current.scanRangeOverride;
-    if (body.scanRangeOverride !== undefined) {
-      if (body.scanRangeOverride === null || body.scanRangeOverride === "") {
-        scanRangeOverride = null;
-      } else {
-        const value = String(body.scanRangeOverride).trim();
-        if (!CIDR_PATTERN.test(value)) {
-          throw new ApiError(400, "Scan-Range muss im CIDR-Format vorliegen (z.B. 192.168.1.0/24)");
-        }
-        scanRangeOverride = value;
-      }
-    }
-
     const autoScanEnabled =
       body.autoScanEnabled !== undefined ? Boolean(body.autoScanEnabled) : current.autoScanEnabled;
     const autoScanIntervalHr =
       body.autoScanIntervalHr !== undefined
         ? Number(body.autoScanIntervalHr)
         : current.autoScanIntervalHr;
+    const portScanConcurrency =
+      body.portScanConcurrency !== undefined
+        ? Number(body.portScanConcurrency)
+        : current.portScanConcurrency;
 
     if (!Number.isFinite(autoScanIntervalHr) || autoScanIntervalHr < 1) {
       throw new ApiError(400, "Scan-Intervall muss mindestens 1 Stunde betragen");
     }
+    if (!Number.isFinite(portScanConcurrency) || portScanConcurrency < 1 || portScanConcurrency > 50) {
+      throw new ApiError(400, "Port-Scan-Konkurrenz muss zwischen 1 und 50 liegen");
+    }
 
     const settings = await prisma.exploreSettings.update({
       where: { id: current.id },
-      data: { scanRangeOverride, autoScanEnabled, autoScanIntervalHr },
+      data: { autoScanEnabled, autoScanIntervalHr, portScanConcurrency },
     });
 
     return NextResponse.json({ settings });

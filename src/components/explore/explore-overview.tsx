@@ -23,7 +23,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Loader2, RefreshCw, Server as ServerIcon, Router as RouterIcon } from "lucide-react";
+import { Loader2, RefreshCw, Server as ServerIcon, Router as RouterIcon, Plus, Trash2 } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
@@ -42,6 +42,14 @@ interface Matched {
   name: string;
 }
 
+type RangeSource = "LAN_AUTO" | "VPN_AUTO" | "MANUAL";
+
+interface RangeRef {
+  source: RangeSource;
+  interfaceName: string | null;
+  cidr: string;
+}
+
 interface DiscoveredHostRow {
   id: string;
   ip: string;
@@ -54,6 +62,7 @@ interface DiscoveredHostRow {
   firstSeenAt: string;
   lastSeenAt: string;
   matched: Matched | null;
+  range: RangeRef | null;
 }
 
 interface ScanStatusDTO {
@@ -66,9 +75,23 @@ interface ScanStatusDTO {
 
 interface ExploreSettingsDTO {
   id: string;
-  scanRangeOverride: string | null;
   autoScanEnabled: boolean;
   autoScanIntervalHr: number;
+  portScanConcurrency: number;
+}
+
+interface ExploreRangeDTO {
+  id: string;
+  cidr: string;
+  source: RangeSource;
+  interfaceName: string | null;
+  enabled: boolean;
+}
+
+function rangeSourceLabel(source: RangeSource): string {
+  if (source === "LAN_AUTO") return "LAN";
+  if (source === "VPN_AUTO") return "VPN";
+  return "Manuell";
 }
 
 function formatDateTime(iso: string): string {
@@ -82,8 +105,9 @@ export function ExploreOverview() {
   const [hosts, setHosts] = useState<DiscoveredHostRow[] | null>(null);
   const [scanStatus, setScanStatus] = useState<ScanStatusDTO | null>(null);
   const [settings, setSettings] = useState<ExploreSettingsDTO | null>(null);
-  const [detectedRange, setDetectedRange] = useState<string | null>(null);
-  const [rangeInput, setRangeInput] = useState("");
+  const [ranges, setRanges] = useState<ExploreRangeDTO[] | null>(null);
+  const [newRangeInput, setNewRangeInput] = useState("");
+  const [addingRange, setAddingRange] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [addServerHost, setAddServerHost] = useState<DiscoveredHostRow | null>(null);
@@ -94,21 +118,22 @@ export function ExploreOverview() {
     if (res.ok) setHosts((await res.json()).hosts);
   }, []);
 
+  const loadRanges = useCallback(async () => {
+    const res = await fetch("/api/explore/ranges");
+    if (res.ok) setRanges((await res.json()).ranges);
+  }, []);
+
   useEffect(() => {
     let active = true;
     Promise.all([
       fetch("/api/explore/hosts").then((res) => (res.ok ? res.json() : { hosts: [] })),
-      fetch("/api/explore/settings").then((res) =>
-        res.ok ? res.json() : { settings: null, detectedRange: null }
-      ),
-    ]).then(([hostsData, settingsData]) => {
+      fetch("/api/explore/settings").then((res) => (res.ok ? res.json() : { settings: null })),
+      fetch("/api/explore/ranges").then((res) => (res.ok ? res.json() : { ranges: [] })),
+    ]).then(([hostsData, settingsData, rangesData]) => {
       if (!active) return;
       setHosts(hostsData.hosts);
-      if (settingsData.settings) {
-        setSettings(settingsData.settings);
-        setDetectedRange(settingsData.detectedRange);
-        setRangeInput(settingsData.settings.scanRangeOverride ?? "");
-      }
+      if (settingsData.settings) setSettings(settingsData.settings);
+      setRanges(rangesData.ranges);
     });
     return () => {
       active = false;
@@ -155,15 +180,16 @@ export function ExploreOverview() {
   }
 
   async function saveSettings() {
+    if (!settings) return;
     setSavingSettings(true);
     try {
       const res = await fetch("/api/explore/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scanRangeOverride: rangeInput.trim() || null,
-          autoScanEnabled: settings?.autoScanEnabled ?? false,
-          autoScanIntervalHr: settings?.autoScanIntervalHr ?? 24,
+          autoScanEnabled: settings.autoScanEnabled,
+          autoScanIntervalHr: settings.autoScanIntervalHr,
+          portScanConcurrency: settings.portScanConcurrency,
         }),
       });
       const data = await res.json();
@@ -191,6 +217,53 @@ export function ExploreOverview() {
       return;
     }
     setSettings(data.settings);
+  }
+
+  async function addRange() {
+    const cidr = newRangeInput.trim();
+    if (!cidr) return;
+    setAddingRange(true);
+    try {
+      const res = await fetch("/api/explore/ranges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cidr }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Range konnte nicht angelegt werden");
+        return;
+      }
+      setNewRangeInput("");
+      await loadRanges();
+    } finally {
+      setAddingRange(false);
+    }
+  }
+
+  async function toggleRange(id: string, enabled: boolean) {
+    const res = await fetch(`/api/explore/ranges/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? "Speichern fehlgeschlagen");
+      return;
+    }
+    setRanges((prev) => prev?.map((r) => (r.id === id ? data.range : r)) ?? prev);
+  }
+
+  async function deleteRange(id: string) {
+    if (!window.confirm("Diese manuelle Range wirklich entfernen?")) return;
+    const res = await fetch(`/api/explore/ranges/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Löschen fehlgeschlagen");
+      return;
+    }
+    setRanges((prev) => prev?.filter((r) => r.id !== id) ?? prev);
   }
 
   const scanning = scanStatus?.status === "running";
@@ -234,30 +307,79 @@ export function ExploreOverview() {
       {canScan && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Scan-Einstellungen</CardTitle>
+            <CardTitle className="text-base">Scan-Ranges</CardTitle>
             <CardDescription>
-              {detectedRange
-                ? `Automatisch erkannt: ${detectedRange}`
-                : "Konnte keine Netzwerk-Range automatisch erkennen"}
+              LAN- und VPN-Interfaces des Hosts werden automatisch erkannt (alle 15s
+              abgeglichen). Manuelle Ranges können frei hinzugefügt werden.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {ranges === null ? (
+              <Skeleton className="h-20 w-full" />
+            ) : ranges.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine Range erkannt oder konfiguriert.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {ranges.map((range) => (
+                  <div
+                    key={range.id}
+                    className="flex items-center justify-between rounded-md border px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge variant={range.source === "MANUAL" ? "outline" : "secondary"}>
+                        {rangeSourceLabel(range.source)}
+                      </Badge>
+                      <span className="font-mono text-sm">{range.cidr}</span>
+                      {range.interfaceName && (
+                        <span className="text-xs text-muted-foreground">
+                          ({range.interfaceName})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={range.enabled}
+                        onCheckedChange={(c) => toggleRange(range.id, !!c)}
+                      />
+                      {range.source === "MANUAL" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => deleteRange(range.id)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <div className="space-y-2">
-                <Label>Scan-Range überschreiben (CIDR)</Label>
+                <Label>Manuelle Range hinzufügen (CIDR)</Label>
                 <Input
-                  value={rangeInput}
-                  onChange={(e) => setRangeInput(e.target.value)}
-                  placeholder={detectedRange ?? "192.168.1.0/24"}
+                  value={newRangeInput}
+                  onChange={(e) => setNewRangeInput(e.target.value)}
+                  placeholder="192.168.1.0/24"
                 />
               </div>
               <div className="flex items-end">
-                <Button variant="outline" onClick={saveSettings} disabled={savingSettings}>
-                  {savingSettings && <Loader2 className="size-4 animate-spin" />}
-                  Speichern
+                <Button variant="outline" onClick={addRange} disabled={addingRange}>
+                  {addingRange ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
+                  Hinzufügen
                 </Button>
               </div>
             </div>
+
             <div className="flex items-center justify-between rounded-md border px-3 py-2">
               <div>
                 <Label className="font-normal">Automatischer Scan</Label>
@@ -269,6 +391,27 @@ export function ExploreOverview() {
                 checked={settings?.autoScanEnabled ?? false}
                 onCheckedChange={(c) => toggleAutoScan(!!c)}
               />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="space-y-2">
+                <Label>Gleichzeitige Port-Scans</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={settings?.portScanConcurrency ?? 5}
+                  onChange={(e) =>
+                    setSettings((s) => (s ? { ...s, portScanConcurrency: Number(e.target.value) } : s))
+                  }
+                />
+              </div>
+              <div className="flex items-end">
+                <Button variant="outline" onClick={saveSettings} disabled={savingSettings}>
+                  {savingSettings && <Loader2 className="size-4 animate-spin" />}
+                  Speichern
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -296,6 +439,7 @@ export function ExploreOverview() {
                   <TableHead>Hostname</TableHead>
                   <TableHead>Hersteller</TableHead>
                   <TableHead>MAC</TableHead>
+                  <TableHead>Quelle</TableHead>
                   <TableHead>Offene Ports</TableHead>
                   <TableHead>Zuletzt gesehen</TableHead>
                   <TableHead>Status</TableHead>
@@ -309,6 +453,16 @@ export function ExploreOverview() {
                     <TableCell>{host.hostname ?? "-"}</TableCell>
                     <TableCell>{host.vendor ?? "-"}</TableCell>
                     <TableCell className="font-mono text-xs">{host.mac}</TableCell>
+                    <TableCell>
+                      {host.range ? (
+                        <Badge variant={host.range.source === "MANUAL" ? "outline" : "secondary"}>
+                          {rangeSourceLabel(host.range.source)}
+                          {host.range.interfaceName && ` (${host.range.interfaceName})`}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {host.openPorts.length === 0 && (

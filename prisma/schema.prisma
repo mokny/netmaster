@@ -543,10 +543,48 @@ model DiscoveredHost {
 
   lastSeenOnline Boolean @default(true)
 
+  // Range, in der der Host beim letzten Scan gefunden wurde. Wird bei jedem
+  // Scan neu gesetzt; verweist die Range nicht mehr, bleibt der Host mit
+  // rangeId=null erhalten (siehe ExploreRange).
+  rangeId String?
+  range   ExploreRange? @relation(fields: [rangeId], references: [id], onDelete: SetNull)
+
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
   @@index([ip])
+  @@index([rangeId])
+}
+
+enum ExploreRangeSource {
+  LAN_AUTO
+  VPN_AUTO
+  MANUAL
+}
+
+// Eine zu scannende CIDR-Range für Explore. LAN_AUTO/VPN_AUTO-Zeilen werden
+// vom Scheduler (reconcileRanges, alle 15s) aus den lokalen Netzwerk-
+// Interfaces des Hosts erzeugt/entfernt, je nachdem ob das zugehörige
+// Interface noch existiert; enabled bleibt dabei ein reiner User-Override,
+// der vom Reconcile nicht zurückgesetzt wird. MANUAL-Zeilen legt der Nutzer
+// selbst an und verwaltet sie frei (bearbeiten/löschen).
+model ExploreRange {
+  id     String             @id @default(cuid())
+  cidr   String
+  source ExploreRangeSource
+
+  // Name des Interfaces, aus dem die Range erkannt wurde (z.B. "wg0",
+  // "eth0"). Nur bei LAN_AUTO/VPN_AUTO gesetzt.
+  interfaceName String?
+
+  enabled Boolean @default(true)
+
+  hosts DiscoveredHost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([source, interfaceName])
 }
 
 // Konfiguration für die Explore-Netzwerkscans. Singleton-Tabelle (analog zu
@@ -555,13 +593,11 @@ model DiscoveredHost {
 model ExploreSettings {
   id String @id @default(cuid())
 
-  // Manuell überschriebene Scan-Range (CIDR, z.B. "192.168.1.0/24"). Ist
-  // dieses Feld leer, wird die Range automatisch aus den
-  // Netzwerkschnittstellen des Hosts ermittelt.
-  scanRangeOverride String?
-
   autoScanEnabled    Boolean @default(false)
   autoScanIntervalHr Int     @default(24)
+
+  // Wie viele Port-Scans (nmap -sV pro Host) maximal gleichzeitig laufen.
+  portScanConcurrency Int @default(5)
 
   updatedAt DateTime @updatedAt
 }

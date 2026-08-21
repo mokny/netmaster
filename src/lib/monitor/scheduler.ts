@@ -8,7 +8,7 @@ import {
 } from "./collect";
 import { collectRouterDevice } from "./router-collect";
 import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
-import { getOrCreateExploreSettings, runDiscoveryScan } from "@/lib/discovery/scan";
+import { getOrCreateExploreSettings, reconcileRanges, runDiscoveryScan } from "@/lib/discovery/scan";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
@@ -197,6 +197,7 @@ async function reconcile() {
     }
   }
 
+  await reconcileRanges();
   await reconcileDiscovery();
 }
 

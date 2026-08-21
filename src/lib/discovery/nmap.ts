@@ -46,11 +46,14 @@ function runNmap(args: string[], timeoutMs: number): Promise<string> {
 // nmap -sn: reiner Host-Discovery-Sweep (ARP im lokalen Subnetz, ICMP sonst),
 // kein Port-Scan. MAC/Vendor sind nur verfügbar, wenn nmap mit ausreichenden
 // Rechten läuft (NET_RAW/NET_ADMIN) und der Host per ARP erreichbar ist.
+// `ranges` kann mehrere CIDR-Targets enthalten - nmap scannt sie in einem
+// einzigen Lauf.
 export async function runHostDiscovery(
-  range: string,
+  ranges: string | string[],
   timeoutMs = 120_000
 ): Promise<DiscoveredAddress[]> {
-  const xml = await runNmap(["-sn", "-oX", "-", range], timeoutMs);
+  const targets = Array.isArray(ranges) ? ranges : [ranges];
+  const xml = await runNmap(["-sn", "-oX", "-", ...targets], timeoutMs);
   const parsed = parser.parse(xml);
   const hosts = ensureArray(parsed?.nmaprun?.host);
 
