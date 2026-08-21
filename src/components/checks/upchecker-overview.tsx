@@ -16,6 +16,18 @@ import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ServiceCheckDTO } from "@/lib/types";
 
+// lastError erklärt nur CRITICAL-Fälle (Timeout, falscher Status-Code, nicht
+// erreichbar) - bei WARNING (zu langsame Antwort) bleibt es leer, weil der
+// Request selbst erfolgreich war. Für diesen Fall wird der Auslöser separat
+// aus Latenz + konfiguriertem Schwellwert zusammengesetzt.
+function checkCauseMessage(check: ServiceCheckDTO): string | null {
+  if (check.lastError) return check.lastError;
+  if (check.lastStatus === "WARNING" && check.latencyWarnMs != null && check.lastLatencyMs != null) {
+    return `Antwortzeit ${Math.round(check.lastLatencyMs)}ms liegt über dem Schwellwert von ${check.latencyWarnMs}ms`;
+  }
+  return null;
+}
+
 export function UpcheckerOverview() {
   const [checks, setChecks] = useState<ServiceCheckDTO[] | null>(null);
   const [detailCheckId, setDetailCheckId] = useState<string | null>(null);
@@ -154,7 +166,7 @@ export function UpcheckerOverview() {
           title={detailCheck.name}
           subtitle={detailCheck.url}
           status={detailCheck.lastStatus}
-          error={detailCheck.lastError}
+          error={checkCauseMessage(detailCheck)}
           checkedAt={detailCheck.lastCheckedAt}
           onRecheck={() => recheck(detailCheck.id)}
         />
