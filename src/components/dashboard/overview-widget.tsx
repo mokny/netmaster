@@ -3,11 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusDetailDialog } from "@/components/status-detail-dialog";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import type { ServerDTO } from "@/lib/types";
 
 export function OverviewWidget() {
   const [servers, setServers] = useState<ServerDTO[]>([]);
+  const [detailServerId, setDetailServerId] = useState<string | null>(null);
+  const detailServer = servers.find((s) => s.id === detailServerId) ?? null;
+
+  async function recheck(id: string) {
+    const res = await fetch(`/api/servers/${id}/check`, { method: "POST" });
+    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    const data = await res.json();
+    setServers((prev) => prev.map((s) => (s.id === id ? data.server : s)));
+  }
 
   useEffect(() => {
     fetch("/api/servers")
@@ -60,13 +70,36 @@ export function OverviewWidget() {
                   className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
                 >
                   <span className="min-w-0 truncate">{s.name}</span>
-                  <StatusBadge status={s.lastStatus} className="shrink-0" />
+                  <StatusBadge
+                    status={s.lastStatus}
+                    className="shrink-0"
+                    onClick={() => setDetailServerId(s.id)}
+                  />
                 </Link>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {detailServer && (
+        <StatusDetailDialog
+          open={!!detailServer}
+          onOpenChange={(o) => !o && setDetailServerId(null)}
+          title={detailServer.name}
+          subtitle={detailServer.hostname}
+          status={detailServer.lastStatus}
+          error={detailServer.lastError}
+          checkedAt={detailServer.lastCheckedAt}
+          metrics={[
+            { label: "CPU", status: detailServer.lastCpuStatus },
+            { label: "Arbeitsspeicher", status: detailServer.lastMemStatus },
+            { label: "Speicherplatz", status: detailServer.lastDiskStatus },
+            { label: "Netzwerk", status: detailServer.lastNetStatus },
+          ]}
+          onRecheck={() => recheck(detailServer.id)}
+        />
+      )}
     </div>
   );
 }

@@ -214,6 +214,27 @@ export function AppShell({
                     );
                   })}
                 </nav>
+                <div className="space-y-1 border-t p-3">
+                  <Link
+                    href="/account"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <UserCog className="size-4" />
+                    Konto
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileNavOpen(false);
+                      logout();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-destructive transition-colors hover:bg-accent"
+                  >
+                    <LogOut className="size-4" />
+                    Abmelden
+                  </button>
+                </div>
               </SheetContent>
             </Sheet>
             <Network className="size-5" />

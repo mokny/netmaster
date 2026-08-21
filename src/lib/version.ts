@@ -3,11 +3,21 @@ import packageJson from "../../package.json";
 
 // package.json speichert immer "major.minor.0" (vom Release-Command
 // geschrieben). Die Revision (dritte Stelle) wird - wo möglich - live aus
-// der Git-Historie berechnet: Anzahl Commits seit dem letzten Release-Tag.
-// Das funktioniert nur, wenn eine vollständige .git-Historie vorhanden ist
-// (lokale Entwicklung) - im Produktions-Image (flacher Klon ohne .git) fällt
-// das auf die im package.json gebackene Version (revision 0) zurück, was
+// der Git-Historie berechnet: Anzahl Commits seit dem letzten Release-Tag,
+// oder - falls es noch keinen Release-Tag gibt - Anzahl aller Commits seit
+// Projektbeginn. Das funktioniert nur, wenn eine vollständige .git-Historie
+// vorhanden ist (lokale Entwicklung) - im Produktions-Image (flacher Klon
+// ohne .git) fällt das auf die im package.json gebackene Version zurück, was
 // dort korrekt ist, da eine Deployment-Kopie exakt einem Release entspricht.
+function commitCount(range: string): string {
+  return execFileSync("git", ["rev-list", "--count", range], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "ignore"],
+  })
+    .toString()
+    .trim();
+}
+
 function computeDynamicVersion(baseVersion: string): string {
   const [major, minor] = baseVersion.split(".");
   try {
@@ -17,16 +27,15 @@ function computeDynamicVersion(baseVersion: string): string {
     })
       .toString()
       .trim();
-    const count = execFileSync(
-      "git",
-      ["rev-list", "--count", `${tag}..HEAD`],
-      { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] }
-    )
-      .toString()
-      .trim();
+    const count = commitCount(`${tag}..HEAD`);
     return `${major}.${minor}.${count}`;
   } catch {
-    return `${major}.${minor}.0`;
+    try {
+      const count = commitCount("HEAD");
+      return `${major}.${minor}.${count}`;
+    } catch {
+      return `${major}.${minor}.0`;
+    }
   }
 }
 

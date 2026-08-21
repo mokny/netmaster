@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusDetailDialog } from "@/components/status-detail-dialog";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
 import { MoreVertical, Pencil, Trash2, RotateCw, Power } from "lucide-react";
@@ -38,6 +39,13 @@ export function ServerCard({
   const [editOpen, setEditOpen] = useState(false);
   const [rebootOpen, setRebootOpen] = useState(false);
   const [shutdownOpen, setShutdownOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  async function recheck() {
+    const res = await fetch(`/api/servers/${server.id}/check`, { method: "POST" });
+    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    onSaved();
+  }
 
   return (
     <Card className="relative">
@@ -92,7 +100,7 @@ export function ServerCard({
         )}
       </CardHeader>
       <CardContent className="space-y-2">
-        <StatusBadge status={server.lastStatus} />
+        <StatusBadge status={server.lastStatus} onClick={() => setDetailOpen(true)} />
         {server.description && (
           <p className="text-sm text-muted-foreground">{server.description}</p>
         )}
@@ -143,6 +151,22 @@ export function ServerCard({
           onOpenChange={setShutdownOpen}
         />
       )}
+      <StatusDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={server.name}
+        subtitle={server.hostname}
+        status={server.lastStatus}
+        error={server.lastError}
+        checkedAt={server.lastCheckedAt}
+        metrics={[
+          { label: "CPU", status: server.lastCpuStatus },
+          { label: "Arbeitsspeicher", status: server.lastMemStatus },
+          { label: "Speicherplatz", status: server.lastDiskStatus },
+          { label: "Netzwerk", status: server.lastNetStatus },
+        ]}
+        onRecheck={recheck}
+      />
     </Card>
   );
 }

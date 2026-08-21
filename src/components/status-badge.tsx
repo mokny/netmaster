@@ -26,15 +26,42 @@ const STATUS_DOT: Record<StatusValue, string> = {
 export function StatusBadge({
   status,
   className,
+  onClick,
 }: {
   status: string;
   className?: string;
+  // Wird nur bei WARNING/CRITICAL aufgerufen - das Badge selbst entscheidet,
+  // ob es für den jeweiligen Status überhaupt interaktiv sein soll.
+  onClick?: () => void;
 }) {
   const value = (status in STATUS_STYLES ? status : "UNKNOWN") as StatusValue;
+  const clickable = Boolean(onClick) && (value === "WARNING" || value === "CRITICAL");
   return (
     <span
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={
+        clickable
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClick!();
+            }
+          : undefined
+      }
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              e.stopPropagation();
+              onClick!();
+            }
+          : undefined
+      }
       className={cn(
         "inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
+        clickable && "cursor-pointer hover:brightness-125",
         STATUS_STYLES[value],
         className
       )}

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusDetailDialog } from "@/components/status-detail-dialog";
 import { GlobalCheckDialog } from "@/components/checks/global-check-dialog";
 import { EditCheckDialog } from "@/components/checks/edit-check-dialog";
 import { CheckNotifyDialog } from "@/components/checks/check-notify-dialog";
@@ -17,8 +18,17 @@ import type { ServiceCheckDTO } from "@/lib/types";
 
 export function UpcheckerOverview() {
   const [checks, setChecks] = useState<ServiceCheckDTO[] | null>(null);
+  const [detailCheckId, setDetailCheckId] = useState<string | null>(null);
   const session = useSession();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
+  const detailCheck = checks?.find((c) => c.id === detailCheckId) ?? null;
+
+  async function recheck(id: string) {
+    const res = await fetch(`/api/checks/${id}/check`, { method: "POST" });
+    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    const data = await res.json();
+    setChecks((prev) => (prev ? prev.map((c) => (c.id === id ? data.check : c)) : prev));
+  }
 
   const load = useCallback(async () => {
     const res = await fetch("/api/checks");
@@ -114,7 +124,7 @@ export function UpcheckerOverview() {
                         {Math.round(c.lastLatencyMs)}ms
                       </span>
                     )}
-                    <StatusBadge status={c.lastStatus} />
+                    <StatusBadge status={c.lastStatus} onClick={() => setDetailCheckId(c.id)} />
                     {canEdit && (
                       <>
                         <CheckNotifyDialog check={c} />
@@ -136,6 +146,19 @@ export function UpcheckerOverview() {
           )}
         </CardContent>
       </Card>
+
+      {detailCheck && (
+        <StatusDetailDialog
+          open={!!detailCheck}
+          onOpenChange={(o) => !o && setDetailCheckId(null)}
+          title={detailCheck.name}
+          subtitle={detailCheck.url}
+          status={detailCheck.lastStatus}
+          error={detailCheck.lastError}
+          checkedAt={detailCheck.lastCheckedAt}
+          onRecheck={() => recheck(detailCheck.id)}
+        />
+      )}
     </div>
   );
 }

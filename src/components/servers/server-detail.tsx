@@ -15,6 +15,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusDetailDialog } from "@/components/status-detail-dialog";
 import {
   CombinedMetricChart,
   DISK_KEY_PREFIX,
@@ -65,6 +66,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   const [checks, setChecks] = useState<ServiceCheckDTO[]>([]);
   const [containers, setContainers] = useState<ContainerSnapshotDTO[]>([]);
   const [vms, setVms] = useState<ProxmoxVmDTO[]>([]);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [serverRes, metricsRes, checksRes, containersRes, vmsRes] = await Promise.all([
@@ -85,6 +87,12 @@ export function ServerDetail({ serverId }: { serverId: string }) {
     if (containersRes.ok) setContainers((await containersRes.json()).containers);
     if (vmsRes.ok) setVms((await vmsRes.json()).vms);
   }, [serverId]);
+
+  async function recheck() {
+    const res = await fetch(`/api/servers/${serverId}/check`, { method: "POST" });
+    if (!res.ok) throw new Error("Prüfung fehlgeschlagen");
+    await loadAll();
+  }
 
   useEffect(() => {
     let active = true;
@@ -250,7 +258,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">{server.name}</h1>
-              <StatusBadge status={server.lastStatus} />
+              <StatusBadge status={server.lastStatus} onClick={() => setDetailOpen(true)} />
             </div>
             <p className="text-sm text-muted-foreground">
               {server.sshUsername}@{server.hostname}:{server.sshPort}
@@ -578,6 +586,23 @@ export function ServerDetail({ serverId }: { serverId: string }) {
           </Card>
         </div>
       )}
+
+      <StatusDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={server.name}
+        subtitle={`${server.sshUsername}@${server.hostname}:${server.sshPort}`}
+        status={server.lastStatus}
+        error={server.lastError}
+        checkedAt={server.lastCheckedAt}
+        metrics={[
+          { label: "CPU", status: server.lastCpuStatus },
+          { label: "Arbeitsspeicher", status: server.lastMemStatus },
+          { label: "Speicherplatz", status: server.lastDiskStatus },
+          { label: "Netzwerk", status: server.lastNetStatus },
+        ]}
+        onRecheck={recheck}
+      />
     </div>
   );
 }

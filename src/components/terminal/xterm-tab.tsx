@@ -26,6 +26,10 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { clearPendingCommands } = useTerminalManager();
 
+  // Vom Snippet-Runner per Polling gelesen (siehe waitForOpen unten) - ein
+  // Ref statt React-State, damit der Effekt nicht bei jeder Statusänderung
+  // neu laufen muss.
+  const statusRef = useRef(status);
   const wsRef = useRef<WebSocket | null>(null);
   const outputListeners = useRef<Set<(text: string) => void>>(new Set());
   const runningSnippet = useRef(false);
@@ -50,16 +54,21 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
     wsRef.current = ws;
     const decoder = new TextDecoder();
 
+    const applyStatus = (next: "connecting" | "connected" | "closed" | "error") => {
+      statusRef.current = next;
+      setStatus(next);
+    };
+
     ws.onmessage = (event) => {
       if (typeof event.data === "string") {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "connected") setStatus("connected");
+          if (msg.type === "connected") applyStatus("connected");
           if (msg.type === "error") {
-            setStatus("error");
+            applyStatus("error");
             setErrorMessage(msg.message ?? "Verbindung fehlgeschlagen");
           }
-          if (msg.type === "closed") setStatus("closed");
+          if (msg.type === "closed") applyStatus("closed");
         } catch {
           // ignore
         }
@@ -72,8 +81,10 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
         outputListeners.current.forEach((fn) => fn(text));
       }
     };
-    ws.onerror = () => setStatus("error");
-    ws.onclose = () => setStatus((s) => (s === "error" ? s : "closed"));
+    ws.onerror = () => applyStatus("error");
+    ws.onclose = () => {
+      if (statusRef.current !== "error") applyStatus("closed");
+    };
 
     const encoder = new TextEncoder();
     const onData = term.onData((data) => {
@@ -120,11 +131,15 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
     const encoder = new TextEncoder();
     let cancelled = false;
 
+    // Wartet auf die "connected"-Bestätigung des Servers, nicht nur auf den
+    // rohen WebSocket-readyState: Die Verbindung ist schon "OPEN", bevor die
+    // Shell/PTY auf dem Server tatsächlich bereitsteht. Ein Kommando, das vor
+    // dieser Bestätigung gesendet wird, geht verloren.
     const waitForOpen = () =>
       new Promise<void>((resolve) => {
         const check = () => {
           if (cancelled) return resolve();
-          if (wsRef.current?.readyState === WebSocket.OPEN) return resolve();
+          if (statusRef.current === "connected") return resolve();
           setTimeout(check, 100);
         };
         check();

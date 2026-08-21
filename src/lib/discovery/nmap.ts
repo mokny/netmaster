@@ -5,6 +5,7 @@ export interface DiscoveredAddress {
   ip: string;
   mac?: string;
   vendor?: string;
+  hostname?: string;
 }
 
 export interface DiscoveredPort {
@@ -60,13 +61,45 @@ export async function runHostDiscovery(
     const ipv4 = addresses.find((a: Record<string, string>) => a["@_addrtype"] === "ipv4");
     const macEntry = addresses.find((a: Record<string, string>) => a["@_addrtype"] === "mac");
     if (!ipv4) continue;
+    const hostnameEntries = ensureArray(host.hostnames?.hostname);
+    const hostname = hostnameEntries.find((h: Record<string, string>) => h["@_name"])?.[
+      "@_name"
+    ];
     results.push({
       ip: ipv4["@_addr"],
       mac: macEntry?.["@_addr"],
       vendor: macEntry?.["@_vendor"] || undefined,
+      hostname: hostname || undefined,
     });
   }
   return results;
+}
+
+// Fallback für Hosts ohne PTR-Eintrag (die meisten Consumer-Geräte ohne
+// eigenen DNS-Eintrag im Netz): fragt den NetBIOS-Namen per UDP/137 ab.
+// Erfasst v.a. Windows- und Samba-Hosts. Erfordert root/NET_RAW (wie der
+// restliche Discovery-Scan) - schlägt der Scan fehl oder liefert nichts,
+// wird das als "kein Name ermittelbar" behandelt statt den Sweep abzubrechen.
+export async function resolveNetbiosName(
+  ip: string,
+  timeoutMs = 10_000
+): Promise<string | undefined> {
+  try {
+    const xml = await runNmap(
+      ["-sU", "-p", "137", "--host-timeout", "5s", "--script", "nbstat", "-oX", "-", ip],
+      timeoutMs
+    );
+    const parsed = parser.parse(xml);
+    const hosts = ensureArray(parsed?.nmaprun?.host);
+    const host = hosts[0];
+    const scripts = ensureArray(host?.hostscript?.script);
+    const nbstat = scripts.find((s: Record<string, string>) => s["@_id"] === "nbstat");
+    const output: string = nbstat?.["@_output"] ?? "";
+    const match = output.match(/NetBIOS name:\s*([^\s,]+)/);
+    return match?.[1];
+  } catch {
+    return undefined;
+  }
 }
 
 // nmap -sV: Port-/Dienst-/Versionserkennung für einen einzelnen bereits

@@ -26,6 +26,10 @@ export interface ServerDTO {
   lastStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
   lastError: string | null;
   lastCheckedAt: string | null;
+  lastCpuStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastMemStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastDiskStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
+  lastNetStatus: "UNKNOWN" | "OK" | "WARNING" | "CRITICAL";
   createdAt: string;
   updatedAt?: string;
   cpuCores: number | null;

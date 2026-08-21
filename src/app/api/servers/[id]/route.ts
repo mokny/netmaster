@@ -13,7 +13,7 @@ const CONNECTION_FIELDS = [
   "encryptedPassphrase",
 ];
 
-const SERVER_SELECT = {
+export const SERVER_SELECT = {
   id: true,
   name: true,
   hostname: true,
@@ -41,6 +41,10 @@ const SERVER_SELECT = {
   lastStatus: true,
   lastError: true,
   lastCheckedAt: true,
+  lastCpuStatus: true,
+  lastMemStatus: true,
+  lastDiskStatus: true,
+  lastNetStatus: true,
   createdAt: true,
   updatedAt: true,
   cpuCores: true,

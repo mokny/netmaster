@@ -36,6 +36,10 @@ export async function GET() {
         lastStatus: true,
         lastError: true,
         lastCheckedAt: true,
+        lastCpuStatus: true,
+        lastMemStatus: true,
+        lastDiskStatus: true,
+        lastNetStatus: true,
         createdAt: true,
       },
     });

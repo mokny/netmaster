@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { detectDefaultRange } from "./range";
-import { DEFAULT_SCAN_PORTS, runHostDiscovery, runPortScan } from "./nmap";
+import { DEFAULT_SCAN_PORTS, resolveNetbiosName, runHostDiscovery, runPortScan } from "./nmap";
 
 export type ScanStatus = "idle" | "running" | "error";
 
@@ -79,11 +79,13 @@ export async function runDiscoveryScan(): Promise<void> {
       const mac = host.mac!;
       touchedMacs.push(mac);
       const now = new Date();
+      const hostname = host.hostname || (await resolveNetbiosName(host.ip));
       await prisma.discoveredHost.upsert({
         where: { mac },
         create: {
           ip: host.ip,
           mac,
+          hostname,
           vendor: host.vendor,
           openPortsJson: JSON.stringify(openPorts),
           lastSeenOnline: true,
@@ -92,6 +94,7 @@ export async function runDiscoveryScan(): Promise<void> {
         },
         update: {
           ip: host.ip,
+          hostname,
           vendor: host.vendor,
           openPortsJson: JSON.stringify(openPorts),
           lastSeenOnline: true,
