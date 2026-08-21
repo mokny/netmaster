@@ -1,0 +1,131 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Loader2, Pencil } from "lucide-react";
+import type { ServiceCheckDTO } from "@/lib/types";
+
+export function EditCheckDialog({
+  check,
+  onSaved,
+}: {
+  check: ServiceCheckDTO;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    name: check.name,
+    url: check.url,
+    expectedStatus: check.expectedStatus,
+    intervalSec: check.intervalSec,
+    timeoutMs: check.timeoutMs,
+  });
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/checks/${check.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Speichern fehlgeschlagen");
+        return;
+      }
+      toast.success("Check aktualisiert");
+      setOpen(false);
+      onSaved();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button variant="ghost" size="icon" className="size-6">
+            <Pencil className="size-3.5" />
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Check bearbeiten</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input
+              required
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>URL</Label>
+            <Input
+              required
+              type="url"
+              value={form.url}
+              onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label>Erw. Status</Label>
+              <Input
+                type="number"
+                value={form.expectedStatus}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, expectedStatus: Number(e.target.value) }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Intervall (s)</Label>
+              <Input
+                type="number"
+                value={form.intervalSec}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, intervalSec: Number(e.target.value) }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Timeout (ms)</Label>
+              <Input
+                type="number"
+                value={form.timeoutMs}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, timeoutMs: Number(e.target.value) }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              Speichern
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

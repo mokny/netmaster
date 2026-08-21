@@ -72,10 +72,19 @@ interface StoredSubscription {
   auth: string;
 }
 
+interface PushSendResult {
+  ok: boolean;
+  error?: string;
+}
+
 // Schickt an eine einzelne Subscription. Ungültig gewordene Subscriptions
 // (404/410 vom Push-Dienst, z.B. App deinstalliert) werden dabei aus der DB
-// entfernt.
-async function sendPushToSubscription(sub: StoredSubscription, payload: PushPayload) {
+// entfernt. Gibt das Ergebnis zurück statt Fehler nur zu loggen, damit
+// Aufrufer (z.B. der "Test senden"-Button) den echten Grund anzeigen können.
+async function sendPushToSubscription(
+  sub: StoredSubscription,
+  payload: PushPayload
+): Promise<PushSendResult> {
   try {
     await webPush.sendNotification(
       {
@@ -84,13 +93,24 @@ async function sendPushToSubscription(sub: StoredSubscription, payload: PushPayl
       },
       JSON.stringify(payload)
     );
+    return { ok: true };
   } catch (err) {
     const statusCode = (err as { statusCode?: number }).statusCode;
+    const body = (err as { body?: string }).body;
+    const message = err instanceof Error ? err.message : String(err);
+
     if (statusCode === 404 || statusCode === 410) {
       await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-    } else {
-      console.error(`push notification failed for subscription ${sub.id} (status ${statusCode}):`, err);
+      return { ok: false, error: "Subscription ist nicht mehr gültig und wurde entfernt" };
     }
+
+    console.error(
+      `push notification failed for subscription ${sub.id} (status ${statusCode ?? "?"}): ${message}${body ? ` — body: ${body}` : ""}`
+    );
+    return {
+      ok: false,
+      error: statusCode ? `Push-Versand fehlgeschlagen (HTTP ${statusCode}): ${message}` : message,
+    };
   }
 }
 
@@ -101,23 +121,31 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;
 
-  await Promise.all(subscriptions.map((sub) => sendPushToSubscription(sub, payload)));
+  const results = await Promise.all(subscriptions.map((sub) => sendPushToSubscription(sub, payload)));
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length > 0) {
+    console.error(
+      `push notification "${payload.title}" failed for ${failed.length}/${subscriptions.length} subscription(s) of user ${userId}`
+    );
+  }
 }
 
 // Schickt eine Push-Nachricht an genau ein Gerät (z.B. für den
 // "Test senden"-Button, der nur das aktuell benutzte Gerät prüfen soll).
+// Gibt den tatsächlichen Fehler zurück statt einen pauschalen Erfolg zu
+// melden, damit der Nutzer sieht, woran eine fehlgeschlagene Zustellung liegt.
 export async function sendPushToSubscriptionByEndpoint(
   userId: string,
   endpoint: string,
   payload: PushPayload
-) {
+): Promise<PushSendResult & { found: boolean }> {
   await ensureVapidKeys();
 
   const sub = await prisma.pushSubscription.findFirst({ where: { userId, endpoint } });
-  if (!sub) return false;
+  if (!sub) return { ok: false, found: false, error: "Keine aktive Push-Subscription für dieses Gerät" };
 
-  await sendPushToSubscription(sub, payload);
-  return true;
+  const result = await sendPushToSubscription(sub, payload);
+  return { ...result, found: true };
 }
 
 export type NotificationEvent =

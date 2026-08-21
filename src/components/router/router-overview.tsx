@@ -15,9 +15,11 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
+import { NetworkChart, type NetworkChartPoint } from "@/components/network/network-chart";
+import { formatBitRate } from "@/lib/format";
 import { Trash2, RotateCcw, RefreshCw, Wifi, Router as RouterIcon } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
-import type { RouterDeviceDTO, RouterHostEntry, RouterWifiNetwork } from "@/lib/types";
+import type { RouterDeviceDTO, RouterHostEntry, RouterWifiNetwork, RouterSampleDTO } from "@/lib/types";
 
 function formatUptime(sec: number | null): string {
   if (sec == null) return "-";
@@ -37,9 +39,36 @@ function DeviceCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [samples, setSamples] = useState<RouterSampleDTO[]>([]);
   const hosts: RouterHostEntry[] = JSON.parse(device.connectedHostsJson || "[]");
   const wifi: RouterWifiNetwork[] = JSON.parse(device.wifiNetworksJson || "[]");
   const activeHosts = hosts.filter((h) => h.active);
+
+  useEffect(() => {
+    fetch(`/api/router-devices/${device.id}/samples`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setSamples(data.samples))
+      .catch(() => {});
+  }, [device.id, device.lastCheckedAt]);
+
+  // Rate = Delta der kumulativen Byte-Zähler / Delta der Zeit zwischen zwei
+  // Samples. Ein negatives Delta (Zähler-Reset, z.B. Reboot) liefert keinen
+  // Punkt statt eines falschen Ausreißers.
+  const ratePoints: NetworkChartPoint[] = samples.slice(1).map((s, i) => {
+    const prev = samples[i];
+    const deltaSec = (new Date(s.timestamp).getTime() - new Date(prev.timestamp).getTime()) / 1000;
+    const rateFor = (curr: number | null, prevVal: number | null) => {
+      if (curr === null || prevVal === null || deltaSec <= 0) return null;
+      const delta = curr - prevVal;
+      if (delta < 0) return null;
+      return delta / deltaSec;
+    };
+    return {
+      timestamp: s.timestamp,
+      rx: rateFor(s.bytesReceived, prev.bytesReceived),
+      tx: rateFor(s.bytesSent, prev.bytesSent),
+    };
+  });
 
   async function runAction(action: string, extra: Record<string, unknown> = {}) {
     setBusy(action);
@@ -126,6 +155,13 @@ function DeviceCard({
                 <span className="font-mono text-xs">{device.wanExternalIp}</span>
               )}
             </div>
+          </div>
+        )}
+
+        {ratePoints.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs text-muted-foreground">Durchsatz</p>
+            <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
           </div>
         )}
 

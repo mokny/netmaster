@@ -12,6 +12,11 @@ export interface TerminalSession {
   vmid: number | null;
   vmType: "QEMU" | "LXC" | null;
   containerId: string | null;
+  // Von runSnippet() gesetzte, noch nicht ausgeführte Befehlszeilen. Ein Tab
+  // (XtermTab) konsumiert sie, sobald die WebSocket-Verbindung steht, und
+  // wartet zwischen den Zeilen auf einen Abschluss-Marker im Output.
+  pendingCommands: string[] | null;
+  pendingRunId: number;
 }
 
 export interface PanelGeometry {
@@ -32,6 +37,8 @@ interface TerminalManagerContextValue {
   maximized: boolean;
   geometry: PanelGeometry;
   openTerminal: (serverId: string, serverName: string) => void;
+  runSnippet: (serverId: string, serverName: string, commands: string[]) => void;
+  clearPendingCommands: (id: string) => void;
   openVmTerminal: (
     serverId: string,
     vmid: number,
@@ -82,6 +89,8 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid: null,
         vmType: null,
         containerId: null,
+        pendingCommands: null,
+        pendingRunId: 0,
       }));
     },
     [openTab]
@@ -98,6 +107,8 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid,
         vmType,
         containerId: null,
+        pendingCommands: null,
+        pendingRunId: 0,
       }));
     },
     [openTab]
@@ -114,6 +125,8 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid,
         vmType: "QEMU",
         containerId: null,
+        pendingCommands: null,
+        pendingRunId: 0,
       }));
     },
     [openTab]
@@ -130,10 +143,50 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         vmid: null,
         vmType: null,
         containerId,
+        pendingCommands: null,
+        pendingRunId: 0,
       }));
     },
     [openTab]
   );
+
+  // Öffnet (bzw. aktiviert) den Server-Terminal-Tab und hinterlegt die
+  // Snippet-Befehle zur Ausführung. XtermTab konsumiert pendingCommands,
+  // sobald die Verbindung steht.
+  const runSnippet = useCallback(
+    (serverId: string, serverName: string, commands: string[]) => {
+      const key = `server:${serverId}`;
+      setSessions((prev) => {
+        const existing = prev.find((s) => s.id === key);
+        if (existing) {
+          return prev.map((s) =>
+            s.id === key ? { ...s, pendingCommands: commands, pendingRunId: s.pendingRunId + 1 } : s
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: key,
+            kind: "server",
+            label: serverName,
+            serverId,
+            vmid: null,
+            vmType: null,
+            containerId: null,
+            pendingCommands: commands,
+            pendingRunId: 1,
+          },
+        ];
+      });
+      setActiveId(key);
+      setMinimized(false);
+    },
+    []
+  );
+
+  const clearPendingCommands = useCallback((id: string) => {
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, pendingCommands: null } : s)));
+  }, []);
 
   const closeTab = useCallback((id: string) => {
     setSessions((prev) => {
@@ -186,6 +239,8 @@ export function TerminalManagerProvider({ children }: { children: React.ReactNod
         openVmTerminal,
         openVmVnc,
         openDockerExec,
+        runSnippet,
+        clearPendingCommands,
         closeTab,
         setActive,
         closePanel,

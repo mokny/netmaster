@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import type { TerminalSession } from "@/hooks/use-terminal-manager";
+import { useTerminalManager, type TerminalSession } from "@/hooks/use-terminal-manager";
 
 function buildWsUrl(session: TerminalSession): string {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -24,6 +24,11 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
     "connecting"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { clearPendingCommands } = useTerminalManager();
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const outputListeners = useRef<Set<(text: string) => void>>(new Set());
+  const runningSnippet = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -42,6 +47,8 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
 
     const ws = new WebSocket(buildWsUrl(session));
     ws.binaryType = "arraybuffer";
+    wsRef.current = ws;
+    const decoder = new TextDecoder();
 
     ws.onmessage = (event) => {
       if (typeof event.data === "string") {
@@ -58,7 +65,12 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
         }
         return;
       }
-      term.write(new Uint8Array(event.data as ArrayBuffer));
+      const bytes = new Uint8Array(event.data as ArrayBuffer);
+      term.write(bytes);
+      if (outputListeners.current.size > 0) {
+        const text = decoder.decode(bytes, { stream: true });
+        outputListeners.current.forEach((fn) => fn(text));
+      }
     };
     ws.onerror = () => setStatus("error");
     ws.onclose = () => setStatus((s) => (s === "error" ? s : "closed"));
@@ -88,6 +100,7 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
       onData.dispose();
       resizeObserver.disconnect();
       ws.close();
+      wsRef.current = null;
       term.dispose();
     };
     // Session-Identität ist über die deduplizierte Tab-ID stabil – die
@@ -95,6 +108,58 @@ export function XtermTab({ session, active }: { session: TerminalSession; active
     // unabhängig davon ob er gerade sichtbar ist.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id]);
+
+  // Führt die von einem Snippet hinterlegten Befehlszeilen nacheinander aus:
+  // jede Zeile bekommt einen unsichtbaren Abschluss-Marker angehängt, auf den
+  // im Output gewartet wird, bevor die nächste Zeile gesendet wird.
+  useEffect(() => {
+    if (!session.pendingCommands || session.pendingCommands.length === 0) return;
+    if (runningSnippet.current) return;
+    runningSnippet.current = true;
+    const commands = session.pendingCommands;
+    const encoder = new TextEncoder();
+    let cancelled = false;
+
+    const waitForOpen = () =>
+      new Promise<void>((resolve) => {
+        const check = () => {
+          if (cancelled) return resolve();
+          if (wsRef.current?.readyState === WebSocket.OPEN) return resolve();
+          setTimeout(check, 100);
+        };
+        check();
+      });
+
+    (async () => {
+      for (const cmd of commands) {
+        if (cancelled) break;
+        await waitForOpen();
+        if (cancelled || !wsRef.current) break;
+
+        const marker = `__SNIPPET_DONE_${Math.random().toString(36).slice(2)}__`;
+        const done = new Promise<void>((resolve) => {
+          let buffer = "";
+          const listener = (chunk: string) => {
+            buffer += chunk;
+            if (buffer.includes(marker)) {
+              outputListeners.current.delete(listener);
+              resolve();
+            }
+          };
+          outputListeners.current.add(listener);
+        });
+
+        wsRef.current.send(encoder.encode(`${cmd}; echo ${marker}\r`));
+        await done;
+      }
+      runningSnippet.current = false;
+      if (!cancelled) clearPendingCommands(session.id);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.id, session.pendingCommands, session.pendingRunId, clearPendingCommands]);
 
   // Größe neu anpassen, sobald der Tab (wieder) sichtbar wird.
   useEffect(() => {

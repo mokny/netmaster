@@ -232,3 +232,18 @@ export interface RouterDeviceDTO {
   wifiNetworksJson: string;
   createdAt: string;
 }
+
+export interface SnippetDTO {
+  id: string;
+  serverId: string | null;
+  name: string;
+  commands: string[];
+  createdAt: string;
+}
+
+export interface RouterSampleDTO {
+  id: string;
+  timestamp: string;
+  bytesReceived: number | null;
+  bytesSent: number | null;
+}

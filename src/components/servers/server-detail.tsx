@@ -30,6 +30,7 @@ import { ServerNetworkGraph } from "@/components/servers/server-network-graph";
 import { ServerSummaryBar } from "@/components/servers/server-summary-bar";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
 import { CleanupDialog } from "@/components/servers/cleanup-dialog";
+import { SnippetsMenu } from "@/components/servers/snippets-menu";
 import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { VmRow } from "@/components/vms/vm-row";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -266,6 +267,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
               Terminal
             </Button>
           )}
+          {canEdit && <SnippetsMenu serverId={server.id} serverName={server.name} />}
           {canEdit && (
             <PowerActionDialog
               serverId={serverId}

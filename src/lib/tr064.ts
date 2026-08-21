@@ -157,6 +157,10 @@ const SVC = {
     type: "urn:dslforum-org:service:WANIPConnection:1",
   },
   hosts: { url: "/upnp/control/hosts", type: "urn:dslforum-org:service:Hosts:1" },
+  wanCommonIfConfig: {
+    url: "/upnp/control/wancommonifconfig1",
+    type: "urn:dslforum-org:service:WANCommonInterfaceConfig:1",
+  },
   wlan: (index: number) => ({
     url: `/upnp/control/wlanconfig${index}`,
     type: "urn:dslforum-org:service:WLANConfiguration:1",
@@ -270,6 +274,27 @@ export async function getWifiNetworks(config: Tr064Config): Promise<WifiNetwork[
     }
   }
   return networks;
+}
+
+export interface WanByteCounters {
+  bytesReceived: number;
+  bytesSent: number;
+}
+
+// Kumulative Byte-Zähler seit letztem Verbindungsaufbau (WANCommonInterfaceConfig).
+// Funktioniert unabhängig vom Anschlusstyp (DSL/Kabel/Glasfaser) - im
+// Gegensatz zu den DSL-spezifischen Sync-Raten. Aufrufer bildet daraus über
+// zwei Messpunkte eine Rate (siehe router-collect.ts).
+export async function getWanByteCounters(config: Tr064Config): Promise<WanByteCounters> {
+  const svc = SVC.wanCommonIfConfig;
+  const [rx, tx] = await Promise.all([
+    tr064Call(config, svc.url, svc.type, "GetTotalBytesReceived"),
+    tr064Call(config, svc.url, svc.type, "GetTotalBytesSent"),
+  ]);
+  return {
+    bytesReceived: Number(rx.NewTotalBytesReceived ?? 0),
+    bytesSent: Number(tx.NewTotalBytesSent ?? 0),
+  };
 }
 
 export async function setWifiEnabled(

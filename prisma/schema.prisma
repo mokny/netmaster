@@ -243,6 +243,7 @@ model Server {
   metricSamples MetricSample[]
   diskSamples   DiskSample[]
   serviceChecks ServiceCheck[]
+  snippets      Snippet[]
   containerSnapshots DockerContainerSnapshot[]
   imageSnapshots     DockerImageSnapshot[]
   proxmoxVms    ProxmoxVm[]
@@ -305,6 +306,20 @@ model ServiceCheck {
 
   results     ServiceCheckResult[]
   subscribers ServiceCheckSubscriber[]
+}
+
+// Wiederverwendbare Shell-Befehlsfolgen, die aus den Server-Details heraus
+// live im Terminal ausgeführt werden können. serverId=null macht ein Snippet
+// auf jedem Server nutzbar (global), sonst nur auf dem angegebenen Server.
+model Snippet {
+  id           String   @id @default(cuid())
+  serverId     String?
+  server       Server?  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  name         String
+  // JSON-Array einzelner Befehlszeilen, nacheinander ausgeführt.
+  commandsJson String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // Wer bei einem Ausfall eines Checks per Push benachrichtigt wird - nur für
@@ -508,6 +523,25 @@ model RouterDevice {
   // JSON-Array der WLAN-Funknetze ({index, ssid, enabled, band}[])
   wifiNetworksJson String @default("[]")
 
+  samples RouterSample[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Durchsatz-Samples für den Verlaufsgraph in der Router-Übersicht. Speichert
+// kumulative Byte-Zähler (wie MetricSample.netRxBytes/netTxBytes) statt
+// fertiger Raten - die Rate wird aus zwei Messpunkten client-/serverseitig
+// berechnet. Feste 7-Tage-Aufbewahrung statt eines konfigurierbaren Felds
+// (bei nur wenigen Router-Geräten kein nennenswerter Speicherbedarf).
+model RouterSample {
+  id             String       @id @default(cuid())
+  routerDeviceId String
+  routerDevice   RouterDevice @relation(fields: [routerDeviceId], references: [id], onDelete: Cascade)
+  timestamp      DateTime     @default(now())
+
+  bytesReceived Float?
+  bytesSent     Float?
+
+  @@index([routerDeviceId, timestamp])
 }

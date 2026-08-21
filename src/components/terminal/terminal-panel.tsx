@@ -7,6 +7,7 @@ import { useTerminalManager, type TerminalSession } from "@/hooks/use-terminal-m
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { XtermTab } from "@/components/terminal/xterm-tab";
 import { VncTab } from "@/components/terminal/vnc-tab";
+import { SnippetsMenu } from "@/components/servers/snippets-menu";
 
 const BASE_OFFSET = 24;
 
@@ -38,6 +39,8 @@ export function TerminalPanel() {
   );
 
   if (sessions.length === 0) return null;
+
+  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
   function onDragStart(e: React.MouseEvent) {
     if (maximized || isMobile) return;
@@ -159,6 +162,13 @@ export function TerminalPanel() {
             ))}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
+            {!minimized && activeSession?.kind === "server" && (
+              <SnippetsMenu
+                serverId={activeSession.serverId}
+                serverName={activeSession.label}
+                size="icon"
+              />
+            )}
             <button
               onClick={toggleMinimize}
               className="rounded p-1 hover:bg-accent"

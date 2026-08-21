@@ -12,13 +12,13 @@ export async function POST(req: NextRequest) {
       throw new ApiError(400, "Dieses Gerät hat keine aktive Push-Subscription");
     }
 
-    const sent = await sendPushToSubscriptionByEndpoint(session.userId, endpoint, {
+    const result = await sendPushToSubscriptionByEndpoint(session.userId, endpoint, {
       title: "Test-Benachrichtigung",
       body: "Wenn du das siehst, funktionieren Push-Benachrichtigungen.",
       url: "/account",
     });
-    if (!sent) {
-      throw new ApiError(400, "Keine aktive Push-Subscription für dieses Gerät");
+    if (!result.ok) {
+      throw new ApiError(400, result.error ?? "Test-Benachrichtigung fehlgeschlagen");
     }
 
     return NextResponse.json({ ok: true });

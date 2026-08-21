@@ -5,10 +5,13 @@ import {
   getWanStatus,
   getConnectedHosts,
   getWifiNetworks,
+  getWanByteCounters,
   type Tr064Config,
 } from "@/lib/tr064";
 import { publish } from "./events";
 import type { RouterDevice } from "@/generated/prisma/client";
+
+const SAMPLE_RETENTION_DAYS = 7;
 
 function toConfig(device: RouterDevice): Tr064Config {
   return {
@@ -39,6 +42,28 @@ export async function collectRouterDevice(device: RouterDevice) {
       wanExternalIp = wan.externalIp;
     } catch {
       // kein WAN-Service auf diesem Gerät - erwartet bei Repeatern.
+    }
+
+    // Durchsatz-Zähler nur, wenn WANCommonInterfaceConfig verfügbar ist
+    // (ebenfalls nicht bei Repeatern) - Fehler hier soll den restlichen Poll
+    // nicht abbrechen.
+    try {
+      const counters = await getWanByteCounters(config);
+      await prisma.routerSample.create({
+        data: {
+          routerDeviceId: device.id,
+          bytesReceived: counters.bytesReceived,
+          bytesSent: counters.bytesSent,
+        },
+      });
+      await prisma.routerSample.deleteMany({
+        where: {
+          routerDeviceId: device.id,
+          timestamp: { lt: new Date(Date.now() - SAMPLE_RETENTION_DAYS * 24 * 60 * 60 * 1000) },
+        },
+      });
+    } catch {
+      // kein WANCommonInterfaceConfig-Service auf diesem Gerät.
     }
 
     await prisma.routerDevice.update({
