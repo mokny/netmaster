@@ -65,35 +65,59 @@ export interface PushPayload {
   url?: string;
 }
 
-// Schickt eine Push-Nachricht an alle Endpunkte eines Users. Ungültig
-// gewordene Subscriptions (404/410 vom Push-Dienst, z.B. App deinstalliert)
-// werden dabei aus der DB entfernt.
+interface StoredSubscription {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+// Schickt an eine einzelne Subscription. Ungültig gewordene Subscriptions
+// (404/410 vom Push-Dienst, z.B. App deinstalliert) werden dabei aus der DB
+// entfernt.
+async function sendPushToSubscription(sub: StoredSubscription, payload: PushPayload) {
+  try {
+    await webPush.sendNotification(
+      {
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.p256dh, auth: sub.auth },
+      },
+      JSON.stringify(payload)
+    );
+  } catch (err) {
+    const statusCode = (err as { statusCode?: number }).statusCode;
+    if (statusCode === 404 || statusCode === 410) {
+      await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+    } else {
+      console.error(`push notification failed for subscription ${sub.id} (status ${statusCode}):`, err);
+    }
+  }
+}
+
+// Schickt eine Push-Nachricht an alle Endpunkte (Geräte) eines Users.
 export async function sendPushToUser(userId: string, payload: PushPayload) {
   await ensureVapidKeys();
 
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;
 
-  await Promise.all(
-    subscriptions.map(async (sub) => {
-      try {
-        await webPush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          JSON.stringify(payload)
-        );
-      } catch (err) {
-        const statusCode = (err as { statusCode?: number }).statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-        } else {
-          console.error(`push notification failed for subscription ${sub.id} (status ${statusCode}):`, err);
-        }
-      }
-    })
-  );
+  await Promise.all(subscriptions.map((sub) => sendPushToSubscription(sub, payload)));
+}
+
+// Schickt eine Push-Nachricht an genau ein Gerät (z.B. für den
+// "Test senden"-Button, der nur das aktuell benutzte Gerät prüfen soll).
+export async function sendPushToSubscriptionByEndpoint(
+  userId: string,
+  endpoint: string,
+  payload: PushPayload
+) {
+  await ensureVapidKeys();
+
+  const sub = await prisma.pushSubscription.findFirst({ where: { userId, endpoint } });
+  if (!sub) return false;
+
+  await sendPushToSubscription(sub, payload);
+  return true;
 }
 
 export type NotificationEvent =

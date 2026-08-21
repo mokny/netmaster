@@ -140,7 +140,18 @@ export function PushNotificationsCard() {
   async function sendTest() {
     setTesting(true);
     try {
-      const res = await fetch("/api/push/test", { method: "POST" });
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        toast.error("Push-Benachrichtigungen sind auf diesem Gerät nicht aktiviert");
+        return;
+      }
+
+      const res = await fetch("/api/push/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast.error(data.error ?? "Test-Benachrichtigung fehlgeschlagen");
@@ -191,7 +202,7 @@ export function PushNotificationsCard() {
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
-          {subscriptions && subscriptions.length > 0 && (
+          {subscribedHere && (
             <Button variant="outline" size="sm" onClick={sendTest} disabled={testing}>
               {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               Test senden

@@ -1,25 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
-import { prisma } from "@/lib/prisma";
-import { sendPushToUser } from "@/lib/push";
+import { sendPushToSubscriptionByEndpoint } from "@/lib/push";
 
-export async function POST() {
+// Testet gezielt nur das Gerät, von dem aus der Request kommt (per
+// Subscription-Endpoint identifiziert) - nicht alle Geräte des Accounts.
+export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-
-    const hasSubscription = await prisma.pushSubscription.findFirst({
-      where: { userId: session.userId },
-      select: { id: true },
-    });
-    if (!hasSubscription) {
-      throw new ApiError(400, "Keine aktive Push-Subscription für diesen Account");
+    const { endpoint } = await req.json().catch(() => ({ endpoint: undefined }));
+    if (!endpoint || typeof endpoint !== "string") {
+      throw new ApiError(400, "Dieses Gerät hat keine aktive Push-Subscription");
     }
 
-    await sendPushToUser(session.userId, {
+    const sent = await sendPushToSubscriptionByEndpoint(session.userId, endpoint, {
       title: "Test-Benachrichtigung",
       body: "Wenn du das siehst, funktionieren Push-Benachrichtigungen.",
       url: "/account",
     });
+    if (!sent) {
+      throw new ApiError(400, "Keine aktive Push-Subscription für dieses Gerät");
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
