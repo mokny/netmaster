@@ -112,6 +112,9 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
               <Badge variant={running ? "default" : "secondary"} className="capitalize">
                 {vm.status}
               </Badge>
+              <span className="text-sm text-muted-foreground">
+                {vm.ips.length > 0 ? vm.ips.join(", ") : "IP unbekannt"}
+              </span>
             </div>
             <p className="text-sm text-muted-foreground">
               #{vm.vmid} · {vm.type === "QEMU" ? "VM" : "LXC"} auf{" "}

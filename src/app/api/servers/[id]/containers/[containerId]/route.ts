@@ -10,6 +10,7 @@ import {
 import { execOnServer, buildDockerRemoveContainerCommand } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
+import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
 
 export async function GET(
   req: Request,
@@ -41,7 +42,7 @@ export async function GET(
     });
 
     return NextResponse.json({
-      container: { ...latest, server },
+      container: { ...latest, server, ips: getCachedIps(dockerIpKey(id, containerId)) ?? [] },
       samples,
     });
   } catch (err) {

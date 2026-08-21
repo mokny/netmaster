@@ -10,6 +10,7 @@ import {
 import { execOnServer, buildDockerRunCommand, type DockerRunOptions } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
+import { attachIps, dockerIpKey } from "@/lib/monitor/ip-cache";
 
 export async function GET(
   _req: Request,
@@ -28,8 +29,9 @@ export async function GET(
     const containers = await prisma.dockerContainerSnapshot.findMany({
       where: { serverId: id, timestamp: latest.timestamp },
     });
+    const withIps = attachIps(containers, (c) => dockerIpKey(c.serverId, c.containerId));
 
-    return NextResponse.json({ containers, timestamp: latest.timestamp });
+    return NextResponse.json({ containers: withIps, timestamp: latest.timestamp });
   } catch (err) {
     return handleApiError(err);
   }

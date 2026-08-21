@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
+import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
 import type { ContainerWithServerDTO } from "@/lib/types";
 
 export async function GET() {
@@ -33,6 +34,7 @@ export async function GET() {
             memUsageMb: s.memUsageMb,
             netRxMb: s.netRxMb,
             netTxMb: s.netTxMb,
+            ips: getCachedIps(dockerIpKey(server.id, s.containerId)) ?? [],
             serverId: server.id,
             serverName: server.name,
             timestamp: s.timestamp.toISOString(),

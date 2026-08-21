@@ -502,6 +502,15 @@ export function buildDockerRemoveContainerCommand(
 export const DOCKER_IMAGES_COMMAND =
   "docker images --format '{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedSince}}' 2>/dev/null";
 
+// Liefert je Netzwerk, an das der Container angeschlossen ist, IPv4- und
+// IPv6-Adresse (eine Zeile je Adresse, leer bei z.B. host-Networking).
+export function buildDockerInspectIpsCommand(containerId: string): string {
+  if (!/^[a-zA-Z0-9]+$/.test(containerId)) {
+    throw new Error("Ungültige Container-ID");
+  }
+  return `docker inspect ${containerId} --format '{{range $net, $conf := .NetworkSettings.Networks}}{{$conf.IPAddress}}\n{{$conf.GlobalIPv6Address}}\n{{end}}' 2>/dev/null`;
+}
+
 // Bettet einen Wert sicher als einzelnes Shell-Argument ein (Single-Quoting,
 // eingebettete Single-Quotes werden escaped) – verhindert Command-Injection
 // über Image-Namen, Ports, Env-Werte etc. in den per SSH ausgeführten Befehlen.
@@ -617,6 +626,25 @@ export function buildVmPowerCommand(
   }
   const bin = type === "qemu" ? "qm" : "pct";
   return buildRootCommand(server, `${bin} ${action} ${vmid}`);
+}
+
+// QEMU: liest die IP(s) über den Guest-Agent aus (JSON), erfordert einen
+// laufenden qemu-guest-agent im Gast-OS - liefert sonst leere/Fehlerausgabe,
+// die der Aufrufer als "keine IP ermittelbar" behandelt.
+// LXC: 'pct exec' läuft direkt im Container-Namespace, kein Agent nötig.
+export function buildVmIpCommand(
+  server: ServerModel,
+  type: VmType,
+  vmid: number
+): { command: string; stdin?: string } {
+  if (!Number.isInteger(vmid) || vmid <= 0) {
+    throw new Error("Ungültige VM-ID");
+  }
+  const baseCommand =
+    type === "qemu"
+      ? `qm agent ${vmid} network-get-interfaces 2>/dev/null`
+      : `pct exec ${vmid} -- ip -o addr show scope global 2>/dev/null`;
+  return buildRootCommand(server, baseCommand);
 }
 
 // LXC: 'pct enter' hängt sich direkt in die Container-Shell (funktioniert

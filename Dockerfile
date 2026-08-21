@@ -31,6 +31,9 @@ ARG TARGETOS
 ARG TARGETARCH
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+# devDependencies (incl. husky) are omitted below, but npm still runs the
+# "prepare" script -- drop it here so `npm ci` doesn't fail looking for husky.
+RUN npm pkg delete scripts.prepare
 RUN NPM_CPU=$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "$TARGETARCH" ;; esac) \
     && npm ci --omit=dev --os=$TARGETOS --cpu=$NPM_CPU --libc=glibc
 COPY --from=deps /app/node_modules/tsx ./node_modules/tsx

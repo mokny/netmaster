@@ -4,6 +4,9 @@ import {
   DOCKER_COMMAND,
   DOCKER_IMAGES_COMMAND,
   PROXMOX_COMMAND,
+  buildDockerInspectIpsCommand,
+  buildVmIpCommand,
+  execOnServer,
 } from "@/lib/ssh";
 import { execPooled, invalidatePooledConnection } from "@/lib/ssh-pool";
 import {
@@ -11,7 +14,11 @@ import {
   parseDockerOutput,
   parseDockerImagesOutput,
   parseProxmoxOutput,
+  parseDockerInspectIps,
+  parseQemuAgentIps,
+  parseIpAddrShowIps,
 } from "./parse";
+import { getCachedIps, dockerIpKey, vmIpKey, refreshIfStale } from "./ip-cache";
 import { computeServerStatus, type MetricKey, type StatusValue } from "./status";
 import { publish } from "./events";
 import { notifyServerEvent, notifyServerRecovery, sendPushToUser, type NotificationEvent } from "@/lib/push";
@@ -349,6 +356,23 @@ async function notifyMetricAlerts(
   }
 }
 
+// Nur bei Bedarf (Cache abgelaufen) im Hintergrund angestoßen - siehe
+// ip-cache.ts. Läuft parallel zum eigentlichen Poll, verzögert ihn also nicht.
+function refreshDockerIp(server: ServerModel, containerId: string) {
+  refreshIfStale(dockerIpKey(server.id, containerId), async () => {
+    const { stdout } = await execPooled(server, buildDockerInspectIpsCommand(containerId));
+    return parseDockerInspectIps(stdout);
+  });
+}
+
+function refreshVmIp(server: ServerModel, type: "qemu" | "lxc", vmid: number) {
+  refreshIfStale(vmIpKey(server.id, vmid), async () => {
+    const { command, stdin } = buildVmIpCommand(server, type, vmid);
+    const { stdout } = await execOnServer(server, command, 10_000, stdin);
+    return type === "qemu" ? parseQemuAgentIps(stdout) : parseIpAddrShowIps(stdout);
+  });
+}
+
 export async function collectDockerContainers(server: ServerModel) {
   if (!server.dockerEnabled) return;
   try {
@@ -372,7 +396,14 @@ export async function collectDockerContainers(server: ServerModel) {
       });
     }
 
-    publish({ type: "docker", serverId: server.id, containers });
+    for (const c of containers) {
+      if (c.state.toLowerCase() === "running") refreshDockerIp(server, c.containerId);
+    }
+    const containersWithIps = containers.map((c) => ({
+      ...c,
+      ips: getCachedIps(dockerIpKey(server.id, c.containerId)) ?? [],
+    }));
+    publish({ type: "docker", serverId: server.id, containers: containersWithIps });
 
     const previousStates = await prisma.dockerContainerState.findMany({
       where: { serverId: server.id },
@@ -556,6 +587,8 @@ export async function collectProxmoxVms(server: ServerModel) {
         where: { vmId: record.id, timestamp: { lt: cutoff } },
       });
 
+      if (v.status === "running") refreshVmIp(server, v.type, v.vmid);
+
       dtos.push({
         id: record.id,
         serverId: server.id,
@@ -568,6 +601,7 @@ export async function collectProxmoxVms(server: ServerModel) {
         memTotalMb: v.memTotalMb,
         diskUsedGb: v.diskUsedGb,
         diskTotalGb: v.diskTotalGb,
+        ips: getCachedIps(vmIpKey(server.id, v.vmid)) ?? [],
         sample: {
           timestamp: sample.timestamp,
           cpuPercent: sample.cpuPercent,

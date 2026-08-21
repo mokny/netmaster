@@ -149,6 +149,7 @@ export interface ContainerSnapshotDTO {
   memUsageMb: number | null;
   netRxMb: number | null;
   netTxMb: number | null;
+  ips: string[];
 }
 
 export interface ContainerWithServerDTO extends ContainerSnapshotDTO {
@@ -178,6 +179,7 @@ export interface ProxmoxVmDTO {
   memTotalMb: number | null;
   diskUsedGb: number | null;
   diskTotalGb: number | null;
+  ips: string[];
   sample?: ProxmoxVmSampleDTO;
 }
 

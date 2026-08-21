@@ -33,6 +33,9 @@ export function DockerRow({
         {container.image ? ` · ${container.image}` : ""}
         {container.memUsageMb != null ? ` · ${container.memUsageMb.toFixed(0)} MB RAM` : ""}
       </p>
+      <p className="truncate text-xs text-muted-foreground">
+        {container.ips.length > 0 ? container.ips.join(", ") : "IP unbekannt"}
+      </p>
     </div>
   );
 

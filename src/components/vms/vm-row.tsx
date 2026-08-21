@@ -33,6 +33,9 @@ export function VmRow({
           ? ` · ${(vm.memUsedMb / 1024).toFixed(1)} / ${(vm.memTotalMb / 1024).toFixed(1)} GB RAM`
           : ""}
       </p>
+      <p className="truncate text-xs text-muted-foreground">
+        {vm.ips.length > 0 ? vm.ips.join(", ") : "IP unbekannt"}
+      </p>
     </div>
   );
 

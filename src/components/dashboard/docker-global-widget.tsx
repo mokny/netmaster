@@ -29,6 +29,7 @@ export function DockerGlobalWidget() {
         state: string;
         cpuPercent: number | null;
         memUsageMb: number | null;
+        ips: string[];
       }>;
       const others = prev.filter((c) => c.serverId !== event.serverId);
       const updated = incoming.map((c) => ({

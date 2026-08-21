@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
+import { getCachedIps, vmIpKey } from "@/lib/monitor/ip-cache";
 
 export async function GET() {
   try {
@@ -25,6 +26,7 @@ export async function GET() {
       memTotalMb: v.memTotalMb,
       diskUsedGb: v.diskUsedGb,
       diskTotalGb: v.diskTotalGb,
+      ips: getCachedIps(vmIpKey(v.serverId, v.vmid)) ?? [],
     }));
 
     return NextResponse.json({ vms: dtos });

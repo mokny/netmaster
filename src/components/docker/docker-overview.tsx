@@ -42,6 +42,7 @@ export function DockerOverview() {
         memUsageMb: number | null;
         netRxMb: number | null;
         netTxMb: number | null;
+        ips: string[];
       }>;
       const others = prev.filter((c) => c.serverId !== event.serverId);
       const updated = incoming.map((c) => ({

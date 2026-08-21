@@ -484,3 +484,60 @@ export function parseBackupListOutput(raw: string, storage: string): ParsedBacku
       };
     });
 }
+
+// Loopback (127.0.0.0/8, ::1) und Link-Local (169.254.0.0/16, fe80::/10)
+// sind für die Anzeige nutzlos - sie identifizieren den Host nicht im LAN.
+function isUsableIp(ip: string): boolean {
+  if (!ip) return false;
+  if (ip === "::1" || ip.startsWith("fe80:") || ip.startsWith("fe80::")) return false;
+  if (ip.startsWith("127.") || ip.startsWith("169.254.")) return false;
+  return true;
+}
+
+function dedupeIps(ips: string[]): string[] {
+  return Array.from(new Set(ips.filter(isUsableIp)));
+}
+
+// Erwartet die Ausgabe von buildDockerInspectIpsCommand: je Netzwerk zwei
+// Zeilen (IPv4, IPv6), leer wenn im jeweiligen Netzwerk nicht zutreffend.
+export function parseDockerInspectIps(raw: string): string[] {
+  return dedupeIps(raw.split("\n").map((l) => l.trim()));
+}
+
+interface QemuAgentIpAddress {
+  "ip-address"?: string;
+  "ip-address-type"?: string;
+}
+interface QemuAgentInterface {
+  name?: string;
+  "ip-addresses"?: QemuAgentIpAddress[];
+}
+
+// Erwartet die JSON-Ausgabe von `qm agent <vmid> network-get-interfaces`.
+export function parseQemuAgentIps(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let parsed: { result?: QemuAgentInterface[] };
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  const ips: string[] = [];
+  for (const iface of parsed.result ?? []) {
+    if (iface.name === "lo") continue;
+    for (const addr of iface["ip-addresses"] ?? []) {
+      if (addr["ip-address"]) ips.push(addr["ip-address"]);
+    }
+  }
+  return dedupeIps(ips);
+}
+
+// Erwartet die Ausgabe von `ip -o addr show scope global` (LXC via 'pct exec').
+export function parseIpAddrShowIps(raw: string): string[] {
+  const ips: string[] = [];
+  for (const match of raw.matchAll(/inet6?\s+([0-9a-fA-F.:]+)\/\d+/g)) {
+    ips.push(match[1]);
+  }
+  return dedupeIps(ips);
+}

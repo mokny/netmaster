@@ -33,6 +33,7 @@ interface ContainerDetail extends ContainerSample {
   name: string;
   image: string;
   state: string;
+  ips: string[];
   server: { id: string; name: string };
 }
 
@@ -77,6 +78,7 @@ export function DockerDetail({
         memUsageMb: number | null;
         netRxMb: number | null;
         netTxMb: number | null;
+        ips: string[];
       }>
     ).find((c) => c.containerId === containerId);
     if (!updated) return;
@@ -134,6 +136,9 @@ export function DockerDetail({
               <Badge variant={running ? "default" : "secondary"} className="capitalize">
                 {container.state}
               </Badge>
+              <span className="text-sm text-muted-foreground">
+                {container.ips.length > 0 ? container.ips.join(", ") : "IP unbekannt"}
+              </span>
             </div>
             <p className="text-sm text-muted-foreground">
               {container.image} · auf{" "}
