@@ -36,8 +36,10 @@ RUN NPM_CPU=$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) e
 COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
 COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=deps /app/node_modules/@esbuild ./node_modules/@esbuild
-COPY --from=deps /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
-COPY --from=deps /app/node_modules/.bin/esbuild ./node_modules/.bin/esbuild
+# npm generates per-install helper shim files alongside the .bin symlinks
+# (e.g. package-<hash>.mjs) that the tsx/esbuild wrappers need to resolve
+# their own package.json -- copy the whole .bin dir rather than guessing names.
+COPY --from=deps /app/node_modules/.bin ./node_modules/.bin
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
