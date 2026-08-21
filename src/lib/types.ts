@@ -32,6 +32,9 @@ export interface ServerDTO {
   osName: string | null;
   kernelVersion: string | null;
   bootedAt: string | null;
+  // Nur von GET /api/servers/[id] befüllt (nicht in der Listen-Route) —
+  // ob privilegierte Befehle (Reboot/Shutdown/Cleanup) ausführbar sind.
+  hasRootAccess?: boolean;
 }
 
 export interface MetricSampleDTO {

@@ -58,9 +58,15 @@ export async function GET(
     const { id } = await params;
     const server = await prisma.server.findUniqueOrThrow({
       where: { id },
-      select: SERVER_SELECT,
+      select: { ...SERVER_SELECT, encryptedSudoPassword: true },
     });
-    return NextResponse.json({ server });
+    const { encryptedSudoPassword, ...rest } = server;
+    return NextResponse.json({
+      server: {
+        ...rest,
+        hasRootAccess: server.sshUsername === "root" || !!encryptedSudoPassword,
+      },
+    });
   } catch (err) {
     return handleApiError(err);
   }

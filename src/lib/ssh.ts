@@ -310,6 +310,83 @@ export function buildRootScriptCommand(
   );
 }
 
+export interface CleanupOptions {
+  apt: boolean;
+  docker: boolean;
+  dockerVolumes: boolean;
+  journal: boolean;
+  journalDays: number;
+  dryRun: boolean;
+}
+
+// Baut ein bash-Skript, das die ausgewählten Bereinigungs-Schritte
+// nacheinander ausführt. Jeder Schritt prüft per `command -v`, ob das
+// jeweilige Tool überhaupt existiert (gemischte Server-Umgebungen), und
+// bricht bei Fehlern eines Schritts nicht das ganze Skript ab. Im
+// Dry-Run werden nur nicht-destruktive Vorschau-Befehle verwendet.
+export function buildCleanupScript(opts: CleanupOptions): string {
+  if (!opts.apt && !opts.docker && !opts.journal) {
+    throw new Error("Keine Bereinigungs-Option ausgewählt");
+  }
+  const journalDays = Math.trunc(opts.journalDays);
+  if (opts.journal && (!Number.isInteger(journalDays) || journalDays < 1 || journalDays > 365)) {
+    throw new Error("Ungültige Journal-Aufbewahrungsdauer (1-365 Tage)");
+  }
+
+  const lines = ["set +e"];
+
+  if (opts.apt) {
+    lines.push('echo "__APT__"');
+    lines.push("if command -v apt-get >/dev/null 2>&1; then");
+    if (opts.dryRun) {
+      lines.push("  apt-get -s autoremove 2>&1");
+      lines.push('  echo "--- Paket-Cache ---"');
+      lines.push("  du -sh /var/cache/apt/archives 2>/dev/null");
+    } else {
+      lines.push("  apt-get autoremove -y 2>&1");
+      lines.push("  apt-get clean 2>&1");
+    }
+    lines.push("else");
+    lines.push('  echo "apt-get nicht gefunden"');
+    lines.push("fi");
+  }
+
+  if (opts.docker) {
+    lines.push('echo "__DOCKER__"');
+    lines.push("if command -v docker >/dev/null 2>&1; then");
+    if (opts.dryRun) {
+      lines.push("  docker system df 2>&1");
+    } else {
+      lines.push(`  docker system prune -f${opts.dockerVolumes ? " --volumes" : ""} 2>&1`);
+    }
+    lines.push("else");
+    lines.push('  echo "docker nicht gefunden"');
+    lines.push("fi");
+  }
+
+  if (opts.journal) {
+    lines.push('echo "__JOURNAL__"');
+    lines.push("if command -v journalctl >/dev/null 2>&1; then");
+    if (opts.dryRun) {
+      lines.push("  journalctl --disk-usage 2>&1");
+    } else {
+      lines.push(`  journalctl --vacuum-time=${journalDays}d 2>&1`);
+    }
+    lines.push("else");
+    lines.push('  echo "journalctl nicht gefunden"');
+    lines.push("fi");
+  }
+
+  return lines.join("\n");
+}
+
+export function buildCleanupCommand(
+  server: ServerModel,
+  opts: CleanupOptions
+): { command: string; stdin?: string } {
+  return buildRootScriptCommand(server, buildCleanupScript(opts));
+}
+
 export type PowerAction = "reboot" | "shutdown";
 
 const POWER_COMMANDS: Record<PowerAction, string> = {

@@ -29,13 +29,14 @@ import { PortsCard } from "@/components/servers/ports-card";
 import { ServerNetworkGraph } from "@/components/servers/server-network-graph";
 import { ServerSummaryBar } from "@/components/servers/server-summary-bar";
 import { PowerActionDialog } from "@/components/servers/power-action-dialog";
+import { CleanupDialog } from "@/components/servers/cleanup-dialog";
 import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { VmRow } from "@/components/vms/vm-row";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { ArrowLeft, Trash2, Pencil, Container, TerminalSquare, RotateCw, Power, Cpu, Boxes } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Container, TerminalSquare, RotateCw, Power, Cpu, Boxes, Eraser } from "lucide-react";
 import type {
   ServerDTO,
   MetricSampleDTO,
@@ -289,6 +290,20 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                 <Button variant="outline" size="sm">
                   <Power className="size-4" />
                   Herunterfahren
+                </Button>
+              }
+            />
+          )}
+          {canEdit && (
+            <CleanupDialog
+              serverId={serverId}
+              hasRootAccess={server.hasRootAccess ?? false}
+              dockerEnabled={server.dockerEnabled}
+              onDone={loadAll}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Eraser className="size-4" />
+                  Bereinigen
                 </Button>
               }
             />
