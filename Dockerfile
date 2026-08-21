@@ -36,6 +36,8 @@ RUN NPM_CPU=$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) e
 COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
 COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=deps /app/node_modules/@esbuild ./node_modules/@esbuild
+COPY --from=deps /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
+COPY --from=deps /app/node_modules/.bin/esbuild ./node_modules/.bin/esbuild
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
