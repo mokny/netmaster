@@ -46,6 +46,15 @@ function runNmap(args: string[], timeoutMs: number): Promise<string> {
 // nmap -sn: reiner Host-Discovery-Sweep (ARP im lokalen Subnetz, ICMP sonst),
 // kein Port-Scan. MAC/Vendor sind nur verfügbar, wenn nmap mit ausreichenden
 // Rechten läuft (NET_RAW/NET_ADMIN) und der Host per ARP erreichbar ist.
+// Host-Discovery-Probes: explizit statt nmap-Default (ICMP-Echo + TCP-SYN/443
+// + TCP-ACK/80), weil viele VPN-Gegenstellen (z.B. ein schlanker WireGuard-
+// Testserver) nur SSH offen haben und ICMP blocken - mit den Default-Probes
+// würde so ein durchaus erreichbarer Host fälschlich als "down" gelten und
+// gar nicht erst im Sweep-Ergebnis auftauchen. Für Ethernet-Ziele im
+// gleichen L2-Segment macht nmap unabhängig davon zusätzlich immer noch
+// automatisch einen ARP-Scan (liefert dort die MAC-Adresse).
+const HOST_DISCOVERY_PROBES = ["-PE", "-PP", "-PS22,80,443", "-PA22,80,443"];
+
 // `ranges` kann mehrere CIDR-Targets enthalten - nmap scannt sie in einem
 // einzigen Lauf. `dnsServers` überschreibt, welche Nameserver nmap für die
 // Reverse-DNS-Auflösung (Hostnamen) befragt - z.B. das Gateway/Router-DNS
@@ -58,7 +67,10 @@ export async function runHostDiscovery(
 ): Promise<DiscoveredAddress[]> {
   const targets = Array.isArray(ranges) ? ranges : [ranges];
   const dnsArgs = dnsServers && dnsServers.length > 0 ? ["--dns-servers", dnsServers.join(",")] : [];
-  const xml = await runNmap(["-sn", ...dnsArgs, "-oX", "-", ...targets], timeoutMs);
+  const xml = await runNmap(
+    ["-sn", ...HOST_DISCOVERY_PROBES, ...dnsArgs, "-oX", "-", ...targets],
+    timeoutMs
+  );
   const parsed = parser.parse(xml);
   const hosts = ensureArray(parsed?.nmaprun?.host);
 

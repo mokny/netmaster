@@ -65,7 +65,7 @@ interface RangeRef {
 interface DiscoveredHostRow {
   id: string;
   ip: string;
-  mac: string;
+  mac: string | null;
   hostname: string | null;
   vendor: string | null;
   openPorts: OpenPort[];
@@ -515,7 +515,7 @@ export function ExploreOverview() {
                     <TableCell className="font-mono">{host.ip}</TableCell>
                     <TableCell>{host.hostname ?? "-"}</TableCell>
                     <TableCell>{host.vendor ?? "-"}</TableCell>
-                    <TableCell className="font-mono text-xs">{host.mac}</TableCell>
+                    <TableCell className="font-mono text-xs">{host.mac ?? "-"}</TableCell>
                     <TableCell>
                       {host.range ? (
                         <Badge variant={host.range.source === "MANUAL" ? "outline" : "secondary"}>

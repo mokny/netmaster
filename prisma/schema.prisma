@@ -526,14 +526,17 @@ model DashboardLayout {
   updatedAt DateTime @updatedAt
 }
 
-// Ein per Netzwerk-Scan (Explore, nmap) gefundenes Gerät. Eine Zeile pro
-// MAC-Adresse, bei jedem Scan aktualisiert (Upsert). Geräte, die bei einem
-// Scan nicht mehr gefunden werden, bleiben erhalten (lastSeenOnline=false)
-// statt gelöscht zu werden, damit die Historie sichtbar bleibt.
+// Ein per Netzwerk-Scan (Explore, nmap) gefundenes Gerät. Bei jedem Scan
+// aktualisiert (Upsert) - für Hosts mit MAC-Adresse (LAN, per ARP ermittelt)
+// per mac, für Hosts ohne (z.B. VPN-Peers über ein reines Layer-3-Tunnel-
+// Interface wie WireGuard, wo ARP nicht existiert) per ip, siehe scan.ts.
+// Geräte, die bei einem Scan nicht mehr gefunden werden, bleiben erhalten
+// (lastSeenOnline=false) statt gelöscht zu werden, damit die Historie
+// sichtbar bleibt.
 model DiscoveredHost {
   id       String  @id @default(cuid())
   ip       String
-  mac      String  @unique
+  mac      String? @unique
   hostname String?
   vendor   String?
 

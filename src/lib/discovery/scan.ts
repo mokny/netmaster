@@ -150,14 +150,13 @@ export async function runDiscoveryScan(): Promise<void> {
       120_000,
       dnsServers
     );
-    const withMac = hosts.filter((h) => h.mac);
 
-    state.progress = { phase: "ports", current: 0, total: withMac.length };
+    state.progress = { phase: "ports", current: 0, total: hosts.length };
 
-    const touchedMacs: string[] = [];
+    const touchedIds: string[] = [];
     let completed = 0;
 
-    await mapWithConcurrency(withMac, settings.portScanConcurrency, async (host) => {
+    await mapWithConcurrency(hosts, settings.portScanConcurrency, async (host) => {
       let openPorts: Awaited<ReturnType<typeof runPortScan>> = [];
       try {
         openPorts = await runPortScan(host.ip, DEFAULT_SCAN_PORTS);
@@ -166,42 +165,50 @@ export async function runDiscoveryScan(): Promise<void> {
         // Sweep nicht abbrechen - der Host bleibt mit leeren Ports sichtbar.
       }
 
-      const mac = host.mac!;
-      touchedMacs.push(mac);
       const now = new Date();
       const hostname = host.hostname || (await resolveNetbiosName(host.ip));
       const range = findRangeForIp(host.ip, ranges);
-      await prisma.discoveredHost.upsert({
-        where: { mac },
-        create: {
-          ip: host.ip,
-          mac,
-          hostname,
-          vendor: host.vendor,
-          openPortsJson: JSON.stringify(openPorts),
-          lastSeenOnline: true,
-          firstSeenAt: now,
-          lastSeenAt: now,
-          rangeId: range?.id,
-        },
-        update: {
-          ip: host.ip,
-          hostname,
-          vendor: host.vendor,
-          openPortsJson: JSON.stringify(openPorts),
-          lastSeenOnline: true,
-          lastSeenAt: now,
-          rangeId: range?.id ?? null,
-        },
-      });
+      const data = {
+        ip: host.ip,
+        hostname,
+        vendor: host.vendor,
+        openPortsJson: JSON.stringify(openPorts),
+        lastSeenOnline: true,
+        lastSeenAt: now,
+        rangeId: range?.id ?? null,
+      };
 
+      // Hosts mit MAC (per ARP, also im gleichen L2-Segment) werden über die
+      // MAC identifiziert - stabil auch bei IP-Wechsel per DHCP. Hosts ohne
+      // MAC (z.B. VPN-Peers über ein reines Layer-3-Interface wie WireGuard,
+      // wo es kein ARP gibt) werden über die IP identifiziert, da diese bei
+      // VPNs i.d.R. statisch ist.
+      let id: string;
+      if (host.mac) {
+        const row = await prisma.discoveredHost.upsert({
+          where: { mac: host.mac },
+          create: { ...data, mac: host.mac, firstSeenAt: now },
+          update: data,
+        });
+        id = row.id;
+      } else {
+        const existing = await prisma.discoveredHost.findFirst({
+          where: { ip: host.ip, mac: null },
+        });
+        const row = existing
+          ? await prisma.discoveredHost.update({ where: { id: existing.id }, data })
+          : await prisma.discoveredHost.create({ data: { ...data, mac: null, firstSeenAt: now } });
+        id = row.id;
+      }
+
+      touchedIds.push(id);
       completed += 1;
-      state.progress = { phase: "ports", current: completed, total: withMac.length };
+      state.progress = { phase: "ports", current: completed, total: hosts.length };
     });
 
-    if (touchedMacs.length > 0) {
+    if (touchedIds.length > 0) {
       await prisma.discoveredHost.updateMany({
-        where: { mac: { notIn: touchedMacs } },
+        where: { id: { notIn: touchedIds } },
         data: { lastSeenOnline: false },
       });
     }
