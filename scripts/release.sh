@@ -95,7 +95,9 @@ else
 fi
 
 git add package.json package-lock.json CHANGELOG.md 2>/dev/null || git add package.json CHANGELOG.md
-git commit -m "Release ${TAG}"
+# --no-verify: skip the pre-commit hook that bumps the revision on every
+# commit - this commit sets the exact release version itself.
+git commit --no-verify -m "Release ${TAG}"
 
 log "Push nach origin/${CURRENT_BRANCH}..."
 git push origin "$CURRENT_BRANCH"

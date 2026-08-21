@@ -166,8 +166,15 @@ export function AppShell({
           <div className={cn("mt-1 flex items-center gap-2", collapsed && "justify-center")}>
             <Badge variant="secondary">{session.role}</Badge>
           </div>
-          {!collapsed && version && (
-            <div className="mt-2 text-[11px] text-muted-foreground/70">v{version}</div>
+          {version && (
+            <div
+              className={cn(
+                "mt-2 text-[11px] text-muted-foreground/70",
+                collapsed && "text-center"
+              )}
+            >
+              v{version}
+            </div>
           )}
         </div>
       </aside>
@@ -234,6 +241,11 @@ export function AppShell({
                     <LogOut className="size-4" />
                     Abmelden
                   </button>
+                  {version && (
+                    <div className="px-3 pt-1 text-[11px] text-muted-foreground/70">
+                      v{version}
+                    </div>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
