@@ -39,6 +39,7 @@ installation is detected automatically and updated instead
 - **HTTP/Upchecker health checks** – uptime monitoring for URLs/services with history and status
 - **Network Explore (scan)** – nmap-based ARP/ping sweep and port/service discovery to find unregistered devices on the LAN
 - **Network topology & traffic** – visual topology graph plus network throughput charts
+- **VPN/WireGuard management** – manage your VPN connections easily
 - **Router/device tracking** – overview of known router-connected devices
 - **Storage overview** – disk/NFS source overview across servers
 - **Multi-user auth with roles** – Admin / Editor / Viewer permission levels
