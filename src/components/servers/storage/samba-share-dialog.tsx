@@ -101,10 +101,14 @@ export function SambaShareDialog({
       setUsers(list);
       const p: Record<string, Permission> = {};
       for (const u of list) {
-        p[u] = {
-          read: share?.readUsers.includes(u) ?? false,
-          write: share?.writeUsers.includes(u) ?? false,
-        };
+        // Schreiben impliziert immer Lesen (siehe setRead/setWrite) - ein
+        // Write-User steht serverseitig aber nur in writeUsers, nicht
+        // zusätzlich in readUsers, sonst würde er auch als reiner Read-User
+        // gezählt. Beim Laden hier trotzdem read:true setzen, sonst zeigt
+        // die Checkbox-Liste für Write-User fälschlich "Lesen" als
+        // deaktiviert an.
+        const write = share?.writeUsers.includes(u) ?? false;
+        p[u] = { read: write || (share?.readUsers.includes(u) ?? false), write };
       }
       setPerms(p);
     } catch {
