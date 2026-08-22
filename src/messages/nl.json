@@ -1261,7 +1261,14 @@
         "uninstallTitle": "Samba verwijderen",
         "uninstallDescription": "Verwijdert het Samba-pakket en de bijbehorende service van deze server. Geconfigureerde Samba-gebruikers en -shares gaan verloren; hiervoor aangemaakte systeemgebruikers blijven behouden.",
         "uninstallSuccess": "Samba verwijderd",
-        "uninstallFailed": "Samba verwijderen mislukt"
+        "uninstallFailed": "Samba verwijderen mislukt",
+        "newShare": "Nieuwe share",
+        "editShareTitle": "Share bewerken",
+        "newShareTitle": "Nieuwe share",
+        "permissionsLabel": "Rechten",
+        "noUsersYetHint": "Nog geen Samba-gebruikers — voeg er hieronder een toe om toegang te geven.",
+        "newUserSectionTitle": "Nieuwe gebruiker toevoegen",
+        "cancel": "Annuleren"
       }
     }
   },

@@ -1261,7 +1261,14 @@
         "uninstallTitle": "Desinstalar Samba",
         "uninstallDescription": "Elimina el paquete Samba y su servicio de este servidor. Los usuarios y recursos compartidos de Samba configurados se perderán; los usuarios del sistema creados para ellos se conservan.",
         "uninstallSuccess": "Samba desinstalado",
-        "uninstallFailed": "Error al desinstalar Samba"
+        "uninstallFailed": "Error al desinstalar Samba",
+        "newShare": "Nuevo recurso",
+        "editShareTitle": "Editar recurso",
+        "newShareTitle": "Nuevo recurso",
+        "permissionsLabel": "Permisos",
+        "noUsersYetHint": "Aún no hay usuarios de Samba — añade uno abajo para conceder acceso.",
+        "newUserSectionTitle": "Añadir nuevo usuario",
+        "cancel": "Cancelar"
       }
     }
   },

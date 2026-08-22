@@ -103,15 +103,30 @@ smbpasswd -e ${username}
   await runRootScript(server, script);
 }
 
+// Entfernt den User zusätzlich aus den Read/Write-Listen aller Freigaben,
+// damit smb.conf keine verwaisten Einträge auf einen nicht mehr
+// existierenden User behält (wäre wirkungslos, aber irreführend beim
+// nächsten Anzeigen/Bearbeiten einer Freigabe).
 export async function removeSambaUser(
   server: ServerModel,
   username: string,
   removeSystemUser: boolean
 ): Promise<void> {
   assertName(username, "username");
+  const shares = await listShares(server);
+  const updated = shares.map((s) => ({
+    ...s,
+    readUsers: s.readUsers.filter((u) => u !== username),
+    writeUsers: s.writeUsers.filter((u) => u !== username),
+  }));
+  const content = updated.length > 0 ? updated.map(serializeShare).join("\n\n") + "\n" : "";
   const script = `
 smbpasswd -x ${username} 2>/dev/null || true
 ${removeSystemUser ? `userdel ${username} 2>/dev/null || true` : ""}
+cat > ${SHARES_FILE} <<'NETMASTER_SMB_EOF'
+${content}
+NETMASTER_SMB_EOF
+${restartSmb()}
 `.trim();
   await runRootScript(server, script);
 }
@@ -129,7 +144,13 @@ export interface SambaShare {
 const SHARE_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,32}$/;
 
 function serializeShare(share: SambaShare): string {
-  const readOnly = share.writeUsers.length === 0;
+  // Für per-User-Rechte muss die Freigabe immer "read only = yes" bleiben und
+  // Schreibrechte ausschließlich über "write list" vergeben werden - würde
+  // "read only" stattdessen global auf "no" gesetzt (sobald irgendein
+  // Write-User existiert), könnten auch reine Read-User schreiben. Nur bei
+  // Gastzugriff (kein per-User-Modell) bestimmt writeUsers direkt, ob der
+  // Gastzugriff schreibbar ist.
+  const readOnly = share.guestOk ? share.writeUsers.length === 0 : true;
   const validUsers = Array.from(new Set([...share.readUsers, ...share.writeUsers]));
   const lines = [
     `[${share.name}]`,

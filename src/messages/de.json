@@ -1261,7 +1261,14 @@
         "uninstallTitle": "Samba deinstallieren",
         "uninstallDescription": "Entfernt das Samba-Paket und den zugehörigen Dienst von diesem Server. Konfigurierte Samba-Nutzer und -Freigaben gehen verloren; dafür angelegte System-User bleiben erhalten.",
         "uninstallSuccess": "Samba deinstalliert",
-        "uninstallFailed": "Samba konnte nicht deinstalliert werden"
+        "uninstallFailed": "Samba konnte nicht deinstalliert werden",
+        "newShare": "Neue Freigabe",
+        "editShareTitle": "Freigabe bearbeiten",
+        "newShareTitle": "Neue Freigabe",
+        "permissionsLabel": "Berechtigungen",
+        "noUsersYetHint": "Noch keine Samba-User — unten einen anlegen, um Zugriff zu vergeben.",
+        "newUserSectionTitle": "Neuen User anlegen",
+        "cancel": "Abbrechen"
       }
     }
   },

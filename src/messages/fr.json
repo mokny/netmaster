@@ -1261,7 +1261,14 @@
         "uninstallTitle": "Désinstaller Samba",
         "uninstallDescription": "Supprime le paquet Samba et son service de ce serveur. Les utilisateurs et partages Samba configurés sont perdus ; les utilisateurs système créés pour eux sont conservés.",
         "uninstallSuccess": "Samba désinstallé",
-        "uninstallFailed": "Échec de la désinstallation de Samba"
+        "uninstallFailed": "Échec de la désinstallation de Samba",
+        "newShare": "Nouveau partage",
+        "editShareTitle": "Modifier le partage",
+        "newShareTitle": "Nouveau partage",
+        "permissionsLabel": "Permissions",
+        "noUsersYetHint": "Aucun utilisateur Samba pour l'instant — ajoutez-en un ci-dessous pour accorder l'accès.",
+        "newUserSectionTitle": "Ajouter un nouvel utilisateur",
+        "cancel": "Annuler"
       }
     }
   },
