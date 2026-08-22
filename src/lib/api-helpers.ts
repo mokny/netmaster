@@ -61,6 +61,14 @@ export function requireWireguardEnabled(
   }
 }
 
+export function requireStorageEnabled(
+  server: Pick<ServerModel, "storageEnabled">
+) {
+  if (!server.storageEnabled) {
+    throw new ApiError(403, "STORAGE_NOT_ENABLED");
+  }
+}
+
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ApiError) {
     return NextResponse.json(

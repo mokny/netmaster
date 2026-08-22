@@ -12,6 +12,7 @@ export interface ServerDTO {
   proxmoxEnabled: boolean;
   networkToolsEnabled: boolean;
   wireguardEnabled: boolean;
+  storageEnabled: boolean;
   cpuWarn: number;
   cpuCrit: number;
   memWarn: number;

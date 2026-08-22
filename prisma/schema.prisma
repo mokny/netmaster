@@ -267,6 +267,9 @@ model Server {
   networkToolsEnabled Boolean @default(false)
   // Schaltet WireGuard-Verwaltung (Interfaces/Peers) frei.
   wireguardEnabled Boolean @default(false)
+  // Schaltet die Storage-Verwaltung frei (Disks/Partitionen/LVM/RAID,
+  // NFS-Server/-Client, Samba-Freigaben inkl. User-Verwaltung).
+  storageEnabled Boolean @default(false)
 
   cpuWarn  Float @default(70)
   cpuCrit  Float @default(90)

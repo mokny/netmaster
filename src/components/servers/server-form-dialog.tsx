@@ -55,6 +55,7 @@ function formFromServer(server?: ServerDTO, initialHostname?: string) {
     proxmoxEnabled: server?.proxmoxEnabled ?? false,
     networkToolsEnabled: server?.networkToolsEnabled ?? false,
     wireguardEnabled: server?.wireguardEnabled ?? false,
+    storageEnabled: server?.storageEnabled ?? false,
     cpuWarn: server?.cpuWarn ?? 70,
     cpuCrit: server?.cpuCrit ?? 90,
     memWarn: server?.memWarn ?? 75,
@@ -264,6 +265,19 @@ export function ServerFormDialog({
                     id="wireguard-enabled"
                     checked={form.wireguardEnabled}
                     onCheckedChange={(c) => set("wireguardEnabled", !!c)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="storage-enabled">{t("enableStorage")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("enableStorageHint")}
+                    </p>
+                  </div>
+                  <Switch
+                    id="storage-enabled"
+                    checked={form.storageEnabled}
+                    onCheckedChange={(c) => set("storageEnabled", !!c)}
                   />
                 </div>
               </div>

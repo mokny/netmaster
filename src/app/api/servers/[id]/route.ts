@@ -27,6 +27,7 @@ export const SERVER_SELECT = {
   proxmoxEnabled: true,
   networkToolsEnabled: true,
   wireguardEnabled: true,
+  storageEnabled: true,
   cpuWarn: true,
   cpuCrit: true,
   memWarn: true,
@@ -120,6 +121,8 @@ export async function PATCH(
       data.networkToolsEnabled = body.networkToolsEnabled;
     if (typeof body.wireguardEnabled === "boolean")
       data.wireguardEnabled = body.wireguardEnabled;
+    if (typeof body.storageEnabled === "boolean")
+      data.storageEnabled = body.storageEnabled;
     if (typeof body.secret === "string" && body.secret.length > 0) {
       data.encryptedSecret = encryptSecret(body.secret);
     }
