@@ -1,3 +1,10 @@
+## v1.1.0 - 2026-08-22
+
+- feat: add admin panel to toggle all polling types instance-wide
+- Reduce Proxmox/Docker polling load via ping and on-demand refresh
+- Add zoomable/pannable time-series charts and poll-log debug view
+
+
 # Changelog
 
 ## v1.0.0 - 2026-08-21
