@@ -1,3 +1,15 @@
+## v1.3.0 - 2026-08-22
+
+- Add storage management: disks/LVM/RAID, NFS, Samba
+- Add Samba install prompt and uninstall button
+- Rework Samba share permissions to a checkbox user list
+- Add global storage overview with live NFS/Samba management
+- Add password change action for Samba users
+- Fix read checkbox not showing for write users on share edit
+- Add feature screenshots to README
+- Reorganize installation instructions in README for clarity and consistency
+
+
 ## v1.2.0 - 2026-08-22
 
 - Add job scheduling and network tools panel
