@@ -1,3 +1,8 @@
+## v1.2.0 - 2026-08-22
+
+- Add job scheduling and network tools panel
+
+
 ## v1.1.0 - 2026-08-22
 
 - feat: add admin panel to toggle all polling types instance-wide
