@@ -50,6 +50,11 @@ cat ${EXPORTS_FILE} 2>/dev/null || true
 const CLIENT_PATTERN = /^[a-zA-Z0-9.:/*_-]{1,64}$/;
 const OPTIONS_PATTERN = /^[a-zA-Z0-9_,=.-]*$/;
 
+// Fügt einen Export hinzu oder ersetzt (Upsert) einen bestehenden Export mit
+// demselben (path, client) - matcht dafür auf das Pfad+Client-Präfix der
+// Zeile statt (wie zuvor) auf die komplette Zeile inkl. Optionen, sonst
+// bliebe beim Bearbeiten (gleicher Pfad+Client, andere Optionen) die alte
+// Zeile als Dublette stehen.
 export async function addExport(
   server: ServerModel,
   path: string,
@@ -61,10 +66,13 @@ export async function addExport(
   const opts = options || "rw,sync,no_subtree_check";
   if (!OPTIONS_PATTERN.test(opts)) throw new Error(`Invalid export options: ${opts}`);
   const line = `${path} ${client}(${opts})`;
+  const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedClient = client.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const script = `
 set -e
 ${ensureNfsServer()}
-grep -vF ${JSON.stringify(line)} ${EXPORTS_FILE} > ${EXPORTS_FILE}.tmp 2>/dev/null || true
+touch ${EXPORTS_FILE}
+grep -vE "^${escapedPath} ${escapedClient}\\(" ${EXPORTS_FILE} > ${EXPORTS_FILE}.tmp || true
 mv ${EXPORTS_FILE}.tmp ${EXPORTS_FILE}
 echo ${JSON.stringify(line)} >> ${EXPORTS_FILE}
 exportfs -ra

@@ -1219,7 +1219,12 @@
         "mountRemoved": "Mount verwijderd",
         "mountRemoveFailed": "Mount verwijderen mislukt",
         "knownExports": "Bekende exports van andere NetMaster-servers",
-        "selectKnownExport": "Selecteer een export…"
+        "selectKnownExport": "Selecteer een export…",
+        "targetServer": "Doelserver",
+        "newExport": "Nieuwe export",
+        "editExportTitle": "Export bewerken",
+        "newExportTitle": "Nieuwe export",
+        "cancel": "Annuleren"
       },
       "samba": {
         "loadFailed": "Samba-configuratie laden mislukt",
@@ -1268,7 +1273,9 @@
         "permissionsLabel": "Rechten",
         "noUsersYetHint": "Nog geen Samba-gebruikers — voeg er hieronder een toe om toegang te geven.",
         "newUserSectionTitle": "Nieuwe gebruiker toevoegen",
-        "cancel": "Annuleren"
+        "cancel": "Annuleren",
+        "targetServer": "Doelserver",
+        "loading": "Laden…"
       }
     }
   },
@@ -1286,7 +1293,8 @@
       "router": "Router",
       "users": "Gebruikers",
       "settings": "Settings",
-      "debug": "Debug"
+      "debug": "Debug",
+      "storage": "Storage"
     },
     "expandNav": "Navigatie uitklappen",
     "collapseNav": "Navigatie inklappen",
@@ -1653,6 +1661,40 @@
     "http": {
       "title": "HTTP-check",
       "description": "Haal een URL op en toon statuscode, latentie en headers."
+    }
+  },
+  "storage": {
+    "overview": {
+      "title": "Storage",
+      "description": "Alle NFS-exports en Samba-shares van je storage-beheerde servers, live via SSH opgevraagd.",
+      "loadFailed": "Storage-overzicht laden mislukt",
+      "searchPlaceholder": "Server, pad, naam zoeken…",
+      "noServersHint": "Nog geen server heeft storagebeheer ingeschakeld.",
+      "goToServers": "Naar servers",
+      "nfsTitle": "NFS-exports",
+      "nfsDescription": "Over alle storage-beheerde servers",
+      "sambaTitle": "Samba-shares",
+      "sambaDescription": "Over alle storage-beheerde servers",
+      "noSambaServersHint": "Op geen enkele server is Samba geïnstalleerd.",
+      "colServer": "Server",
+      "colPath": "Pad",
+      "colClient": "Client",
+      "colOptions": "Opties",
+      "colName": "Naam",
+      "colAccess": "Toegang",
+      "guest": "Gast",
+      "read": "Lezen",
+      "write": "Schrijven",
+      "noExports": "Geen NFS-exports geconfigureerd.",
+      "noShares": "Geen Samba-shares geconfigureerd.",
+      "newExport": "Nieuwe export",
+      "newShare": "Nieuwe share",
+      "removeExportTitle": "Export verwijderen",
+      "exportRemoved": "Export verwijderd",
+      "exportRemoveFailed": "Export verwijderen mislukt",
+      "removeShareTitle": "Share verwijderen",
+      "shareRemoved": "Share verwijderd",
+      "shareRemoveFailed": "Share verwijderen mislukt"
     }
   }
 }

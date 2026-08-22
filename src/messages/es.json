@@ -1219,7 +1219,12 @@
         "mountRemoved": "Montaje eliminado",
         "mountRemoveFailed": "Error al eliminar el montaje",
         "knownExports": "Exportaciones conocidas de otros servidores NetMaster",
-        "selectKnownExport": "Seleccionar una exportación…"
+        "selectKnownExport": "Seleccionar una exportación…",
+        "targetServer": "Servidor de destino",
+        "newExport": "Nueva exportación",
+        "editExportTitle": "Editar exportación",
+        "newExportTitle": "Nueva exportación",
+        "cancel": "Cancelar"
       },
       "samba": {
         "loadFailed": "Error al cargar la configuración de Samba",
@@ -1268,7 +1273,9 @@
         "permissionsLabel": "Permisos",
         "noUsersYetHint": "Aún no hay usuarios de Samba — añade uno abajo para conceder acceso.",
         "newUserSectionTitle": "Añadir nuevo usuario",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "targetServer": "Servidor de destino",
+        "loading": "Cargando…"
       }
     }
   },
@@ -1286,7 +1293,8 @@
       "router": "Router",
       "users": "Usuarios",
       "settings": "Settings",
-      "debug": "Debug"
+      "debug": "Debug",
+      "storage": "Almacenamiento"
     },
     "expandNav": "Expandir navegación",
     "collapseNav": "Contraer navegación",
@@ -1653,6 +1661,40 @@
     "http": {
       "title": "Comprobación HTTP",
       "description": "Obtener una URL y mostrar el código de estado, la latencia y las cabeceras."
+    }
+  },
+  "storage": {
+    "overview": {
+      "title": "Almacenamiento",
+      "description": "Todas las exportaciones NFS y recursos Samba de tus servidores con almacenamiento gestionado, consultados en vivo por SSH.",
+      "loadFailed": "Error al cargar la vista general de almacenamiento",
+      "searchPlaceholder": "Buscar servidor, ruta, nombre…",
+      "noServersHint": "Ningún servidor tiene la gestión de almacenamiento habilitada todavía.",
+      "goToServers": "Ir a servidores",
+      "nfsTitle": "Exportaciones NFS",
+      "nfsDescription": "En todos los servidores con almacenamiento gestionado",
+      "sambaTitle": "Recursos Samba",
+      "sambaDescription": "En todos los servidores con almacenamiento gestionado",
+      "noSambaServersHint": "Samba no está instalado en ningún servidor.",
+      "colServer": "Servidor",
+      "colPath": "Ruta",
+      "colClient": "Cliente",
+      "colOptions": "Opciones",
+      "colName": "Nombre",
+      "colAccess": "Acceso",
+      "guest": "Invitado",
+      "read": "Lectura",
+      "write": "Escritura",
+      "noExports": "No hay exportaciones NFS configuradas.",
+      "noShares": "No hay recursos Samba configurados.",
+      "newExport": "Nueva exportación",
+      "newShare": "Nuevo recurso",
+      "removeExportTitle": "Eliminar exportación",
+      "exportRemoved": "Exportación eliminada",
+      "exportRemoveFailed": "Error al eliminar la exportación",
+      "removeShareTitle": "Eliminar recurso",
+      "shareRemoved": "Recurso eliminado",
+      "shareRemoveFailed": "Error al eliminar el recurso"
     }
   }
 }

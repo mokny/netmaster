@@ -1219,7 +1219,12 @@
         "mountRemoved": "Mount removed",
         "mountRemoveFailed": "Failed to remove mount",
         "knownExports": "Known exports from other NetMaster servers",
-        "selectKnownExport": "Select an export…"
+        "selectKnownExport": "Select an export…",
+        "targetServer": "Target server",
+        "newExport": "New export",
+        "editExportTitle": "Edit export",
+        "newExportTitle": "New export",
+        "cancel": "Cancel"
       },
       "samba": {
         "loadFailed": "Failed to load Samba configuration",
@@ -1268,7 +1273,9 @@
         "permissionsLabel": "Permissions",
         "noUsersYetHint": "No Samba users yet — add one below to grant access.",
         "newUserSectionTitle": "Add new user",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "targetServer": "Target server",
+        "loading": "Loading…"
       }
     }
   },
@@ -1286,7 +1293,8 @@
       "router": "Router",
       "users": "Users",
       "settings": "Settings",
-      "debug": "Debug"
+      "debug": "Debug",
+      "storage": "Storage"
     },
     "expandNav": "Expand navigation",
     "collapseNav": "Collapse navigation",
@@ -1653,6 +1661,40 @@
     "http": {
       "title": "HTTP check",
       "description": "Fetch a URL and show status code, latency, and headers."
+    }
+  },
+  "storage": {
+    "overview": {
+      "title": "Storage",
+      "description": "All NFS exports and Samba shares across your storage-managed servers, queried live via SSH.",
+      "loadFailed": "Failed to load storage overview",
+      "searchPlaceholder": "Search server, path, name…",
+      "noServersHint": "No server has storage management enabled yet.",
+      "goToServers": "Go to servers",
+      "nfsTitle": "NFS exports",
+      "nfsDescription": "Across all storage-managed servers",
+      "sambaTitle": "Samba shares",
+      "sambaDescription": "Across all storage-managed servers",
+      "noSambaServersHint": "No server has Samba installed yet.",
+      "colServer": "Server",
+      "colPath": "Path",
+      "colClient": "Client",
+      "colOptions": "Options",
+      "colName": "Name",
+      "colAccess": "Access",
+      "guest": "Guest",
+      "read": "Read",
+      "write": "Write",
+      "noExports": "No NFS exports configured.",
+      "noShares": "No Samba shares configured.",
+      "newExport": "New export",
+      "newShare": "New share",
+      "removeExportTitle": "Remove export",
+      "exportRemoved": "Export removed",
+      "exportRemoveFailed": "Failed to remove export",
+      "removeShareTitle": "Remove share",
+      "shareRemoved": "Share removed",
+      "shareRemoveFailed": "Failed to remove share"
     }
   }
 }

@@ -23,13 +23,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useSession } from "@/hooks/use-session";
-import { Loader2, Trash2 } from "lucide-react";
-
-interface NfsExport {
-  path: string;
-  client: string;
-  options: string;
-}
+import { Loader2, Trash2, Pencil, Plus } from "lucide-react";
+import { NfsExportDialog, type NfsExport } from "@/components/servers/storage/nfs-export-dialog";
 
 interface NfsClientMount {
   remote: string;
@@ -66,9 +61,8 @@ export function NfsPanel({ serverId }: { serverId: string }) {
   const [sources, setSources] = useState<NfsSource[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const [expPath, setExpPath] = useState("/srv/export");
-  const [expClient, setExpClient] = useState("*");
-  const [expOptions, setExpOptions] = useState("rw,sync,no_subtree_check");
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [editingExport, setEditingExport] = useState<NfsExport | null>(null);
 
   const [remote, setRemote] = useState("");
   const [clientMountpoint, setClientMountpoint] = useState("/mnt/nfs");
@@ -111,20 +105,14 @@ export function NfsPanel({ serverId }: { serverId: string }) {
     loadSources();
   }, [loadExports, loadMounts, loadSources]);
 
-  async function addExport() {
-    setBusy(true);
-    try {
-      await api(`/api/servers/${serverId}/storage/nfs/exports`, {
-        method: "POST",
-        body: JSON.stringify({ path: expPath, client: expClient, options: expOptions }),
-      });
-      toast.success(t("exportAdded"));
-      loadExports();
-    } catch (err) {
-      fail(err, t("exportAddFailed"));
-    } finally {
-      setBusy(false);
-    }
+  function openNewExport() {
+    setEditingExport(null);
+    setExportDialogOpen(true);
+  }
+
+  function openEditExport(exp: NfsExport) {
+    setEditingExport(exp);
+    setExportDialogOpen(true);
   }
 
   async function removeExport(exp: NfsExport) {
@@ -184,11 +172,19 @@ export function NfsPanel({ serverId }: { serverId: string }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>{t("serverTitle")}</CardTitle>
-          <CardDescription>{t("serverDescription")}</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>{t("serverTitle")}</CardTitle>
+            <CardDescription>{t("serverDescription")}</CardDescription>
+          </div>
+          {canEdit && (
+            <Button size="sm" onClick={openNewExport}>
+              <Plus className="size-4" />
+              {t("newExport")}
+            </Button>
+          )}
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
@@ -206,9 +202,14 @@ export function NfsPanel({ serverId }: { serverId: string }) {
                   <TableCell className="text-xs">{exp.options}</TableCell>
                   {canEdit && (
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="size-7" disabled={busy} onClick={() => removeExport(exp)}>
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="size-7" disabled={busy} onClick={() => openEditExport(exp)}>
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-7" disabled={busy} onClick={() => removeExport(exp)}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -222,31 +223,16 @@ export function NfsPanel({ serverId }: { serverId: string }) {
               )}
             </TableBody>
           </Table>
-
-          {canEdit && (
-            <div className="grid gap-2 border-t pt-3 sm:grid-cols-4">
-              <div className="space-y-1">
-                <Label>{t("colPath")}</Label>
-                <Input value={expPath} onChange={(e) => setExpPath(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>{t("colClient")}</Label>
-                <Input value={expClient} onChange={(e) => setExpClient(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>{t("colOptions")}</Label>
-                <Input value={expOptions} onChange={(e) => setExpOptions(e.target.value)} />
-              </div>
-              <div className="flex items-end">
-                <Button disabled={busy || !expPath} onClick={addExport} className="w-full">
-                  {busy && <Loader2 className="size-4 animate-spin" />}
-                  {t("addExport")}
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <NfsExportDialog
+        serverId={serverId}
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        initialExport={editingExport ? { ...editingExport, serverId } : null}
+        onSaved={loadExports}
+      />
 
       <Card>
         <CardHeader>

@@ -27,6 +27,7 @@ import {
   Menu,
   ListChecks,
   Wrench,
+  HardDrive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,7 @@ const NAV_ITEMS = [
   { href: "/explore", labelKey: "explore", icon: Radar, minRole: "VIEWER" },
   { href: "/jobs", labelKey: "jobs", icon: ListChecks, minRole: "EDITOR" },
   { href: "/tools", labelKey: "tools", icon: Wrench, minRole: "EDITOR" },
+  { href: "/storage", labelKey: "storage", icon: HardDrive, minRole: "EDITOR" },
   { href: "/router", labelKey: "router", icon: Router, minRole: "ADMIN" },
   { href: "/admin/users", labelKey: "users", icon: Users, minRole: "ADMIN" },
   { href: "/admin/settings", labelKey: "settings", icon: Settings, minRole: "ADMIN" },

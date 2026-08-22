@@ -1219,7 +1219,12 @@
         "mountRemoved": "Mount entfernt",
         "mountRemoveFailed": "Mount konnte nicht entfernt werden",
         "knownExports": "Bekannte Exports anderer NetMaster-Server",
-        "selectKnownExport": "Export auswählen…"
+        "selectKnownExport": "Export auswählen…",
+        "targetServer": "Ziel-Server",
+        "newExport": "Neuer Export",
+        "editExportTitle": "Export bearbeiten",
+        "newExportTitle": "Neuer Export",
+        "cancel": "Abbrechen"
       },
       "samba": {
         "loadFailed": "Samba-Konfiguration konnte nicht geladen werden",
@@ -1268,7 +1273,9 @@
         "permissionsLabel": "Berechtigungen",
         "noUsersYetHint": "Noch keine Samba-User — unten einen anlegen, um Zugriff zu vergeben.",
         "newUserSectionTitle": "Neuen User anlegen",
-        "cancel": "Abbrechen"
+        "cancel": "Abbrechen",
+        "targetServer": "Ziel-Server",
+        "loading": "Lädt…"
       }
     }
   },
@@ -1286,7 +1293,8 @@
       "router": "Router",
       "users": "Benutzer",
       "settings": "Settings",
-      "debug": "Debug"
+      "debug": "Debug",
+      "storage": "Storage"
     },
     "expandNav": "Navigation ausklappen",
     "collapseNav": "Navigation einklappen",
@@ -1653,6 +1661,40 @@
     "http": {
       "title": "HTTP-Check",
       "description": "URL abrufen und Status-Code, Latenz und Header anzeigen."
+    }
+  },
+  "storage": {
+    "overview": {
+      "title": "Storage",
+      "description": "Alle NFS-Exports und Samba-Freigaben aller Storage-verwalteten Server, live per SSH abgefragt.",
+      "loadFailed": "Storage-Übersicht konnte nicht geladen werden",
+      "searchPlaceholder": "Server, Pfad, Name suchen…",
+      "noServersHint": "Noch kein Server hat die Storage-Verwaltung aktiviert.",
+      "goToServers": "Zu den Servern",
+      "nfsTitle": "NFS-Exports",
+      "nfsDescription": "Über alle Storage-verwalteten Server",
+      "sambaTitle": "Samba-Freigaben",
+      "sambaDescription": "Über alle Storage-verwalteten Server",
+      "noSambaServersHint": "Auf keinem Server ist Samba installiert.",
+      "colServer": "Server",
+      "colPath": "Pfad",
+      "colClient": "Client",
+      "colOptions": "Optionen",
+      "colName": "Name",
+      "colAccess": "Zugriff",
+      "guest": "Gast",
+      "read": "Lesen",
+      "write": "Schreiben",
+      "noExports": "Keine NFS-Exports konfiguriert.",
+      "noShares": "Keine Samba-Freigaben konfiguriert.",
+      "newExport": "Neuer Export",
+      "newShare": "Neue Freigabe",
+      "removeExportTitle": "Export entfernen",
+      "exportRemoved": "Export entfernt",
+      "exportRemoveFailed": "Export konnte nicht entfernt werden",
+      "removeShareTitle": "Freigabe entfernen",
+      "shareRemoved": "Freigabe entfernt",
+      "shareRemoveFailed": "Freigabe konnte nicht entfernt werden"
     }
   }
 }

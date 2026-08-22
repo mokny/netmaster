@@ -1219,7 +1219,12 @@
         "mountRemoved": "Montage supprimé",
         "mountRemoveFailed": "Échec de la suppression du montage",
         "knownExports": "Exports connus d'autres serveurs NetMaster",
-        "selectKnownExport": "Sélectionner un export…"
+        "selectKnownExport": "Sélectionner un export…",
+        "targetServer": "Serveur cible",
+        "newExport": "Nouvel export",
+        "editExportTitle": "Modifier l'export",
+        "newExportTitle": "Nouvel export",
+        "cancel": "Annuler"
       },
       "samba": {
         "loadFailed": "Échec du chargement de la configuration Samba",
@@ -1268,7 +1273,9 @@
         "permissionsLabel": "Permissions",
         "noUsersYetHint": "Aucun utilisateur Samba pour l'instant — ajoutez-en un ci-dessous pour accorder l'accès.",
         "newUserSectionTitle": "Ajouter un nouvel utilisateur",
-        "cancel": "Annuler"
+        "cancel": "Annuler",
+        "targetServer": "Serveur cible",
+        "loading": "Chargement…"
       }
     }
   },
@@ -1286,7 +1293,8 @@
       "router": "Routeur",
       "users": "Utilisateurs",
       "settings": "Settings",
-      "debug": "Debug"
+      "debug": "Debug",
+      "storage": "Stockage"
     },
     "expandNav": "Développer la navigation",
     "collapseNav": "Réduire la navigation",
@@ -1653,6 +1661,40 @@
     "http": {
       "title": "Vérification HTTP",
       "description": "Récupérer une URL et afficher le code de statut, la latence et les en-têtes."
+    }
+  },
+  "storage": {
+    "overview": {
+      "title": "Stockage",
+      "description": "Tous les exports NFS et partages Samba de vos serveurs gérés en stockage, interrogés en direct via SSH.",
+      "loadFailed": "Échec du chargement de la vue d'ensemble du stockage",
+      "searchPlaceholder": "Rechercher serveur, chemin, nom…",
+      "noServersHint": "Aucun serveur n'a la gestion du stockage activée pour l'instant.",
+      "goToServers": "Aller aux serveurs",
+      "nfsTitle": "Exports NFS",
+      "nfsDescription": "Sur tous les serveurs gérés en stockage",
+      "sambaTitle": "Partages Samba",
+      "sambaDescription": "Sur tous les serveurs gérés en stockage",
+      "noSambaServersHint": "Samba n'est installé sur aucun serveur.",
+      "colServer": "Serveur",
+      "colPath": "Chemin",
+      "colClient": "Client",
+      "colOptions": "Options",
+      "colName": "Nom",
+      "colAccess": "Accès",
+      "guest": "Invité",
+      "read": "Lecture",
+      "write": "Écriture",
+      "noExports": "Aucun export NFS configuré.",
+      "noShares": "Aucun partage Samba configuré.",
+      "newExport": "Nouvel export",
+      "newShare": "Nouveau partage",
+      "removeExportTitle": "Supprimer l'export",
+      "exportRemoved": "Export supprimé",
+      "exportRemoveFailed": "Échec de la suppression de l'export",
+      "removeShareTitle": "Supprimer le partage",
+      "shareRemoved": "Partage supprimé",
+      "shareRemoveFailed": "Échec de la suppression du partage"
     }
   }
 }
