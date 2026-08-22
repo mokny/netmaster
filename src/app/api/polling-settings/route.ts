@@ -16,6 +16,7 @@ const TOGGLE_KEYS = [
   "portsEnabled",
   "dashboardLookupsEnabled",
   "wsProcessesEnabled",
+  "pingEnabled",
 ] as const;
 
 // GET ist absichtlich nur an eine gültige Session gebunden (nicht ADMIN-only):
@@ -38,9 +39,12 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const current = await getOrCreatePollingSettings();
 
-    const data: Record<string, boolean> = {};
+    const data: Record<string, boolean | number> = {};
     for (const key of TOGGLE_KEYS) {
       data[key] = body[key] !== undefined ? Boolean(body[key]) : current[key];
+    }
+    if (body.pingIntervalSec !== undefined) {
+      data.pingIntervalSec = Math.max(5, Number(body.pingIntervalSec) || current.pingIntervalSec);
     }
 
     const settings = await prisma.pollingSettings.update({

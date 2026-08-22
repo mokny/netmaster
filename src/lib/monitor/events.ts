@@ -19,6 +19,15 @@ export type MonitorEvent =
   | { type: "proxmox"; serverId: string; vms: unknown[] }
   | { type: "router-device"; routerDeviceId: string; status: string }
   | {
+      type: "ping";
+      serverId: string;
+      kind: "vm" | "docker";
+      vmid?: number;
+      containerId?: string;
+      alive: boolean;
+      latencyMs: number | null;
+    }
+  | {
       type: "explore-scan";
       status: "idle" | "running" | "error";
       startedAt: string | null;

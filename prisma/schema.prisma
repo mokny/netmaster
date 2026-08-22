@@ -223,6 +223,12 @@ model Server {
   encryptedSudoPassword String?
 
   pollIntervalSec Int @default(30)
+  // Intervall (Sek.) für Proxmox-VM-/Docker-Container-Status-Polling, getrennt
+  // von pollIntervalSec (das nur noch für Host-Metriken gilt) - dieser Poll ist
+  // deutlich teurer (pvesh/docker inspect via SSH) und läuft daher standardmäßig
+  // sehr selten; wird bei Bedarf per Seitenaufruf/Button/offener Detailseite
+  // zusätzlich angestoßen (siehe scheduler.ts).
+  vmDockerPollIntervalSec Int @default(7200)
   retentionDays   Int @default(30)
 
   // Docker/Proxmox werden nur abgefragt, wenn hier explizit aktiviert.
@@ -636,6 +642,12 @@ model PollingSettings {
   portsEnabled             Boolean @default(true)
   dashboardLookupsEnabled  Boolean @default(true)
   wsProcessesEnabled       Boolean @default(true)
+
+  // Zentrale Ping-Erreichbarkeitsprüfung (src/lib/monitor/ping-scheduler.ts) -
+  // läuft vom Netmaster-Server aus gegen bekannte VM-/Container-IPs, ersetzt
+  // den bisherigen häufigen Proxmox-/Docker-Status-Poll als Live-Signal.
+  pingEnabled     Boolean @default(true)
+  pingIntervalSec Int     @default(15)
 
   updatedAt DateTime @updatedAt
 }

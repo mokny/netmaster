@@ -10,7 +10,8 @@ import { collectRouterDevice } from "./router-collect";
 import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
 import { getOrCreateExploreSettings, reconcileRanges, runDiscoveryScan } from "@/lib/discovery/scan";
 import { refreshPollingSettingsCache } from "@/lib/monitor/polling-settings";
-import type { PollingSettings } from "@/generated/prisma/client";
+import { startPingLoop, stopPingLoop } from "@/lib/monitor/ping-scheduler";
+import type { PollingSettings, Server as ServerModel } from "@/generated/prisma/client";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
@@ -26,6 +27,90 @@ const checkIntervals = new Map<string, number>();
 
 const RECONCILE_INTERVAL_MS = 15_000;
 let reconcileTimer: NodeJS.Timeout | null = null;
+
+// Mindestabstand zwischen zwei automatisch durch einen Seitenaufruf
+// angestoßenen Proxmox-/Docker-Status-Polls (verhindert, dass mehrere
+// gleichzeitig geöffnete Tabs/Nutzer das seltene vmDockerPollIntervalSec
+// faktisch aushebeln).
+const PAGE_OPEN_DEBOUNCE_MS = 90_000;
+const lastProxmoxPollAt = new Map<string, number>();
+const lastDockerPollAt = new Map<string, number>();
+
+export function ensureFreshProxmoxPoll(serverId: string) {
+  const last = lastProxmoxPollAt.get(serverId) ?? 0;
+  if (Date.now() - last < PAGE_OPEN_DEBOUNCE_MS) return;
+  lastProxmoxPollAt.set(serverId, Date.now());
+  void prisma.server.findUnique({ where: { id: serverId } }).then((server) => {
+    if (server?.proxmoxEnabled) void collectProxmoxVms(server);
+  });
+}
+
+export function ensureFreshDockerPoll(serverId: string) {
+  const last = lastDockerPollAt.get(serverId) ?? 0;
+  if (Date.now() - last < PAGE_OPEN_DEBOUNCE_MS) return;
+  lastDockerPollAt.set(serverId, Date.now());
+  void prisma.server.findUnique({ where: { id: serverId } }).then((server) => {
+    if (server?.dockerEnabled) void collectDockerContainers(server);
+  });
+}
+
+// Schnelles Poll-Intervall (statt vmDockerPollIntervalSec), solange
+// mindestens eine VM-/Container-Detailseite des jeweiligen Servers offen ist
+// (siehe src/lib/ws/detail-presence-handler.ts). Bündelt pro Host - ein Poll
+// deckt alle VMs/Container ab, egal wie viele Detailseiten gerade offen sind.
+const FAST_POLL_INTERVAL_MS = 20_000;
+
+interface FastPollSubscription {
+  count: number;
+  timer: NodeJS.Timeout;
+}
+
+function makeFastPollSubscribers(collect: (server: ServerModel) => Promise<void>) {
+  const subs = new Map<string, FastPollSubscription>();
+  return {
+    subscribe(serverId: string) {
+      const existing = subs.get(serverId);
+      if (existing) {
+        existing.count += 1;
+        return;
+      }
+      const timer = setInterval(async () => {
+        const server = await prisma.server.findUnique({ where: { id: serverId } });
+        if (server) await collect(server);
+      }, FAST_POLL_INTERVAL_MS);
+      subs.set(serverId, { count: 1, timer });
+    },
+    unsubscribe(serverId: string) {
+      const existing = subs.get(serverId);
+      if (!existing) return;
+      existing.count -= 1;
+      if (existing.count <= 0) {
+        clearInterval(existing.timer);
+        subs.delete(serverId);
+      }
+    },
+    stopAll() {
+      for (const sub of subs.values()) clearInterval(sub.timer);
+      subs.clear();
+    },
+  };
+}
+
+const proxmoxFastPoll = makeFastPollSubscribers(collectProxmoxVms);
+const dockerFastPoll = makeFastPollSubscribers(collectDockerContainers);
+
+export function subscribeFastProxmoxPoll(serverId: string) {
+  proxmoxFastPoll.subscribe(serverId);
+}
+export function unsubscribeFastProxmoxPoll(serverId: string) {
+  proxmoxFastPoll.unsubscribe(serverId);
+}
+export function subscribeFastDockerPoll(serverId: string) {
+  dockerFastPoll.subscribe(serverId);
+}
+export function unsubscribeFastDockerPoll(serverId: string) {
+  dockerFastPoll.unsubscribe(serverId);
+}
 
 // Globaler Netzwerk-Scan-Job (Explore) - kein Per-Row-Timer wie oben, da es
 // nur eine einzige Konfiguration (ExploreSettings) gibt, kein Set von
@@ -60,7 +145,12 @@ interface ServerEffectiveFlags {
   proxmoxEnabled: boolean;
 }
 
-function scheduleServer(serverId: string, intervalSec: number, flags: ServerEffectiveFlags) {
+function scheduleServer(
+  serverId: string,
+  intervalSec: number,
+  vmDockerIntervalSec: number,
+  flags: ServerEffectiveFlags
+) {
   clearInterval(serverTimers.get(serverId));
   clearInterval(dockerTimers.get(serverId));
   clearInterval(dockerImageTimers.get(serverId));
@@ -78,12 +168,18 @@ function scheduleServer(serverId: string, intervalSec: number, flags: ServerEffe
     serverTimers.set(serverId, metricsTimer);
   }
 
+  // Docker-/Proxmox-Status-Poll ist deutlich teurer (SSH-Exec pro Container/VM
+  // fürs Auflisten, s. collect.ts) und läuft daher an einem eigenen, viel
+  // selteneren Intervall statt an intervalSec - live gehalten wird das Ganze
+  // stattdessen über ensureFreshProxmoxPoll/-DockerPoll (Seitenaufruf) und die
+  // Fast-Poll-Subscriber (offene Detailseite), siehe oben.
+  const vmDockerMs = Math.max(300, vmDockerIntervalSec) * 1000;
+
   if (flags.dockerContainersEnabled) {
-    // Docker-Snapshots etwas seltener (2x Intervall), um SSH-Last gering zu halten.
     const dockerTimer = setInterval(async () => {
       const server = await prisma.server.findUnique({ where: { id: serverId } });
       if (server) await collectDockerContainers(server);
-    }, Math.max(10, intervalSec * 2) * 1000);
+    }, vmDockerMs);
     dockerTimers.set(serverId, dockerTimer);
   }
 
@@ -91,17 +187,15 @@ function scheduleServer(serverId: string, intervalSec: number, flags: ServerEffe
     const dockerImageTimer = setInterval(async () => {
       const server = await prisma.server.findUnique({ where: { id: serverId } });
       if (server) await collectDockerImages(server);
-    }, Math.max(10, intervalSec * 2) * 1000);
+    }, vmDockerMs);
     dockerImageTimers.set(serverId, dockerImageTimer);
   }
 
   if (flags.proxmoxEnabled) {
-    // Proxmox-VMs im selben Intervall wie die Host-Metriken, damit VM- und
-    // Host-Graphen zeitlich vergleichbar sind.
     const proxmoxTimer = setInterval(async () => {
       const server = await prisma.server.findUnique({ where: { id: serverId } });
       if (server) await collectProxmoxVms(server);
-    }, Math.max(5, intervalSec) * 1000);
+    }, vmDockerMs);
     proxmoxTimers.set(serverId, proxmoxTimer);
   }
 }
@@ -137,11 +231,11 @@ async function reconcile() {
       dockerImagesEnabled: polling.dockerImagesEnabled && server.dockerEnabled,
       proxmoxEnabled: polling.proxmoxVmsEnabled && server.proxmoxEnabled,
     };
-    const config = `${server.pollIntervalSec}:${flags.metricsEnabled}:${flags.dockerContainersEnabled}:${flags.dockerImagesEnabled}:${flags.proxmoxEnabled}`;
+    const config = `${server.pollIntervalSec}:${server.vmDockerPollIntervalSec}:${flags.metricsEnabled}:${flags.dockerContainersEnabled}:${flags.dockerImagesEnabled}:${flags.proxmoxEnabled}`;
     const isNew = !serverConfigs.has(server.id);
     const changed = serverConfigs.get(server.id) !== config;
     if (isNew || changed) {
-      scheduleServer(server.id, server.pollIntervalSec, flags);
+      scheduleServer(server.id, server.pollIntervalSec, server.vmDockerPollIntervalSec, flags);
       serverConfigs.set(server.id, config);
       if (isNew) {
         // Sofortiger erster Poll, statt auf das erste Intervall zu warten.
@@ -222,6 +316,12 @@ async function reconcile() {
 
   await reconcileRanges();
   await reconcileDiscovery(polling.discoveryScanEnabled);
+
+  if (polling.pingEnabled) {
+    startPingLoop(polling.pingIntervalSec);
+  } else {
+    stopPingLoop();
+  }
 }
 
 let started = false;
@@ -253,5 +353,8 @@ export function stopMonitorScheduler() {
   routerTimers.clear();
   routerIntervals.clear();
   serverConfigs.clear();
+  proxmoxFastPoll.stopAll();
+  dockerFastPoll.stopAll();
+  stopPingLoop();
   closeAllPooledConnections();
 }

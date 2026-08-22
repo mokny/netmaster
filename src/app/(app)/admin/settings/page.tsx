@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const BACKGROUND_JOB_KEYS = [
   "serverMetricsEnabled",
@@ -21,6 +23,7 @@ const BACKGROUND_JOB_KEYS = [
   "routerDevicesEnabled",
   "uptimeChecksEnabled",
   "discoveryScanEnabled",
+  "pingEnabled",
 ] as const;
 
 const LIVE_VIEW_KEYS = [
@@ -40,25 +43,31 @@ const LABEL_KEYS: Record<ToggleKey, string> = {
   routerDevicesEnabled: "routerDevices",
   uptimeChecksEnabled: "uptimeChecks",
   discoveryScanEnabled: "discoveryScan",
+  pingEnabled: "ping",
   topologyGraphEnabled: "topologyGraph",
   portsEnabled: "ports",
   dashboardLookupsEnabled: "dashboardLookups",
   wsProcessesEnabled: "wsProcesses",
 };
 
-type PollingSettingsDTO = Record<ToggleKey, boolean>;
+type PollingSettingsDTO = Record<ToggleKey, boolean> & { pingIntervalSec: number };
 
 export default function PollingSettingsPage() {
   const t = useTranslations("admin.settings");
   const [settings, setSettings] = useState<PollingSettingsDTO | null>(null);
   const [pending, setPending] = useState<ToggleKey | null>(null);
+  const [pingIntervalInput, setPingIntervalInput] = useState("");
+  const [pingIntervalSaving, setPingIntervalSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetch("/api/polling-settings")
       .then((res) => (res.ok ? res.json() : { settings: null }))
       .then((data) => {
-        if (active) setSettings(data.settings);
+        if (active) {
+          setSettings(data.settings);
+          if (data.settings) setPingIntervalInput(String(data.settings.pingIntervalSec));
+        }
       });
     return () => {
       active = false;
@@ -84,6 +93,26 @@ export default function PollingSettingsPage() {
       toast.success(t("saved"));
     } finally {
       setPending(null);
+    }
+  }
+
+  async function savePingInterval() {
+    if (!settings) return;
+    const value = Math.max(5, Number(pingIntervalInput) || settings.pingIntervalSec);
+    setPingIntervalSaving(true);
+    try {
+      const res = await fetch("/api/polling-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pingIntervalSec: value }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSettings(data.settings);
+      setPingIntervalInput(String(data.settings.pingIntervalSec));
+      toast.success(t("saved"));
+    } finally {
+      setPingIntervalSaving(false);
     }
   }
 
@@ -122,6 +151,33 @@ export default function PollingSettingsPage() {
             </CardHeader>
             <CardContent className="divide-y">
               {BACKGROUND_JOB_KEYS.map(renderRow)}
+              <div className="flex items-center justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t("pingIntervalLabel")}</p>
+                  <p className="text-sm text-muted-foreground">{t("pingIntervalDescription")}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="ping-interval-sec" className="sr-only">
+                    {t("pingIntervalLabel")}
+                  </Label>
+                  <Input
+                    id="ping-interval-sec"
+                    type="number"
+                    min={5}
+                    className="w-24"
+                    value={pingIntervalInput}
+                    disabled={!settings}
+                    onChange={(e) => setPingIntervalInput(e.target.value)}
+                    onBlur={savePingInterval}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                  />
+                  {pingIntervalSaving && (
+                    <span className="text-xs text-muted-foreground">{t("saving")}</span>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
 

@@ -37,10 +37,15 @@ export function setCachedIps(key: string, ips: string[]) {
 
 // Stößt bei Bedarf (Cache fehlt/abgelaufen, kein Fetch bereits unterwegs) den
 // übergebenen Fetcher im Hintergrund an, ohne den aufrufenden Poll zu blockieren.
-export function refreshIfStale(key: string, fetcher: () => Promise<string[]>) {
-  if (!isStale(key) || inFlight.has(key)) return;
+// force=true überspringt den TTL-Check (manueller "IP aktualisieren"-Button).
+export function refreshIfStale(
+  key: string,
+  fetcher: () => Promise<string[]>,
+  force = false
+): Promise<void> {
+  if ((!force && !isStale(key)) || inFlight.has(key)) return Promise.resolve();
   inFlight.add(key);
-  fetcher()
+  return fetcher()
     .then((ips) => setCachedIps(key, ips))
     .catch(() => {
       // Kein Guest-Agent / Container gestoppt / SSH-Fehler - einfach beim
@@ -51,6 +56,15 @@ export function refreshIfStale(key: string, fetcher: () => Promise<string[]>) {
 
 export function removeCachedIp(key: string) {
   cache.delete(key);
+}
+
+// Für den Ping-Scheduler (ping-scheduler.ts): alle aktuell bekannten
+// VM-/Container-IPs, unabhängig davon ob der Eintrag noch "frisch" ist -
+// Ping soll auch mit einer veralteten, aber zuletzt bekannten IP versuchen.
+export function getAllCachedIpEntries(): { key: string; ips: string[] }[] {
+  return [...cache.entries()]
+    .filter(([, entry]) => entry.ips.length > 0)
+    .map(([key, entry]) => ({ key, ips: entry.ips }));
 }
 
 // Reichert eine Liste von DB-Zeilen (Docker-Container-Snapshots /

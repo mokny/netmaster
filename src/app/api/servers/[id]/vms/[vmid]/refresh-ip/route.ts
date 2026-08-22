@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
+import { refreshVmIp } from "@/lib/monitor/collect";
 import { getCachedIps, vmIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
 
-export async function GET(
-  req: Request,
+export async function POST(
+  _req: Request,
   { params }: { params: Promise<{ id: string; vmid: string }> }
 ) {
   try {
@@ -14,27 +14,17 @@ export async function GET(
     const vmidNum = Number(vmid);
     if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
 
-    ensureFreshProxmoxPoll(id);
-
-    const { searchParams } = new URL(req.url);
-    const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const server = await prisma.server.findUnique({ where: { id } });
+    if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
 
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
-      include: { server: { select: { id: true, name: true } } },
     });
     if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
 
-    const samples = await prisma.proxmoxVmSample.findMany({
-      where: { vmId: vm.id, timestamp: { gte: since } },
-      orderBy: { timestamp: "asc" },
-    });
+    await refreshVmIp(server, vm.type === "QEMU" ? "qemu" : "lxc", vmidNum, true);
 
-    return NextResponse.json({
-      vm: { ...vm, ips: getCachedIps(vmIpKey(id, vmidNum)) ?? [] },
-      samples,
-    });
+    return NextResponse.json({ ips: getCachedIps(vmIpKey(id, vmidNum)) ?? [] });
   } catch (err) {
     return handleApiError(err);
   }

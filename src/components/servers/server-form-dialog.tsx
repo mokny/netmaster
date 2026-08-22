@@ -49,6 +49,7 @@ function formFromServer(server?: ServerDTO, initialHostname?: string) {
     passphrase: "",
     sudoPassword: "",
     pollIntervalSec: server?.pollIntervalSec ?? 30,
+    vmDockerPollIntervalSec: server?.vmDockerPollIntervalSec ?? 7200,
     retentionDays: server?.retentionDays ?? 30,
     dockerEnabled: server?.dockerEnabled ?? false,
     proxmoxEnabled: server?.proxmoxEnabled ?? false,
@@ -201,6 +202,16 @@ export function ServerFormDialog({
                     onChange={(e) => set("retentionDays", Number(e.target.value))}
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("vmDockerPollInterval")}</Label>
+                <p className="text-xs text-muted-foreground">{t("vmDockerPollIntervalHint")}</p>
+                <Input
+                  type="number"
+                  min={5}
+                  value={Math.round(form.vmDockerPollIntervalSec / 60)}
+                  onChange={(e) => set("vmDockerPollIntervalSec", Math.max(5, Number(e.target.value)) * 60)}
+                />
               </div>
               <div className="space-y-3 rounded-md border p-3">
                 <div className="flex items-center justify-between">

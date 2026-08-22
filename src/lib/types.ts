@@ -6,6 +6,7 @@ export interface ServerDTO {
   sshUsername: string;
   authType: "PASSWORD" | "PRIVATE_KEY";
   pollIntervalSec: number;
+  vmDockerPollIntervalSec: number;
   retentionDays: number;
   dockerEnabled: boolean;
   proxmoxEnabled: boolean;

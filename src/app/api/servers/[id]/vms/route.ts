@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
 import { attachIps, vmIpKey } from "@/lib/monitor/ip-cache";
+import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
 
 export async function GET(
   _req: Request,
@@ -10,6 +11,8 @@ export async function GET(
   try {
     await requireSession();
     const { id } = await params;
+
+    ensureFreshProxmoxPoll(id);
 
     const vms = await prisma.proxmoxVm.findMany({
       where: { serverId: id },

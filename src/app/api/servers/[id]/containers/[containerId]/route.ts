@@ -11,6 +11,7 @@ import { execOnServer, buildDockerRemoveContainerCommand } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
 import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
+import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
 
 export async function GET(
   req: Request,
@@ -19,6 +20,8 @@ export async function GET(
   try {
     await requireSession();
     const { id, containerId } = await params;
+
+    ensureFreshDockerPoll(id);
 
     const { searchParams } = new URL(req.url);
     const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));

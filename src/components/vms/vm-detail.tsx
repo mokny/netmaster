@@ -26,7 +26,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
-import { ArrowLeft, Play, Square, RotateCw } from "lucide-react";
+import { useDetailPresence } from "@/hooks/use-detail-presence";
+import { ArrowLeft, Play, Square, RotateCw, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import type { ProxmoxVmDTO, ProxmoxVmSampleDTO } from "@/lib/types";
 
 interface VmWithServer extends ProxmoxVmDTO {
@@ -40,6 +42,11 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
 
   const [vm, setVm] = useState<VmWithServer | null>(null);
   const [samples, setSamples] = useState<ProxmoxVmSampleDTO[]>([]);
+  const [ping, setPing] = useState<{ alive: boolean; latencyMs: number | null } | null>(null);
+  const [refreshingIp, setRefreshingIp] = useState(false);
+  const [polling, setPolling] = useState(false);
+
+  useDetailPresence(serverId, "proxmox");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/servers/${serverId}/vms/${vmid}?hours=6`);
@@ -75,6 +82,36 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
       setSamples((prev) => [...prev, updated.sample!].slice(-2000));
     }
   });
+
+  useLiveEvents((event) => {
+    if (event.type !== "ping" || event.kind !== "vm" || event.serverId !== serverId) return;
+    if (event.vmid !== vmid) return;
+    setPing({ alive: event.alive, latencyMs: event.latencyMs });
+  });
+
+  async function refreshIp() {
+    setRefreshingIp(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/vms/${vmid}/refresh-ip`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setVm((prev) => (prev ? { ...prev, ips: data.ips } : prev));
+      }
+    } finally {
+      setRefreshingIp(false);
+    }
+  }
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/vms/poll-now`, { method: "POST" });
+      if (res.ok) await load();
+      else toast.error(t("pollFailed"));
+    } finally {
+      setPolling(false);
+    }
+  }
 
   const chartData: CombinedPoint[] = useMemo(
     () =>
@@ -117,6 +154,25 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
               <span className="text-sm text-muted-foreground">
                 {vm.ips.length > 0 ? vm.ips.join(", ") : t("ipUnknown")}
               </span>
+              {vm.ips.length > 0 && (
+                <Badge variant={ping === null ? "outline" : ping.alive ? "default" : "destructive"}>
+                  {ping === null
+                    ? t("pingChecking")
+                    : ping.alive
+                      ? `${t("pingAlive")}${ping.latencyMs != null ? ` · ${ping.latencyMs}ms` : ""}`
+                      : t("pingUnreachable")}
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                disabled={refreshingIp}
+                onClick={refreshIp}
+                title={t("refreshIp")}
+              >
+                <RefreshCw className={`size-3.5 ${refreshingIp ? "animate-spin" : ""}`} />
+              </Button>
             </div>
             <p className="text-sm text-muted-foreground">
               #{vm.vmid} · {vm.type === "QEMU" ? "VM" : "LXC"} {t("on")}{" "}
@@ -126,8 +182,13 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
             </p>
           </div>
         </div>
-        {canControl && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" disabled={polling} onClick={pollNow}>
+            <RefreshCw className={`size-4 ${polling ? "animate-spin" : ""}`} />
+            {t("pollNow")}
+          </Button>
+          {canControl && (
+            <>
             {running && (
               <VmTerminalMenu
                 serverId={serverId}
@@ -182,8 +243,9 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
                 />
               </>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview">

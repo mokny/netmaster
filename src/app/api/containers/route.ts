@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
 import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
+import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
 import type { ContainerWithServerDTO } from "@/lib/types";
 
 export async function GET() {
@@ -15,6 +16,9 @@ export async function GET() {
 
     const perServer = await Promise.all(
       servers.map(async (server) => {
+        // Debounced, siehe scheduler.ts - stößt frischen Poll an, statt bis
+        // zum nächsten vmDockerPollIntervalSec-Tick zu warten.
+        ensureFreshDockerPoll(server.id);
         const latest = await prisma.dockerContainerSnapshot.findFirst({
           where: { serverId: server.id },
           orderBy: { timestamp: "desc" },

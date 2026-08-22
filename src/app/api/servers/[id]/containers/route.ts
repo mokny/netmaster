@@ -11,6 +11,7 @@ import { execOnServer, buildDockerRunCommand, type DockerRunOptions } from "@/li
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
 import { attachIps, dockerIpKey } from "@/lib/monitor/ip-cache";
+import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
 
 export async function GET(
   _req: Request,
@@ -19,6 +20,8 @@ export async function GET(
   try {
     await requireSession();
     const { id } = await params;
+
+    ensureFreshDockerPoll(id);
 
     const latest = await prisma.dockerContainerSnapshot.findFirst({
       where: { serverId: id },

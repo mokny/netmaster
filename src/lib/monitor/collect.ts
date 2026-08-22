@@ -350,19 +350,28 @@ async function notifyMetricAlerts(
 
 // Nur bei Bedarf (Cache abgelaufen) im Hintergrund angestoßen - siehe
 // ip-cache.ts. Läuft parallel zum eigentlichen Poll, verzögert ihn also nicht.
-function refreshDockerIp(server: ServerModel, containerId: string) {
-  refreshIfStale(dockerIpKey(server.id, containerId), async () => {
-    const { stdout } = await execPooled(server, buildDockerInspectIpsCommand(containerId));
-    return parseDockerInspectIps(stdout);
-  });
+// force=true erzwingt den Refresh (manueller "IP aktualisieren"-Button).
+export function refreshDockerIp(server: ServerModel, containerId: string, force = false) {
+  return refreshIfStale(
+    dockerIpKey(server.id, containerId),
+    async () => {
+      const { stdout } = await execPooled(server, buildDockerInspectIpsCommand(containerId));
+      return parseDockerInspectIps(stdout);
+    },
+    force
+  );
 }
 
-function refreshVmIp(server: ServerModel, type: "qemu" | "lxc", vmid: number) {
-  refreshIfStale(vmIpKey(server.id, vmid), async () => {
-    const { command, stdin } = buildVmIpCommand(server, type, vmid);
-    const { stdout } = await execOnServer(server, command, 10_000, stdin);
-    return type === "qemu" ? parseQemuAgentIps(stdout) : parseIpAddrShowIps(stdout);
-  });
+export function refreshVmIp(server: ServerModel, type: "qemu" | "lxc", vmid: number, force = false) {
+  return refreshIfStale(
+    vmIpKey(server.id, vmid),
+    async () => {
+      const { command, stdin } = buildVmIpCommand(server, type, vmid);
+      const { stdout } = await execOnServer(server, command, 10_000, stdin);
+      return type === "qemu" ? parseQemuAgentIps(stdout) : parseIpAddrShowIps(stdout);
+    },
+    force
+  );
 }
 
 export async function collectDockerContainers(server: ServerModel) {

@@ -208,7 +208,15 @@
       "networkRx": "Netwerk (ontvangen)",
       "networkTx": "Netwerk (verzonden)",
       "files": "Bestanden",
-      "filesDescription": "Toegang via \"docker exec\" op de hostverbinding - geen echte SFTP."
+      "filesDescription": "Toegang via \"docker exec\" op de hostverbinding - geen echte SFTP.",
+      "refreshIp": "IP vernieuwen",
+      "refreshingIp": "Bezig met vernieuwen...",
+      "pollNow": "Nu vernieuwen",
+      "polling": "Bezig met vernieuwen...",
+      "pingAlive": "bereikbaar",
+      "pingUnreachable": "niet bereikbaar",
+      "pingChecking": "wordt gecontroleerd...",
+      "pollFailed": "Vernieuwen mislukt"
     },
     "serverManager": {
       "subtitle": "Containers en images op deze server",
@@ -259,7 +267,15 @@
       "restart": "Herstarten",
       "stop": "Stoppen",
       "overview": "Overzicht",
-      "files": "Bestanden"
+      "files": "Bestanden",
+      "refreshIp": "IP vernieuwen",
+      "refreshingIp": "Bezig met vernieuwen...",
+      "pollNow": "Nu vernieuwen",
+      "polling": "Bezig met vernieuwen...",
+      "pingAlive": "bereikbaar",
+      "pingUnreachable": "niet bereikbaar",
+      "pingChecking": "wordt gecontroleerd...",
+      "pollFailed": "Vernieuwen mislukt"
     },
     "snapshotsTab": {
       "snapshotCount": "{count, plural, one {# snapshot} other {# snapshots}}",
@@ -893,7 +909,9 @@
       "sudoPasswordHint": "(optioneel, voor herstarten/uitschakelen als niet-rootgebruiker",
       "warning": "Waarschuwing",
       "critical": "Kritiek",
-      "save": "Opslaan"
+      "save": "Opslaan",
+      "vmDockerPollInterval": "VM/Docker-pollinterval (min.)",
+      "vmDockerPollIntervalHint": "Hoe vaak de (dure) Proxmox-/Docker-status op de achtergrond wordt opgevraagd. Blijft live via ping en zolang een VM-/containerdetailpagina open is."
     },
     "networkGraph": {
       "fetchFailed": "Poortgegevens konden niet worden geladen",
@@ -1261,11 +1279,11 @@
       "serverMetricsLabel": "Server metrics",
       "serverMetricsDescription": "CPU, memory, disk and network stats collected via SSH (per-server interval, default 30s).",
       "dockerContainersLabel": "Docker containers",
-      "dockerContainersDescription": "Container list per server (SSH), polled at 2x the metrics interval.",
+      "dockerContainersDescription": "Container list per server (SSH), polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
       "dockerImagesLabel": "Docker images",
-      "dockerImagesDescription": "Docker image list per server (SSH), polled at 2x the metrics interval.",
+      "dockerImagesDescription": "Docker image list per server (SSH), polled at the per-server VM/Docker interval (default 120 min).",
       "proxmoxVmsLabel": "Proxmox VMs / LXCs",
-      "proxmoxVmsDescription": "VM and container status via Proxmox (same interval as metrics).",
+      "proxmoxVmsDescription": "VM and container status via Proxmox, polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
       "routerDevicesLabel": "Router devices",
       "routerDevicesDescription": "FritzBox / Repeater status via TR-064 (per-device interval, default 60s).",
       "uptimeChecksLabel": "Uptime checks",
@@ -1279,7 +1297,12 @@
       "dashboardLookupsLabel": "Dashboard lookups",
       "dashboardLookupsDescription": "Server/VM/container name lookups for dashboard widgets (refreshes every 60s while open).",
       "wsProcessesLabel": "Live process list",
-      "wsProcessesDescription": "Live process list in a server's process manager (refreshes every 2.5s while open)."
+      "wsProcessesDescription": "Live process list in a server's process manager (refreshes every 2.5s while open).",
+      "pingLabel": "Ping reachability check",
+      "pingDescription": "Centralized ICMP reachability check from the NetMaster server against known VM/container IPs - no SSH load on the target host.",
+      "pingIntervalLabel": "Ping interval (seconds)",
+      "pingIntervalDescription": "How often known VM/container IPs are pinged.",
+      "saving": "Saving..."
     }
   },
   "status": {

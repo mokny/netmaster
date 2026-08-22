@@ -16,6 +16,7 @@ import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
 import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
 import { handleDockerTerminalSocket } from "./src/lib/ws/docker-terminal-handler";
 import { handleProcessesSocket } from "./src/lib/ws/processes-handler";
+import { handleDetailPresenceSocket, type DetailPresenceKind } from "./src/lib/ws/detail-presence-handler";
 import { handleFilesSocket } from "./src/lib/ws/files-handler";
 import { handleExecFilesSocket } from "./src/lib/ws/exec-files-handler";
 import { resolveDockerFileBackend, resolveProxmoxFileBackend } from "./src/lib/exec-file-target";
@@ -54,6 +55,7 @@ app.prepare().then(() => {
   const vmVncWss = new WebSocketServer({ noServer: true });
   const dockerTerminalWss = new WebSocketServer({ noServer: true });
   const processesWss = new WebSocketServer({ noServer: true });
+  const detailPresenceWss = new WebSocketServer({ noServer: true });
   const filesWss = new WebSocketServer({ noServer: true });
   const dockerFilesWss = new WebSocketServer({ noServer: true });
   const proxmoxFilesWss = new WebSocketServer({ noServer: true });
@@ -72,6 +74,7 @@ app.prepare().then(() => {
       pathname !== "/api/ws/vm-vnc" &&
       pathname !== "/api/ws/docker-terminal" &&
       pathname !== "/api/ws/processes" &&
+      pathname !== "/api/ws/detail-presence" &&
       pathname !== "/api/ws/files" &&
       pathname !== "/api/ws/docker-files" &&
       pathname !== "/api/ws/proxmox-files"
@@ -92,6 +95,23 @@ app.prepare().then(() => {
       wss.handleUpgrade(req, socket, head, (ws) => {
         clients.add(ws);
         ws.on("close", () => clients.delete(ws));
+      });
+      return;
+    }
+
+    // Reiner Präsenz-Signal-Socket (siehe detail-presence-handler.ts) - keine
+    // Shell-/Dateisystem-Zugriffsrechte nötig, daher nicht auf Editor+
+    // beschränkt wie der Block darunter.
+    if (pathname === "/api/ws/detail-presence") {
+      const serverId = typeof query.serverId === "string" ? query.serverId : null;
+      const kind = typeof query.kind === "string" ? query.kind : null;
+      if (!serverId || (kind !== "proxmox" && kind !== "docker")) {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      detailPresenceWss.handleUpgrade(req, socket, head, (ws) => {
+        handleDetailPresenceSocket(ws, serverId, kind as DetailPresenceKind);
       });
       return;
     }

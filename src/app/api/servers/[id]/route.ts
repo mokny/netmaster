@@ -21,6 +21,7 @@ export const SERVER_SELECT = {
   sshUsername: true,
   authType: true,
   pollIntervalSec: true,
+  vmDockerPollIntervalSec: true,
   retentionDays: true,
   dockerEnabled: true,
   proxmoxEnabled: true,
@@ -94,6 +95,7 @@ export async function PATCH(
     const numFields = [
       "sshPort",
       "pollIntervalSec",
+      "vmDockerPollIntervalSec",
       "retentionDays",
       "cpuWarn",
       "cpuCrit",
