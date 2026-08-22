@@ -32,48 +32,24 @@ installation is detected automatically and updated instead
 
 ## Features
 
-### Dashboard
+- **Server monitoring** – live CPU/RAM/disk/load/network metrics via SSH, historical charts, per-server debug view
+- **Dashboard** – freely arrangeable, drag-and-drop widget grid (server metrics, combined/compact widgets, Docker & Proxmox overviews, charts)
+- **Docker management** – container overview per server, start/stop/restart, create/remove containers, pull images, live stats
+- **Proxmox / VM management** – VM overview, power control, snapshots, backups, and integrated terminal/VNC console per VM
+- **HTTP/Upchecker health checks** – uptime monitoring for URLs/services with history and status
+- **Network Explore (scan)** – nmap-based ARP/ping sweep and port/service discovery to find unregistered devices on the LAN
+- **Network topology & traffic** – visual topology graph plus network throughput charts
+- **Router/device tracking** – overview of known router-connected devices
+- **Storage overview** – disk/NFS source overview across servers
+- **Multi-user auth with roles** – Admin / Editor / Viewer permission levels
+- **Account security** – TOTP two-factor auth, WebAuthn/passkeys, active session management
+- **Push notifications** – browser push alerts for outages/status changes
+- **Network tools** – ping, traceroute, whois, DNS lookup, port check, HTTP check (with input history)
+- **SSH terminal & snippets** – in-browser terminal access with saved command snippets
+- **Jobs overview** – background/scheduled job status
+- **Admin tools** – user management, polling/debug settings, encrypted SSH credential storage
+- **Self-hosted & Dockerized** – single install script, automatic updates, optional HTTPS via Caddy + Let's Encrypt
 
-Freely arrangeable live overview with server status, CPU/RAM/disk history and a Proxmox/Docker summary.
-
-![Dashboard](docs/screenshots/dashboard.png)
-
-### Servers
-
-Per-server detail view with live CPU/RAM/disk charts, uptime, system info and process list, plus quick actions (terminal, snippets, restart, shutdown).
-
-![Server details](docs/screenshots/server-details.png)
-
-### Storage
-
-Manage disks, partitions, LVM and software RAID directly on a server, and expose shares via NFS or Samba (users, passwords, permissions).
-
-<table>
-<tr>
-<td><img src="docs/screenshots/storage.png" alt="Storage: disks, LVM, RAID"></td>
-<td><img src="docs/screenshots/samba.png" alt="Storage: Samba users and shares"></td>
-</tr>
-</table>
-
-### Router
-
-Overview of connected FritzBoxes/repeaters with throughput graphs, WiFi status and connected devices.
-
-![Router](docs/screenshots/router.png)
-
-### Network Topology
-
-Live graph of the connections between servers with network tools enabled.
-
-![Network topology](docs/screenshots/network-topology.png)
-
-## Stack
-
-- Next.js 16 (App Router) + TypeScript, Tailwind CSS + shadcn/ui
-- Custom Node server (`server.ts`) for WebSocket live updates alongside Next.js
-- SQLite via Prisma (`@prisma/adapter-better-sqlite3`)
-- SSH monitoring via `ssh2`, encrypted credentials (AES-256-GCM)
-- Recharts for live graphs, `react-grid-layout` for the drag-and-drop dashboard
 
 ## Local development
 
