@@ -43,6 +43,35 @@ enum RouterDeviceType {
   REPEATER
 }
 
+enum JobKind {
+  PREDEFINED
+  SSH_COMMAND
+}
+
+enum JobScheduleType {
+  INTERVAL
+  CRON
+}
+
+enum PredefinedAction {
+  RECONCILE_NOW
+  CLEANUP_LOGS
+  DB_BACKUP
+  RUN_SERVICE_CHECKS
+}
+
+enum JobRunStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+  SKIPPED
+}
+
+enum JobRunTrigger {
+  SCHEDULE
+  MANUAL
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -717,6 +746,57 @@ model RouterDevice {
 // fertiger Raten - die Rate wird aus zwei Messpunkten client-/serverseitig
 // berechnet. Feste 7-Tage-Aufbewahrung statt eines konfigurierbaren Felds
 // (bei nur wenigen Router-Geräten kein nennenswerter Speicherbedarf).
+// Ein NetMaster-eigener geplanter Job - entweder eine fest eingebaute Aktion
+// (PredefinedAction) oder ein freier Shell-Befehl, der per SSH auf einem oder
+// mehreren Servern ausgeführt wird (targetServerIdsJson). Der Zeitplan ist
+// entweder ein einfaches Intervall oder ein Cron-Ausdruck - siehe
+// src/lib/jobs/scheduler.ts für die Auswertung.
+model Job {
+  id      String  @id @default(cuid())
+  name    String
+  enabled Boolean @default(true)
+
+  kind              JobKind
+  predefinedAction  PredefinedAction?
+  // Nur für kind=SSH_COMMAND: der auszuführende Shell-Befehl sowie die
+  // Ziel-Server (JSON-Array von Server-IDs).
+  command             String?
+  targetServerIdsJson String  @default("[]")
+
+  scheduleType   JobScheduleType
+  intervalSec    Int?
+  cronExpression String?
+
+  timeoutSec Int @default(300)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lastRunAt     DateTime?
+  lastRunStatus JobRunStatus?
+
+  runs JobRun[]
+}
+
+// Protokoll einer einzelnen Job-Ausführung. resultsJson enthält bei
+// SSH_COMMAND-Jobs ein Ergebnis je Ziel-Server
+// ({serverId, serverName, success, exitCode, output}[]), bei PREDEFINED-Jobs
+// ein einzelnes Ergebnis.
+model JobRun {
+  id      String @id @default(cuid())
+  jobId   String
+  job     Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  status      JobRunStatus
+  trigger     JobRunTrigger
+  startedAt   DateTime      @default(now())
+  finishedAt  DateTime?
+  resultsJson String        @default("[]")
+  error       String?
+
+  @@index([jobId, startedAt])
+}
+
 model RouterSample {
   id             String       @id @default(cuid())
   routerDeviceId String

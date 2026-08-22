@@ -25,6 +25,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Menu,
+  ListChecks,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +61,8 @@ const NAV_ITEMS = [
   { href: "/network", labelKey: "network", icon: Waypoints, minRole: "VIEWER" },
   { href: "/upchecker", labelKey: "upchecker", icon: ActivitySquare, minRole: "VIEWER" },
   { href: "/explore", labelKey: "explore", icon: Radar, minRole: "VIEWER" },
+  { href: "/jobs", labelKey: "jobs", icon: ListChecks, minRole: "EDITOR" },
+  { href: "/tools", labelKey: "tools", icon: Wrench, minRole: "EDITOR" },
   { href: "/router", labelKey: "router", icon: Router, minRole: "ADMIN" },
   { href: "/admin/users", labelKey: "users", icon: Users, minRole: "ADMIN" },
   { href: "/admin/settings", labelKey: "settings", icon: Settings, minRole: "ADMIN" },

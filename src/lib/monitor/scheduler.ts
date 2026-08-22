@@ -11,6 +11,7 @@ import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh
 import { getOrCreateExploreSettings, reconcileRanges, runDiscoveryScan } from "@/lib/discovery/scan";
 import { refreshPollingSettingsCache } from "@/lib/monitor/polling-settings";
 import { startPingLoop, stopPingLoop } from "@/lib/monitor/ping-scheduler";
+import { reconcileJobs, stopJobScheduler } from "@/lib/jobs/scheduler";
 import type { PollingSettings, Server as ServerModel } from "@/generated/prisma/client";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
@@ -322,6 +323,8 @@ async function reconcile() {
   } else {
     stopPingLoop();
   }
+
+  await reconcileJobs();
 }
 
 let started = false;
@@ -356,5 +359,6 @@ export function stopMonitorScheduler() {
   proxmoxFastPoll.stopAll();
   dockerFastPoll.stopAll();
   stopPingLoop();
+  stopJobScheduler();
   closeAllPooledConnections();
 }

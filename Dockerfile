@@ -46,7 +46,7 @@ COPY --from=deps /app/node_modules/.bin ./node_modules/.bin
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl nmap iputils-ping \
+    openssl nmap iputils-ping traceroute whois \
     && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
