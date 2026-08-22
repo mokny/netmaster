@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
 import { getCachedIps, vmIpKey } from "@/lib/monitor/ip-cache";
 import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
+import { resolveTimeRange, downsampleRows } from "@/lib/monitor/time-range";
 
 export async function GET(
   req: Request,
@@ -16,20 +17,24 @@ export async function GET(
 
     ensureFreshProxmoxPoll(id);
 
-    const { searchParams } = new URL(req.url);
-    const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
-      include: { server: { select: { id: true, name: true } } },
+      include: { server: { select: { id: true, name: true, retentionDays: true } } },
     });
     if (!vm) throw new ApiError(404, "VM_NOT_FOUND");
 
-    const samples = await prisma.proxmoxVmSample.findMany({
-      where: { vmId: vm.id, timestamp: { gte: since } },
+    const { searchParams } = new URL(req.url);
+    const { from, to } = resolveTimeRange(searchParams, vm.server.retentionDays);
+
+    const rawSamples = await prisma.proxmoxVmSample.findMany({
+      where: { vmId: vm.id, timestamp: { gte: from, lte: to } },
       orderBy: { timestamp: "asc" },
     });
+    const samples = downsampleRows(rawSamples, from, to, [
+      "cpuPercent",
+      "memPercent",
+      "diskPercent",
+    ]);
 
     return NextResponse.json({
       vm: { ...vm, ips: getCachedIps(vmIpKey(id, vmidNum)) ?? [] },

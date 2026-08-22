@@ -23,6 +23,10 @@ import {
   DISK_KEY_PREFIX,
   type CombinedPoint,
 } from "@/components/servers/combined-metric-chart";
+import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
+import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
@@ -48,19 +52,27 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
 
   useDetailPresence(serverId, "proxmox");
 
+  const chartWindow = useChartTimeWindow();
+  const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
+  const debouncedTo = useDebouncedValue(chartWindow.to, 250);
+
   const load = useCallback(async () => {
-    const res = await fetch(`/api/servers/${serverId}/vms/${vmid}?hours=6`);
+    const res = await fetch(
+      `/api/servers/${serverId}/vms/${vmid}?from=${debouncedFrom}&to=${debouncedTo}`
+    );
     if (res.ok) {
       const data = await res.json();
       setVm(data.vm);
       setSamples(data.samples);
     }
-  }, [serverId, vmid]);
+  }, [serverId, vmid, debouncedFrom, debouncedTo]);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const res = await fetch(`/api/servers/${serverId}/vms/${vmid}?hours=6`);
+      const res = await fetch(
+        `/api/servers/${serverId}/vms/${vmid}?from=${debouncedFrom}&to=${debouncedTo}`
+      );
       if (!active || !res.ok) return;
       const data = await res.json();
       setVm(data.vm);
@@ -69,7 +81,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
     return () => {
       active = false;
     };
-  }, [serverId, vmid]);
+  }, [serverId, vmid, debouncedFrom, debouncedTo]);
 
   useLiveEvents((event) => {
     if (event.type !== "proxmox" || event.serverId !== serverId) return;
@@ -78,7 +90,7 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
     );
     if (!updated) return;
     setVm((prev) => (prev ? { ...prev, ...updated, server: prev.server } : prev));
-    if (updated.sample) {
+    if (updated.sample && chartWindow.isLive) {
       setSamples((prev) => [...prev, updated.sample!].slice(-2000));
     }
   });
@@ -257,23 +269,28 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
         </TabsList>
         <TabsContent value="overview">
           <Card>
-            <CardHeader>
-              <CardTitle>CPU / RAM / Disk</CardTitle>
-              <CardDescription>
-                CPU {vm.cpuPercent != null ? `${vm.cpuPercent.toFixed(1)}%` : "–"} · RAM{" "}
-                {vm.memUsedMb != null && vm.memTotalMb
-                  ? `${(vm.memUsedMb / 1024).toFixed(1)} / ${(vm.memTotalMb / 1024).toFixed(1)} GB`
-                  : "–"}
-                {vm.diskUsedGb != null && vm.diskTotalGb
-                  ? ` · Disk ${vm.diskUsedGb.toFixed(1)} / ${vm.diskTotalGb.toFixed(1)} GB`
-                  : ""}
-              </CardDescription>
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+              <div>
+                <CardTitle>CPU / RAM / Disk</CardTitle>
+                <CardDescription>
+                  CPU {vm.cpuPercent != null ? `${vm.cpuPercent.toFixed(1)}%` : "–"} · RAM{" "}
+                  {vm.memUsedMb != null && vm.memTotalMb
+                    ? `${(vm.memUsedMb / 1024).toFixed(1)} / ${(vm.memTotalMb / 1024).toFixed(1)} GB`
+                    : "–"}
+                  {vm.diskUsedGb != null && vm.diskTotalGb
+                    ? ` · Disk ${vm.diskUsedGb.toFixed(1)} / ${vm.diskTotalGb.toFixed(1)} GB`
+                    : ""}
+                </CardDescription>
+              </div>
+              <ChartTimeToolbar window={chartWindow} />
             </CardHeader>
             <CardContent>
-              <CombinedMetricChart
-                data={chartData}
-                diskLines={[{ key: `${DISK_KEY_PREFIX}disk`, label: "Disk" }]}
-              />
+              <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+                <CombinedMetricChart
+                  data={chartData}
+                  diskLines={[{ key: `${DISK_KEY_PREFIX}disk`, label: "Disk" }]}
+                />
+              </ChartPanOverlay>
             </CardContent>
           </Card>
         </TabsContent>

@@ -15,7 +15,7 @@ export async function POST(
     if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
     requireDockerEnabled(server);
 
-    await collectDockerContainers(server);
+    await collectDockerContainers(server, "on_demand");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

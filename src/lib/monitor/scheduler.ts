@@ -41,7 +41,7 @@ export function ensureFreshProxmoxPoll(serverId: string) {
   if (Date.now() - last < PAGE_OPEN_DEBOUNCE_MS) return;
   lastProxmoxPollAt.set(serverId, Date.now());
   void prisma.server.findUnique({ where: { id: serverId } }).then((server) => {
-    if (server?.proxmoxEnabled) void collectProxmoxVms(server);
+    if (server?.proxmoxEnabled) void collectProxmoxVms(server, "on_demand");
   });
 }
 
@@ -50,7 +50,7 @@ export function ensureFreshDockerPoll(serverId: string) {
   if (Date.now() - last < PAGE_OPEN_DEBOUNCE_MS) return;
   lastDockerPollAt.set(serverId, Date.now());
   void prisma.server.findUnique({ where: { id: serverId } }).then((server) => {
-    if (server?.dockerEnabled) void collectDockerContainers(server);
+    if (server?.dockerEnabled) void collectDockerContainers(server, "on_demand");
   });
 }
 
@@ -96,8 +96,8 @@ function makeFastPollSubscribers(collect: (server: ServerModel) => Promise<void>
   };
 }
 
-const proxmoxFastPoll = makeFastPollSubscribers(collectProxmoxVms);
-const dockerFastPoll = makeFastPollSubscribers(collectDockerContainers);
+const proxmoxFastPoll = makeFastPollSubscribers((server) => collectProxmoxVms(server, "on_demand"));
+const dockerFastPoll = makeFastPollSubscribers((server) => collectDockerContainers(server, "on_demand"));
 
 export function subscribeFastProxmoxPoll(serverId: string) {
   proxmoxFastPoll.subscribe(serverId);

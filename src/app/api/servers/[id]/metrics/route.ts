@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, handleApiError } from "@/lib/api-helpers";
+import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
+import { resolveTimeRange, downsampleRows } from "@/lib/monitor/time-range";
 
 export async function GET(
   req: Request,
@@ -9,17 +10,22 @@ export async function GET(
   try {
     await requireSession();
     const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const server = await prisma.server.findUnique({
+      where: { id },
+      select: { retentionDays: true },
+    });
+    if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
 
-    const [samples, diskSamples, latestDisks] = await Promise.all([
+    const { searchParams } = new URL(req.url);
+    const { from, to } = resolveTimeRange(searchParams, server.retentionDays);
+
+    const [rawSamples, rawDiskSamples, latestDisks] = await Promise.all([
       prisma.metricSample.findMany({
-        where: { serverId: id, timestamp: { gte: since } },
+        where: { serverId: id, timestamp: { gte: from, lte: to } },
         orderBy: { timestamp: "asc" },
       }),
       prisma.diskSample.findMany({
-        where: { serverId: id, timestamp: { gte: since } },
+        where: { serverId: id, timestamp: { gte: from, lte: to } },
         orderBy: { timestamp: "asc" },
       }),
       prisma.diskSample.findMany({
@@ -28,6 +34,27 @@ export async function GET(
         orderBy: { timestamp: "desc" },
       }),
     ]);
+
+    const samples = downsampleRows(rawSamples, from, to, [
+      "cpuPercent",
+      "memPercent",
+      "diskPercent",
+      "loadAvg1",
+      "loadAvg5",
+      "loadAvg15",
+      "netRxBytes",
+      "netTxBytes",
+    ]);
+
+    const diskByMount = new Map<string, typeof rawDiskSamples>();
+    for (const d of rawDiskSamples) {
+      const arr = diskByMount.get(d.mountpoint);
+      if (arr) arr.push(d);
+      else diskByMount.set(d.mountpoint, [d]);
+    }
+    const diskSamples = Array.from(diskByMount.values())
+      .flatMap((rows) => downsampleRows(rows, from, to, ["totalKb", "usedKb", "percent"]))
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     const disks = latestDisks
       .sort((a, b) => a.mountpoint.localeCompare(b.mountpoint))

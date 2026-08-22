@@ -16,6 +16,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { RouterDeviceDialog } from "@/components/router/router-device-dialog";
 import { NetworkChart, type NetworkChartPoint } from "@/components/network/network-chart";
+import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
+import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatBitRate } from "@/lib/format";
 import { Trash2, RotateCcw, RefreshCw, Wifi, Router as RouterIcon } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -47,12 +51,18 @@ function DeviceCard({
   const wifi: RouterWifiNetwork[] = JSON.parse(device.wifiNetworksJson || "[]");
   const activeHosts = hosts.filter((h) => h.active);
 
+  // RouterSample wird fest 7 Tage aufbewahrt (siehe Schema-Kommentar) - Zoom
+  // darüber hinaus wäre ohnehin leer.
+  const chartWindow = useChartTimeWindow({ maxWindowMs: 7 * 24 * 60 * 60 * 1000 });
+  const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
+  const debouncedTo = useDebouncedValue(chartWindow.to, 250);
+
   useEffect(() => {
-    fetch(`/api/router-devices/${device.id}/samples`)
+    fetch(`/api/router-devices/${device.id}/samples?from=${debouncedFrom}&to=${debouncedTo}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setSamples(data.samples))
       .catch(() => {});
-  }, [device.id, device.lastCheckedAt]);
+  }, [device.id, debouncedFrom, debouncedTo]);
 
   // Rate = Delta der kumulativen Byte-Zähler / Delta der Zeit zwischen zwei
   // Samples. Ein negatives Delta (Zähler-Reset, z.B. Reboot) liefert keinen
@@ -163,8 +173,13 @@ function DeviceCard({
 
         {ratePoints.length > 0 && (
           <div>
-            <p className="mb-1 text-xs text-muted-foreground">{t("throughput")}</p>
-            <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("throughput")}</p>
+              <ChartTimeToolbar window={chartWindow} compact />
+            </div>
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
+            </ChartPanOverlay>
           </div>
         )}
 

@@ -15,7 +15,7 @@ export async function POST(
     if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
     requireProxmoxEnabled(server);
 
-    await collectProxmoxVms(server);
+    await collectProxmoxVms(server, "on_demand");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

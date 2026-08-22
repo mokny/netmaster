@@ -1067,7 +1067,8 @@
       "explore": "Explorar",
       "router": "Router",
       "users": "Usuarios",
-      "settings": "Settings"
+      "settings": "Settings",
+      "debug": "Debug"
     },
     "expandNav": "Expandir navegación",
     "collapseNav": "Contraer navegación",

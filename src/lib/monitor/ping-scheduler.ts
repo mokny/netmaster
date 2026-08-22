@@ -1,6 +1,7 @@
 import { runPingCheck } from "@/lib/ping";
 import { getAllCachedIpEntries } from "./ip-cache";
 import { publish } from "./events";
+import { logPoll } from "./poll-log";
 
 const PING_TIMEOUT_MS = 2000;
 // Wie viele Hosts maximal gleichzeitig gepingt werden - begrenzt die Anzahl
@@ -37,6 +38,7 @@ async function pingAllKnownHosts() {
           const target = parseKey(key);
           if (!target) return;
           const result = await runPingCheck(ips[0], PING_TIMEOUT_MS);
+          logPoll(target.serverId, "ping", result.success);
           publish({
             type: "ping",
             serverId: target.serverId,

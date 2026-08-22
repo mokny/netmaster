@@ -12,6 +12,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
 import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
 import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
+import { resolveTimeRange, downsampleRows } from "@/lib/monitor/time-range";
 
 export async function GET(
   req: Request,
@@ -23,15 +24,14 @@ export async function GET(
 
     ensureFreshDockerPoll(id);
 
-    const { searchParams } = new URL(req.url);
-    const hours = Math.min(24 * 30, Math.max(1, Number(searchParams.get("hours") ?? 6)));
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
     const server = await prisma.server.findUnique({
       where: { id },
-      select: { id: true, name: true },
+      select: { id: true, name: true, retentionDays: true },
     });
     if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
+
+    const { searchParams } = new URL(req.url);
+    const { from, to } = resolveTimeRange(searchParams, server.retentionDays);
 
     const latest = await prisma.dockerContainerSnapshot.findFirst({
       where: { serverId: id, containerId },
@@ -39,10 +39,16 @@ export async function GET(
     });
     if (!latest) throw new ApiError(404, "CONTAINER_NOT_FOUND");
 
-    const samples = await prisma.dockerContainerSnapshot.findMany({
-      where: { serverId: id, containerId, timestamp: { gte: since } },
+    const rawSamples = await prisma.dockerContainerSnapshot.findMany({
+      where: { serverId: id, containerId, timestamp: { gte: from, lte: to } },
       orderBy: { timestamp: "asc" },
     });
+    const samples = downsampleRows(rawSamples, from, to, [
+      "cpuPercent",
+      "memUsageMb",
+      "netRxMb",
+      "netTxMb",
+    ]);
 
     return NextResponse.json({
       container: { ...latest, server, ips: getCachedIps(dockerIpKey(id, containerId)) ?? [] },

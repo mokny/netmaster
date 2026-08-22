@@ -22,6 +22,10 @@ import {
   DISK_KEY_PREFIX,
   type CombinedPoint,
 } from "@/components/servers/combined-metric-chart";
+import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
+import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { DiskSelect } from "@/components/servers/disk-select";
 import { ServiceCheckDialog } from "@/components/servers/service-check-dialog";
 import { ServerFormDialog } from "@/components/servers/server-form-dialog";
@@ -70,21 +74,18 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   const [vms, setVms] = useState<ProxmoxVmDTO[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const chartWindow = useChartTimeWindow();
+  const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
+  const debouncedTo = useDebouncedValue(chartWindow.to, 250);
+
   const loadAll = useCallback(async () => {
-    const [serverRes, metricsRes, checksRes, containersRes, vmsRes] = await Promise.all([
+    const [serverRes, checksRes, containersRes, vmsRes] = await Promise.all([
       fetch(`/api/servers/${serverId}`),
-      fetch(`/api/servers/${serverId}/metrics?hours=6`),
       fetch(`/api/servers/${serverId}/checks`),
       fetch(`/api/servers/${serverId}/containers`),
       fetch(`/api/servers/${serverId}/vms`),
     ]);
     if (serverRes.ok) setServer((await serverRes.json()).server);
-    if (metricsRes.ok) {
-      const data = await metricsRes.json();
-      setSamples(data.samples);
-      setDiskSamples(data.diskSamples ?? []);
-      setDisks(data.disks ?? []);
-    }
     if (checksRes.ok) setChecks((await checksRes.json()).checks);
     if (containersRes.ok) setContainers((await containersRes.json()).containers);
     if (vmsRes.ok) setVms((await vmsRes.json()).vms);
@@ -99,21 +100,14 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [serverRes, metricsRes, checksRes, containersRes, vmsRes] = await Promise.all([
+      const [serverRes, checksRes, containersRes, vmsRes] = await Promise.all([
         fetch(`/api/servers/${serverId}`),
-        fetch(`/api/servers/${serverId}/metrics?hours=6`),
         fetch(`/api/servers/${serverId}/checks`),
         fetch(`/api/servers/${serverId}/containers`),
         fetch(`/api/servers/${serverId}/vms`),
       ]);
       if (!active) return;
       if (serverRes.ok) setServer((await serverRes.json()).server);
-      if (metricsRes.ok) {
-        const data = await metricsRes.json();
-        setSamples(data.samples);
-        setDiskSamples(data.diskSamples ?? []);
-        setDisks(data.disks ?? []);
-      }
       if (checksRes.ok) setChecks((await checksRes.json()).checks);
       if (containersRes.ok) setContainers((await containersRes.json()).containers);
       if (vmsRes.ok) setVms((await vmsRes.json()).vms);
@@ -123,6 +117,23 @@ export function ServerDetail({ serverId }: { serverId: string }) {
     };
   }, [serverId]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const res = await fetch(
+        `/api/servers/${serverId}/metrics?from=${debouncedFrom}&to=${debouncedTo}`
+      );
+      if (!active || !res.ok) return;
+      const data = await res.json();
+      setSamples(data.samples);
+      setDiskSamples(data.diskSamples ?? []);
+      setDisks(data.disks ?? []);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [serverId, debouncedFrom, debouncedTo]);
+
   const effectiveSelectedMounts = useMemo(() => {
     if (selectedMounts !== null) return selectedMounts;
     if (disks.length === 0) return [];
@@ -131,7 +142,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   }, [selectedMounts, disks]);
 
   useLiveEvents((event) => {
-    if (event.type === "metric" && event.serverId === serverId) {
+    if (event.type === "metric" && event.serverId === serverId && chartWindow.isLive) {
       setSamples((prev) => [...prev, event.sample as unknown as MetricSampleDTO].slice(-500));
       const newDisks = (event.disks ?? []) as unknown as DiskSampleDTO[];
       if (newDisks.length > 0) {
@@ -365,14 +376,19 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                 }`}
             </CardDescription>
           </div>
-          <DiskSelect
-            disks={disks}
-            selected={effectiveSelectedMounts}
-            onChange={setSelectedMounts}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <DiskSelect
+              disks={disks}
+              selected={effectiveSelectedMounts}
+              onChange={setSelectedMounts}
+            />
+            <ChartTimeToolbar window={chartWindow} />
+          </div>
         </CardHeader>
         <CardContent>
-          <CombinedMetricChart data={combinedData} diskLines={diskLines} />
+          <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+            <CombinedMetricChart data={combinedData} diskLines={diskLines} />
+          </ChartPanOverlay>
         </CardContent>
       </Card>
 

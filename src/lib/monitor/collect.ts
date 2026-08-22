@@ -24,6 +24,7 @@ import { publish } from "./events";
 import { notifyServerEvent, notifyServerRecovery, sendPushToUser, type NotificationEvent } from "@/lib/push";
 import { shouldFireDelayedAlert, shouldFireRecovery } from "./alert-delay";
 import { runPingCheck } from "@/lib/ping";
+import { logPoll, POLL_LOG_RETENTION_MS } from "./poll-log";
 import type { Server as ServerModel, ServiceCheck } from "@/generated/prisma/client";
 
 // Rate = Delta der kumulativen Byte-Zähler / Delta der Zeit zum letzten Poll,
@@ -174,6 +175,10 @@ export async function collectServerMetrics(server: ServerModel) {
     await prisma.diskSample.deleteMany({
       where: { serverId: server.id, timestamp: { lt: cutoff } },
     });
+    await prisma.pollLog.deleteMany({
+      where: { serverId: server.id, timestamp: { lt: new Date(Date.now() - POLL_LOG_RETENTION_MS) } },
+    });
+    logPoll(server.id, "host_metrics", true);
   } catch (err) {
     invalidatePooledConnection(server.id);
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -204,6 +209,7 @@ export async function collectServerMetrics(server: ServerModel) {
       offlineSince,
       server.pollIntervalSec
     );
+    logPoll(server.id, "host_metrics", false);
   }
 }
 
@@ -374,8 +380,12 @@ export function refreshVmIp(server: ServerModel, type: "qemu" | "lxc", vmid: num
   );
 }
 
-export async function collectDockerContainers(server: ServerModel) {
+export async function collectDockerContainers(
+  server: ServerModel,
+  trigger: "scheduled" | "on_demand" = "scheduled"
+) {
   if (!server.dockerEnabled) return;
+  const pollType = trigger === "on_demand" ? "on_demand" : "docker_containers";
   try {
     const { stdout } = await execPooled(server, DOCKER_COMMAND);
     const containers = parseDockerOutput(stdout);
@@ -497,8 +507,10 @@ export async function collectDockerContainers(server: ServerModel) {
     await prisma.dockerContainerSnapshot.deleteMany({
       where: { serverId: server.id, timestamp: { lt: cutoff } },
     });
+    logPoll(server.id, pollType, true);
   } catch {
     // Server hat evtl. kein Docker installiert – kein harter Fehler.
+    logPoll(server.id, pollType, false);
   }
 }
 
@@ -528,13 +540,19 @@ export async function collectDockerImages(server: ServerModel) {
     await prisma.dockerImageSnapshot.deleteMany({
       where: { serverId: server.id, timestamp: { lt: cutoff } },
     });
+    logPoll(server.id, "docker_images", true);
   } catch {
     // Server hat evtl. kein Docker installiert – kein harter Fehler.
+    logPoll(server.id, "docker_images", false);
   }
 }
 
-export async function collectProxmoxVms(server: ServerModel) {
+export async function collectProxmoxVms(
+  server: ServerModel,
+  trigger: "scheduled" | "on_demand" = "scheduled"
+) {
   if (!server.proxmoxEnabled) return;
+  const pollType = trigger === "on_demand" ? "on_demand" : "proxmox_vms";
   try {
     const { stdout } = await execPooled(server, PROXMOX_COMMAND);
     const vms = parseProxmoxOutput(stdout);
@@ -622,8 +640,10 @@ export async function collectProxmoxVms(server: ServerModel) {
     });
 
     publish({ type: "proxmox", serverId: server.id, vms: dtos });
+    logPoll(server.id, pollType, true);
   } catch {
     // Server hat evtl. kein Proxmox installiert – kein harter Fehler.
+    logPoll(server.id, pollType, false);
   }
 }
 

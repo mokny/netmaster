@@ -6,6 +6,10 @@ import {
   DISK_KEY_PREFIX,
   type CombinedPoint,
 } from "@/components/servers/combined-metric-chart";
+import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
+import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import type { MetricSampleDTO } from "@/lib/types";
 
@@ -13,15 +17,18 @@ const DISK_KEY = `${DISK_KEY_PREFIX}root`;
 
 export function ServerCombinedChartWidget({ serverId }: { serverId: string }) {
   const [samples, setSamples] = useState<MetricSampleDTO[]>([]);
+  const chartWindow = useChartTimeWindow();
+  const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
+  const debouncedTo = useDebouncedValue(chartWindow.to, 250);
 
   useEffect(() => {
-    fetch(`/api/servers/${serverId}/metrics?hours=3`)
+    fetch(`/api/servers/${serverId}/metrics?from=${debouncedFrom}&to=${debouncedTo}`)
       .then((res) => (res.ok ? res.json() : { samples: [] }))
       .then((data) => setSamples(data.samples ?? []));
-  }, [serverId]);
+  }, [serverId, debouncedFrom, debouncedTo]);
 
   useLiveEvents((event) => {
-    if (event.type === "metric" && event.serverId === serverId) {
+    if (event.type === "metric" && event.serverId === serverId && chartWindow.isLive) {
       setSamples((prev) =>
         [...prev, event.sample as unknown as MetricSampleDTO].slice(-200)
       );
@@ -36,12 +43,21 @@ export function ServerCombinedChartWidget({ serverId }: { serverId: string }) {
   }));
 
   return (
-    <div className="h-full min-h-0 min-w-0">
-      <CombinedMetricChart
-        data={data}
-        diskLines={[{ key: DISK_KEY, label: "Disk" }]}
-        height="100%"
-      />
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-1">
+      <div className="flex shrink-0 justify-end">
+        <ChartTimeToolbar window={chartWindow} compact />
+      </div>
+      <ChartPanOverlay
+        windowMs={chartWindow.windowMs}
+        onPanBy={chartWindow.panBy}
+        className="min-h-0 flex-1"
+      >
+        <CombinedMetricChart
+          data={data}
+          diskLines={[{ key: DISK_KEY, label: "Disk" }]}
+          height="100%"
+        />
+      </ChartPanOverlay>
     </div>
   );
 }

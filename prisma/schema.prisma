@@ -307,6 +307,7 @@ model Server {
   auditLogs     AuditLog[]
   notificationPreferences NotificationPreference[]
   dockerContainerStates DockerContainerState[]
+  pollLogs      PollLog[]
 }
 
 // Persistierter Laufzustand je Docker-Container (unabhängig von den nur 24h
@@ -340,6 +341,22 @@ model MetricSample {
   loadAvg15   Float?
   netRxBytes  Float?
   netTxBytes  Float?
+
+  @@index([serverId, timestamp])
+}
+
+// Protokolliert jede tatsächliche Poll-Ausführung (unabhängig vom Ergebnis
+// als MetricSample/Snapshot) - dient ausschließlich der Debug-Ansicht
+// (admin/debug/[serverId]), die Poll-Zeitpunkte als vertikale Marker über dem
+// CPU/RAM/Disk-Graph anzeigt. Feste 2-Tage-Aufbewahrung statt
+// server.retentionDays, siehe Pruning in collect.ts.
+model PollLog {
+  id        String   @id @default(cuid())
+  serverId  String
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  pollType  String
+  timestamp DateTime @default(now())
+  success   Boolean
 
   @@index([serverId, timestamp])
 }

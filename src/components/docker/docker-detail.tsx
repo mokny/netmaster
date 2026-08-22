@@ -15,6 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DockerPowerDialog } from "@/components/docker/docker-power-dialog";
 import { MetricChart, type ChartPoint } from "@/components/servers/metric-chart";
+import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
+import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { FileManagerTab } from "@/components/servers/file-manager/file-manager-tab";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
@@ -62,14 +66,20 @@ export function DockerDetail({
 
   useDetailPresence(serverId, "docker");
 
+  const chartWindow = useChartTimeWindow();
+  const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
+  const debouncedTo = useDebouncedValue(chartWindow.to, 250);
+
   const load = useCallback(async () => {
-    const res = await fetch(`/api/servers/${serverId}/containers/${containerId}?hours=6`);
+    const res = await fetch(
+      `/api/servers/${serverId}/containers/${containerId}?from=${debouncedFrom}&to=${debouncedTo}`
+    );
     if (res.ok) {
       const data = await res.json();
       setContainer(data.container);
       setSamples(data.samples);
     }
-  }, [serverId, containerId]);
+  }, [serverId, containerId, debouncedFrom, debouncedTo]);
 
   useEffect(() => {
     load();
@@ -92,6 +102,7 @@ export function DockerDetail({
     ).find((c) => c.containerId === containerId);
     if (!updated) return;
     setContainer((prev) => (prev ? { ...prev, ...updated } : prev));
+    if (!chartWindow.isLive) return;
     const sample: ContainerSample = {
       timestamp: new Date().toISOString(),
       cpuPercent: updated.cpuPercent,
@@ -275,6 +286,10 @@ export function DockerDetail({
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <ChartTimeToolbar window={chartWindow} />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -284,7 +299,9 @@ export function DockerDetail({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MetricChart data={cpuPoints} color="cpu" unit="%" />
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <MetricChart data={cpuPoints} color="cpu" unit="%" />
+            </ChartPanOverlay>
           </CardContent>
         </Card>
 
@@ -296,7 +313,9 @@ export function DockerDetail({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MetricChart data={memPoints} color="mem" unit="MB" domain={["auto", "auto"]} />
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <MetricChart data={memPoints} color="mem" unit="MB" domain={["auto", "auto"]} />
+            </ChartPanOverlay>
           </CardContent>
         </Card>
 
@@ -308,7 +327,9 @@ export function DockerDetail({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MetricChart data={netRxPoints} color="disk" unit="MB" domain={["auto", "auto"]} />
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <MetricChart data={netRxPoints} color="disk" unit="MB" domain={["auto", "auto"]} />
+            </ChartPanOverlay>
           </CardContent>
         </Card>
 
@@ -320,7 +341,9 @@ export function DockerDetail({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MetricChart data={netTxPoints} color="disk" unit="MB" domain={["auto", "auto"]} />
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <MetricChart data={netTxPoints} color="disk" unit="MB" domain={["auto", "auto"]} />
+            </ChartPanOverlay>
           </CardContent>
         </Card>
       </div>
