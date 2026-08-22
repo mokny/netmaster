@@ -1,3 +1,9 @@
+## v1.4.0 - 2026-08-22
+
+- Add input history dropdown to tools page fields
+- Add complete feature list to README
+
+
 ## v1.3.0 - 2026-08-22
 
 - Add storage management: disks/LVM/RAID, NFS, Samba
