@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { HistoryInput } from "@/components/tools/history-input";
+import { useToolHistory } from "@/lib/use-tool-history";
 import { Loader2 } from "lucide-react";
 
 interface ToolResult {
@@ -34,10 +35,12 @@ function HostToolCard({ toolKey }: { toolKey: "ping" | "traceroute" | "whois" | 
   const [host, setHost] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ToolResult | null>(null);
+  const { history: hostHistory, addEntry: addHostEntry } = useToolHistory("host");
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
     if (!host.trim()) return;
+    addHostEntry(host);
     setLoading(true);
     setResult(null);
     try {
@@ -61,9 +64,11 @@ function HostToolCard({ toolKey }: { toolKey: "ping" | "traceroute" | "whois" | 
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={run} className="flex gap-2">
-          <Input
+          <HistoryInput
             value={host}
-            onChange={(e) => setHost(e.target.value)}
+            onValueChange={setHost}
+            history={hostHistory}
+            emptyLabel={t("noHistory")}
             placeholder={t("hostPlaceholder")}
             required
           />
@@ -84,10 +89,14 @@ function PortCheckCard() {
   const [port, setPort] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ToolResult | null>(null);
+  const { history: hostHistory, addEntry: addHostEntry } = useToolHistory("host");
+  const { history: portHistory, addEntry: addPortEntry } = useToolHistory("port");
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
     if (!host.trim() || !port) return;
+    addHostEntry(host);
+    addPortEntry(port);
     setLoading(true);
     setResult(null);
     try {
@@ -111,16 +120,20 @@ function PortCheckCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={run} className="flex gap-2">
-          <Input
+          <HistoryInput
             value={host}
-            onChange={(e) => setHost(e.target.value)}
+            onValueChange={setHost}
+            history={hostHistory}
+            emptyLabel={t("noHistory")}
             placeholder={t("hostPlaceholder")}
             className="flex-1"
             required
           />
-          <Input
+          <HistoryInput
             value={port}
-            onChange={(e) => setPort(e.target.value)}
+            onValueChange={setPort}
+            history={portHistory}
+            emptyLabel={t("noHistory")}
             placeholder={t("port")}
             type="number"
             min={1}
@@ -144,10 +157,15 @@ function HttpCheckCard() {
   const [url, setUrl] = useState("https://");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ToolResult | null>(null);
+  const { history: urlHistory, addEntry: addUrlEntry } = useToolHistory("url");
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
     if (!url.trim()) return;
+    const trimmedUrl = url.trim();
+    if (trimmedUrl !== "http://" && trimmedUrl !== "https://") {
+      addUrlEntry(trimmedUrl);
+    }
     setLoading(true);
     setResult(null);
     try {
@@ -171,9 +189,11 @@ function HttpCheckCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={run} className="flex gap-2">
-          <Input
+          <HistoryInput
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onValueChange={setUrl}
+            history={urlHistory}
+            emptyLabel={t("noHistory")}
             placeholder={t("urlPlaceholder")}
             type="url"
             required

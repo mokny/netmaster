@@ -1637,6 +1637,7 @@
     "run": "Run",
     "running": "Running…",
     "noResultYet": "No result yet",
+    "noHistory": "No recent entries",
     "host": "Host",
     "hostPlaceholder": "example.com or 192.168.1.1",
     "port": "Port",
