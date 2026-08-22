@@ -1275,7 +1275,11 @@
         "newUserSectionTitle": "Ajouter un nouvel utilisateur",
         "cancel": "Annuler",
         "targetServer": "Serveur cible",
-        "loading": "Chargement…"
+        "loading": "Chargement…",
+        "changePassword": "Changer le mot de passe",
+        "changePasswordTitle": "Changer le mot de passe Samba",
+        "passwordChanged": "Mot de passe modifié",
+        "passwordChangeFailed": "Échec de la modification du mot de passe"
       }
     }
   },

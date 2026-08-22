@@ -1275,7 +1275,11 @@
         "newUserSectionTitle": "Añadir nuevo usuario",
         "cancel": "Cancelar",
         "targetServer": "Servidor de destino",
-        "loading": "Cargando…"
+        "loading": "Cargando…",
+        "changePassword": "Cambiar contraseña",
+        "changePasswordTitle": "Cambiar contraseña de Samba",
+        "passwordChanged": "Contraseña cambiada",
+        "passwordChangeFailed": "Error al cambiar la contraseña"
       }
     }
   },

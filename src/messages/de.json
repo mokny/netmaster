@@ -1275,7 +1275,11 @@
         "newUserSectionTitle": "Neuen User anlegen",
         "cancel": "Abbrechen",
         "targetServer": "Ziel-Server",
-        "loading": "Lädt…"
+        "loading": "Lädt…",
+        "changePassword": "Passwort ändern",
+        "changePasswordTitle": "Samba-Passwort ändern",
+        "passwordChanged": "Passwort geändert",
+        "passwordChangeFailed": "Passwort konnte nicht geändert werden"
       }
     }
   },

@@ -1275,7 +1275,11 @@
         "newUserSectionTitle": "Add new user",
         "cancel": "Cancel",
         "targetServer": "Target server",
-        "loading": "Loading…"
+        "loading": "Loading…",
+        "changePassword": "Change password",
+        "changePasswordTitle": "Change Samba password",
+        "passwordChanged": "Password changed",
+        "passwordChangeFailed": "Failed to change password"
       }
     }
   },

@@ -17,8 +17,17 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useSession } from "@/hooks/use-session";
-import { Loader2, Trash2, Pencil, Plus, RefreshCw, Copy } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, Trash2, Pencil, Plus, KeyRound } from "lucide-react";
 import { SambaShareDialog, type SambaShare } from "@/components/servers/storage/samba-share-dialog";
+import { generateSecurePassword, PasswordField } from "@/components/servers/storage/samba-password";
 
 async function api(url: string, init?: RequestInit) {
   const res = await fetch(url, {
@@ -28,38 +37,6 @@ async function api(url: string, init?: RequestInit) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "ERROR");
   return data;
-}
-
-const PASSWORD_CHARSET =
-  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_=+";
-
-function generateSecurePassword(length = 20): string {
-  const bytes = new Uint32Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => PASSWORD_CHARSET[b % PASSWORD_CHARSET.length]).join("");
-}
-
-function PasswordField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const tCommon = useTranslations("common");
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(tCommon("copied"));
-    } catch {
-      // clipboard unavailable - user can still select the field manually
-    }
-  }
-  return (
-    <div className="flex gap-1">
-      <Input className="font-mono" value={value} onChange={(e) => onChange(e.target.value)} />
-      <Button type="button" variant="outline" size="icon" onClick={() => onChange(generateSecurePassword())}>
-        <RefreshCw className="size-4" />
-      </Button>
-      <Button type="button" variant="outline" size="icon" onClick={copy}>
-        <Copy className="size-4" />
-      </Button>
-    </div>
-  );
 }
 
 export function SambaPanel({ serverId }: { serverId: string }) {
@@ -79,6 +56,8 @@ export function SambaPanel({ serverId }: { serverId: string }) {
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [editingShare, setEditingShare] = useState<SambaShare | null>(null);
+
+  const [passwordDialogUser, setPasswordDialogUser] = useState<string | null>(null);
 
   function fail(err: unknown, fallback: string) {
     toast.error(err instanceof Error ? tErrors(err.message) ?? fallback : fallback);
@@ -250,6 +229,11 @@ export function SambaPanel({ serverId }: { serverId: string }) {
                   <Badge key={u} variant="secondary" className="gap-1">
                     {u}
                     {canEdit && (
+                      <button onClick={() => setPasswordDialogUser(u)} disabled={busy} className="ml-1" title={t("changePassword")}>
+                        <KeyRound className="size-3" />
+                      </button>
+                    )}
+                    {canEdit && (
                       <button onClick={() => removeUser(u)} disabled={busy} className="ml-1">
                         <Trash2 className="size-3" />
                       </button>
@@ -349,8 +333,76 @@ export function SambaPanel({ serverId }: { serverId: string }) {
             initialShare={editingShare ? { ...editingShare, serverId } : null}
             onSaved={handleShareSaved}
           />
+
+          <ChangePasswordDialog
+            serverId={serverId}
+            username={passwordDialogUser}
+            onOpenChange={(open) => !open && setPasswordDialogUser(null)}
+          />
         </>
       )}
     </div>
+  );
+}
+
+function ChangePasswordDialog({
+  serverId,
+  username,
+  onOpenChange,
+}: {
+  serverId: string;
+  username: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations("servers.storage.samba");
+  const tErrors = useTranslations("errors");
+  const [password, setPassword] = useState(() => generateSecurePassword());
+  const [saving, setSaving] = useState(false);
+
+  const [prevUsername, setPrevUsername] = useState(username);
+  if (username !== prevUsername) {
+    setPrevUsername(username);
+    if (username) setPassword(generateSecurePassword());
+  }
+
+  async function submit() {
+    if (!username) return;
+    setSaving(true);
+    try {
+      await api(`/api/servers/${serverId}/storage/samba/users`, {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      toast.success(t("passwordChanged"));
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? tErrors(err.message) ?? t("passwordChangeFailed") : t("passwordChangeFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!username} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("changePasswordTitle")}</DialogTitle>
+          <DialogDescription>{username}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1">
+          <Label>{t("password")}</Label>
+          <PasswordField value={password} onChange={setPassword} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("cancel")}
+          </Button>
+          <Button onClick={submit} disabled={saving || !password}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            {t("saveUser")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1275,7 +1275,11 @@
         "newUserSectionTitle": "Nieuwe gebruiker toevoegen",
         "cancel": "Annuleren",
         "targetServer": "Doelserver",
-        "loading": "Laden…"
+        "loading": "Laden…",
+        "changePassword": "Wachtwoord wijzigen",
+        "changePasswordTitle": "Samba-wachtwoord wijzigen",
+        "passwordChanged": "Wachtwoord gewijzigd",
+        "passwordChangeFailed": "Wachtwoord wijzigen mislukt"
       }
     }
   },
