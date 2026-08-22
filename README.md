@@ -2,6 +2,43 @@
 
 Self-hosted network admin panel: live monitoring of your servers (CPU/RAM/disk/load/network via SSH), HTTP health checks, a Docker container overview, and a freely arrangeable dashboard – behind a multi-user login with roles (Admin/Editor/Viewer).
 
+## Features
+
+### Dashboard
+
+Freely arrangeable live overview with server status, CPU/RAM/disk history and a Proxmox/Docker summary.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Servers
+
+Per-server detail view with live CPU/RAM/disk charts, uptime, system info and process list, plus quick actions (terminal, snippets, restart, shutdown).
+
+![Server details](docs/screenshots/server-details.png)
+
+### Storage
+
+Manage disks, partitions, LVM and software RAID directly on a server, and expose shares via NFS or Samba (users, passwords, permissions).
+
+<table>
+<tr>
+<td><img src="docs/screenshots/storage.png" alt="Storage: disks, LVM, RAID"></td>
+<td><img src="docs/screenshots/samba.png" alt="Storage: Samba users and shares"></td>
+</tr>
+</table>
+
+### Router
+
+Overview of connected FritzBoxes/repeaters with throughput graphs, WiFi status and connected devices.
+
+![Router](docs/screenshots/router.png)
+
+### Network Topology
+
+Live graph of the connections between servers with network tools enabled.
+
+![Network topology](docs/screenshots/network-topology.png)
+
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript, Tailwind CSS + shadcn/ui
