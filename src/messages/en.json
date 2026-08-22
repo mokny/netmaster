@@ -1048,7 +1048,8 @@
       "upchecker": "Upchecker",
       "explore": "Explore",
       "router": "Router",
-      "users": "Users"
+      "users": "Users",
+      "settings": "Settings"
     },
     "expandNav": "Expand navigation",
     "collapseNav": "Collapse navigation",
@@ -1248,6 +1249,37 @@
       "allEnded": "All sessions ended",
       "title": "Sessions of {name}",
       "endAll": "End all"
+    },
+    "settings": {
+      "title": "Polling settings",
+      "subtitle": "Enable or disable each polling job across the whole NetMaster instance. For debugging only.",
+      "saved": "Settings saved",
+      "backgroundJobsTitle": "Background jobs",
+      "backgroundJobsDescription": "Server-side jobs that run continuously in the NetMaster process, independent of any open browser tab.",
+      "liveViewsTitle": "Live views",
+      "liveViewsDescription": "Client-side polling that only runs while the relevant page is open in a browser.",
+      "serverMetricsLabel": "Server metrics",
+      "serverMetricsDescription": "CPU, memory, disk and network stats collected via SSH (per-server interval, default 30s).",
+      "dockerContainersLabel": "Docker containers",
+      "dockerContainersDescription": "Container list per server (SSH), polled at 2x the metrics interval.",
+      "dockerImagesLabel": "Docker images",
+      "dockerImagesDescription": "Docker image list per server (SSH), polled at 2x the metrics interval.",
+      "proxmoxVmsLabel": "Proxmox VMs / LXCs",
+      "proxmoxVmsDescription": "VM and container status via Proxmox (same interval as metrics).",
+      "routerDevicesLabel": "Router devices",
+      "routerDevicesDescription": "FritzBox / Repeater status via TR-064 (per-device interval, default 60s).",
+      "uptimeChecksLabel": "Uptime checks",
+      "uptimeChecksDescription": "HTTP/PING service checks (per-check interval).",
+      "discoveryScanLabel": "Discovery auto-scan",
+      "discoveryScanDescription": "Scheduled network scan (Explore). Also requires auto-scan to be enabled in Explore settings.",
+      "topologyGraphLabel": "Network topology",
+      "topologyGraphDescription": "Live topology graph on the Network page (refreshes every 20s while open).",
+      "portsLabel": "Open ports",
+      "portsDescription": "Ports/connections card and graph on a server's detail page (refreshes every 15s while open).",
+      "dashboardLookupsLabel": "Dashboard lookups",
+      "dashboardLookupsDescription": "Server/VM/container name lookups for dashboard widgets (refreshes every 60s while open).",
+      "wsProcessesLabel": "Live process list",
+      "wsProcessesDescription": "Live process list in a server's process manager (refreshes every 2.5s while open)."
     }
   },
   "status": {

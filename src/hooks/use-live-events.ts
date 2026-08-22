@@ -24,7 +24,8 @@ export type LiveEvent =
       lastCompletedAt: string | null;
     }
   | { type: "explore-hosts" }
-  | { type: "explore-ranges" };
+  | { type: "explore-ranges" }
+  | { type: "polling-settings"; settings: Record<string, unknown> };
 
 export function useLiveEvents(onEvent: (event: LiveEvent) => void) {
   const handlerRef = useRef(onEvent);

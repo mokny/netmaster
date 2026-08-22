@@ -9,6 +9,8 @@ import {
 import { collectRouterDevice } from "./router-collect";
 import { invalidatePooledConnection, closeAllPooledConnections } from "@/lib/ssh-pool";
 import { getOrCreateExploreSettings, reconcileRanges, runDiscoveryScan } from "@/lib/discovery/scan";
+import { refreshPollingSettingsCache } from "@/lib/monitor/polling-settings";
+import type { PollingSettings } from "@/generated/prisma/client";
 
 const serverTimers = new Map<string, NodeJS.Timeout>();
 const dockerTimers = new Map<string, NodeJS.Timeout>();
@@ -31,9 +33,9 @@ let reconcileTimer: NodeJS.Timeout | null = null;
 let discoveryTimer: NodeJS.Timeout | null = null;
 let discoveryIntervalHr: number | null = null;
 
-async function reconcileDiscovery() {
+async function reconcileDiscovery(discoveryScanEnabled: boolean) {
   const settings = await getOrCreateExploreSettings();
-  if (!settings.autoScanEnabled) {
+  if (!settings.autoScanEnabled || !discoveryScanEnabled) {
     if (discoveryTimer) {
       clearInterval(discoveryTimer);
       discoveryTimer = null;
@@ -51,34 +53,41 @@ async function reconcileDiscovery() {
   );
 }
 
-function scheduleServer(
-  serverId: string,
-  intervalSec: number,
-  dockerEnabled: boolean,
-  proxmoxEnabled: boolean
-) {
+interface ServerEffectiveFlags {
+  metricsEnabled: boolean;
+  dockerContainersEnabled: boolean;
+  dockerImagesEnabled: boolean;
+  proxmoxEnabled: boolean;
+}
+
+function scheduleServer(serverId: string, intervalSec: number, flags: ServerEffectiveFlags) {
   clearInterval(serverTimers.get(serverId));
   clearInterval(dockerTimers.get(serverId));
   clearInterval(dockerImageTimers.get(serverId));
   clearInterval(proxmoxTimers.get(serverId));
+  serverTimers.delete(serverId);
   dockerTimers.delete(serverId);
   dockerImageTimers.delete(serverId);
   proxmoxTimers.delete(serverId);
 
-  const metricsTimer = setInterval(async () => {
-    const server = await prisma.server.findUnique({ where: { id: serverId } });
-    if (server) await collectServerMetrics(server);
-  }, Math.max(5, intervalSec) * 1000);
-  serverTimers.set(serverId, metricsTimer);
+  if (flags.metricsEnabled) {
+    const metricsTimer = setInterval(async () => {
+      const server = await prisma.server.findUnique({ where: { id: serverId } });
+      if (server) await collectServerMetrics(server);
+    }, Math.max(5, intervalSec) * 1000);
+    serverTimers.set(serverId, metricsTimer);
+  }
 
-  if (dockerEnabled) {
+  if (flags.dockerContainersEnabled) {
     // Docker-Snapshots etwas seltener (2x Intervall), um SSH-Last gering zu halten.
     const dockerTimer = setInterval(async () => {
       const server = await prisma.server.findUnique({ where: { id: serverId } });
       if (server) await collectDockerContainers(server);
     }, Math.max(10, intervalSec * 2) * 1000);
     dockerTimers.set(serverId, dockerTimer);
+  }
 
+  if (flags.dockerImagesEnabled) {
     const dockerImageTimer = setInterval(async () => {
       const server = await prisma.server.findUnique({ where: { id: serverId } });
       if (server) await collectDockerImages(server);
@@ -86,7 +95,7 @@ function scheduleServer(
     dockerImageTimers.set(serverId, dockerImageTimer);
   }
 
-  if (proxmoxEnabled) {
+  if (flags.proxmoxEnabled) {
     // Proxmox-VMs im selben Intervall wie die Host-Metriken, damit VM- und
     // Host-Graphen zeitlich vergleichbar sind.
     const proxmoxTimer = setInterval(async () => {
@@ -116,35 +125,37 @@ function scheduleCheck(checkId: string, intervalSec: number) {
 }
 
 async function reconcile() {
+  const polling: PollingSettings = await refreshPollingSettingsCache();
+
   const servers = await prisma.server.findMany();
   const activeServerIds = new Set(servers.map((s) => s.id));
 
   for (const server of servers) {
-    const config = `${server.pollIntervalSec}:${server.dockerEnabled}:${server.proxmoxEnabled}`;
-    const isNew = !serverTimers.has(server.id);
+    const flags: ServerEffectiveFlags = {
+      metricsEnabled: polling.serverMetricsEnabled,
+      dockerContainersEnabled: polling.dockerContainersEnabled && server.dockerEnabled,
+      dockerImagesEnabled: polling.dockerImagesEnabled && server.dockerEnabled,
+      proxmoxEnabled: polling.proxmoxVmsEnabled && server.proxmoxEnabled,
+    };
+    const config = `${server.pollIntervalSec}:${flags.metricsEnabled}:${flags.dockerContainersEnabled}:${flags.dockerImagesEnabled}:${flags.proxmoxEnabled}`;
+    const isNew = !serverConfigs.has(server.id);
     const changed = serverConfigs.get(server.id) !== config;
     if (isNew || changed) {
-      scheduleServer(
-        server.id,
-        server.pollIntervalSec,
-        server.dockerEnabled,
-        server.proxmoxEnabled
-      );
+      scheduleServer(server.id, server.pollIntervalSec, flags);
       serverConfigs.set(server.id, config);
       if (isNew) {
         // Sofortiger erster Poll, statt auf das erste Intervall zu warten.
-        void collectServerMetrics(server);
-        if (server.dockerEnabled) {
-          void collectDockerContainers(server);
-          void collectDockerImages(server);
-        }
-        if (server.proxmoxEnabled) void collectProxmoxVms(server);
+        if (flags.metricsEnabled) void collectServerMetrics(server);
+        if (flags.dockerContainersEnabled) void collectDockerContainers(server);
+        if (flags.dockerImagesEnabled) void collectDockerImages(server);
+        if (flags.proxmoxEnabled) void collectProxmoxVms(server);
       }
     }
   }
-  for (const [id, timer] of serverTimers) {
+  for (const id of serverConfigs.keys()) {
     if (!activeServerIds.has(id)) {
-      clearInterval(timer);
+      const metricsTimer = serverTimers.get(id);
+      if (metricsTimer) clearInterval(metricsTimer);
       serverTimers.delete(id);
       const dockerTimer = dockerTimers.get(id);
       if (dockerTimer) clearInterval(dockerTimer);
@@ -160,45 +171,57 @@ async function reconcile() {
     }
   }
 
-  const checks = await prisma.serviceCheck.findMany();
-  const activeCheckIds = new Set(checks.map((c) => c.id));
-  for (const check of checks) {
-    const changed = checkIntervals.get(check.id) !== check.intervalSec;
-    if (!checkTimers.has(check.id) || changed) {
-      scheduleCheck(check.id, check.intervalSec);
-      checkIntervals.set(check.id, check.intervalSec);
-      if (!changed) void runServiceCheck(check);
+  if (!polling.uptimeChecksEnabled) {
+    for (const timer of checkTimers.values()) clearInterval(timer);
+    checkTimers.clear();
+    checkIntervals.clear();
+  } else {
+    const checks = await prisma.serviceCheck.findMany();
+    const activeCheckIds = new Set(checks.map((c) => c.id));
+    for (const check of checks) {
+      const changed = checkIntervals.get(check.id) !== check.intervalSec;
+      if (!checkTimers.has(check.id) || changed) {
+        scheduleCheck(check.id, check.intervalSec);
+        checkIntervals.set(check.id, check.intervalSec);
+        if (!changed) void runServiceCheck(check);
+      }
     }
-  }
-  for (const [id, timer] of checkTimers) {
-    if (!activeCheckIds.has(id)) {
-      clearInterval(timer);
-      checkTimers.delete(id);
-      checkIntervals.delete(id);
+    for (const [id, timer] of checkTimers) {
+      if (!activeCheckIds.has(id)) {
+        clearInterval(timer);
+        checkTimers.delete(id);
+        checkIntervals.delete(id);
+      }
     }
   }
 
-  const routerDevices = await prisma.routerDevice.findMany();
-  const activeRouterIds = new Set(routerDevices.map((d) => d.id));
-  for (const device of routerDevices) {
-    const changed = routerIntervals.get(device.id) !== device.pollIntervalSec;
-    const isNew = !routerTimers.has(device.id);
-    if (isNew || changed) {
-      scheduleRouterDevice(device.id, device.pollIntervalSec);
-      routerIntervals.set(device.id, device.pollIntervalSec);
-      if (isNew) void collectRouterDevice(device);
+  if (!polling.routerDevicesEnabled) {
+    for (const timer of routerTimers.values()) clearInterval(timer);
+    routerTimers.clear();
+    routerIntervals.clear();
+  } else {
+    const routerDevices = await prisma.routerDevice.findMany();
+    const activeRouterIds = new Set(routerDevices.map((d) => d.id));
+    for (const device of routerDevices) {
+      const changed = routerIntervals.get(device.id) !== device.pollIntervalSec;
+      const isNew = !routerTimers.has(device.id);
+      if (isNew || changed) {
+        scheduleRouterDevice(device.id, device.pollIntervalSec);
+        routerIntervals.set(device.id, device.pollIntervalSec);
+        if (isNew) void collectRouterDevice(device);
+      }
     }
-  }
-  for (const [id, timer] of routerTimers) {
-    if (!activeRouterIds.has(id)) {
-      clearInterval(timer);
-      routerTimers.delete(id);
-      routerIntervals.delete(id);
+    for (const [id, timer] of routerTimers) {
+      if (!activeRouterIds.has(id)) {
+        clearInterval(timer);
+        routerTimers.delete(id);
+        routerIntervals.delete(id);
+      }
     }
   }
 
   await reconcileRanges();
-  await reconcileDiscovery();
+  await reconcileDiscovery(polling.discoveryScanEnabled);
 }
 
 let started = false;

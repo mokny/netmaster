@@ -20,6 +20,7 @@ import {
   ActivitySquare,
   Router,
   Radar,
+  Settings,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -59,6 +60,7 @@ const NAV_ITEMS = [
   { href: "/explore", labelKey: "explore", icon: Radar, minRole: "VIEWER" },
   { href: "/router", labelKey: "router", icon: Router, minRole: "ADMIN" },
   { href: "/admin/users", labelKey: "users", icon: Users, minRole: "ADMIN" },
+  { href: "/admin/settings", labelKey: "settings", icon: Settings, minRole: "ADMIN" },
 ] as const;
 
 const roleRank: Record<string, number> = { VIEWER: 0, EDITOR: 1, ADMIN: 2 };

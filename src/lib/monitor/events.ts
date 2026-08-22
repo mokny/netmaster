@@ -27,7 +27,8 @@ export type MonitorEvent =
       lastCompletedAt: string | null;
     }
   | { type: "explore-hosts" }
-  | { type: "explore-ranges" };
+  | { type: "explore-ranges" }
+  | { type: "polling-settings"; settings: Record<string, unknown> };
 
 export function publish(event: MonitorEvent) {
   monitorEvents.emit("event", event);

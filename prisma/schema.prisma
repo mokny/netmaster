@@ -611,6 +611,35 @@ model ExploreSettings {
   updatedAt DateTime @updatedAt
 }
 
+// Globale Debug-Schalter, um jede Polling-Art für die gesamte Instanz einzeln
+// abzuschalten (z.B. um einen Zielserver während einer Störungssuche zu
+// entlasten). Singleton-Tabelle (analog zu VapidKeys/ExploreSettings).
+// Wirkt additiv zu bestehenden Pro-Server-Flags (Server.dockerEnabled etc.)
+// und zu ExploreSettings.autoScanEnabled - beide müssen aktiv sein, damit der
+// jeweilige Job läuft. Server-seitige Felder werden vom Scheduler-Reconcile
+// (alle 15s) ausgewertet, Client-seitige Felder werden per WS-Broadcast
+// ("polling-settings"-Event) live an offene Browser-Tabs verteilt.
+model PollingSettings {
+  id String @id @default(cuid())
+
+  // Server-seitige Hintergrund-Jobs (src/lib/monitor/scheduler.ts)
+  serverMetricsEnabled     Boolean @default(true)
+  dockerContainersEnabled  Boolean @default(true)
+  dockerImagesEnabled      Boolean @default(true)
+  proxmoxVmsEnabled        Boolean @default(true)
+  routerDevicesEnabled     Boolean @default(true)
+  uptimeChecksEnabled      Boolean @default(true)
+  discoveryScanEnabled     Boolean @default(true)
+
+  // Client-seitige Live-Ansichten (setInterval im Browser)
+  topologyGraphEnabled     Boolean @default(true)
+  portsEnabled             Boolean @default(true)
+  dashboardLookupsEnabled  Boolean @default(true)
+  wsProcessesEnabled       Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
 // FritzBox / FritzRepeater, abgefragt per TR-064 (SOAP über HTTP-Digest-Auth,
 // Standardport 49000, TLS-Variante 49443). Eigenständige Geräte, keine
 // Mesh-Hierarchie zwischen FritzBox und Repeater.

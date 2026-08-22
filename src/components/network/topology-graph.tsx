@@ -16,6 +16,7 @@ import { NetworkChart, type NetworkChartPoint } from "@/components/network/netwo
 import { formatBitRate, formatBytesGB } from "@/lib/format";
 import type { MetricSampleDTO } from "@/lib/types";
 import { useTranslations } from "next-intl";
+import { usePollingEnabled } from "@/hooks/use-polling-enabled";
 
 interface TopologyNode {
   serverId: string;
@@ -62,8 +63,10 @@ export function TopologyGraph() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<TopologyNode | null>(null);
   const [samples, setSamples] = useState<MetricSampleDTO[]>([]);
+  const pollingEnabled = usePollingEnabled("topologyGraphEnabled");
 
   useEffect(() => {
+    if (!pollingEnabled) return;
     let stopped = false;
     async function load() {
       try {
@@ -87,7 +90,7 @@ export function TopologyGraph() {
       stopped = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [pollingEnabled]);
 
   useEffect(() => {
     if (!selected) return;

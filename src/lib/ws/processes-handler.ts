@@ -3,6 +3,7 @@ import type { Client } from "ssh2";
 import { prisma } from "@/lib/prisma";
 import { connectSsh, execOnConnection, PROCESS_LIST_COMMAND } from "@/lib/ssh";
 import { parseProcessListOutput } from "@/lib/monitor/processes";
+import { getCachedPollingSettings } from "@/lib/monitor/polling-settings";
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -37,6 +38,11 @@ export async function handleProcessesSocket(ws: WebSocket, serverId: string) {
 
   async function poll() {
     if (stopped || inFlight) return;
+    // Globaler Debug-Schalter (Admin > Einstellungen > Polling) - Intervall
+    // bleibt bestehen, damit die Prozessliste ohne Reconnect sofort wieder
+    // anläuft, sobald der Schalter zurückgestellt wird.
+    const settings = getCachedPollingSettings();
+    if (settings && !settings.wsProcessesEnabled) return;
     inFlight = true;
     try {
       if (!conn) {

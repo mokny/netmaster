@@ -20,6 +20,7 @@ import { DockerContainerChartWidget } from "@/components/dashboard/docker-contai
 import { DockerHostWidget } from "@/components/dashboard/docker-host-widget";
 import { DockerGlobalWidget } from "@/components/dashboard/docker-global-widget";
 import { AddWidgetDialog, type WidgetSpec } from "@/components/dashboard/add-widget-dialog";
+import { usePollingEnabled } from "@/hooks/use-polling-enabled";
 import { resolveWidgetTitle, type NameLookups } from "@/lib/widget-titles";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import type { ProxmoxVmWithServerDTO, ContainerWithServerDTO, ServerDTO } from "@/lib/types";
@@ -153,11 +154,14 @@ export function DashboardGrid() {
     });
   }, []);
 
+  const lookupsPollingEnabled = usePollingEnabled("dashboardLookupsEnabled");
+
   useEffect(() => {
     loadLookups();
+    if (!lookupsPollingEnabled) return;
     const interval = setInterval(loadLookups, 60_000);
     return () => clearInterval(interval);
-  }, [loadLookups]);
+  }, [loadLookups, lookupsPollingEnabled]);
 
   const persist = useCallback((next: WidgetItem[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);

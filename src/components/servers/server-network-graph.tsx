@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Waypoints } from "lucide-react";
+import { usePollingEnabled } from "@/hooks/use-polling-enabled";
 
 interface PortEntry {
   protocol: "tcp" | "udp";
@@ -104,8 +105,10 @@ export function ServerNetworkGraph({ serverId }: { serverId: string }) {
   const tErrors = useTranslations("errors");
   const [ports, setPorts] = useState<PortEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollingEnabled = usePollingEnabled("portsEnabled");
 
   useEffect(() => {
+    if (!pollingEnabled) return;
     let stopped = false;
     async function load() {
       try {
@@ -128,7 +131,7 @@ export function ServerNetworkGraph({ serverId }: { serverId: string }) {
       stopped = true;
       clearInterval(interval);
     };
-  }, [serverId]);
+  }, [serverId, pollingEnabled]);
 
   const { nodes, edges } = useMemo(() => buildGraph(ports ?? []), [ports]);
 
