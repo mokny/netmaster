@@ -45,6 +45,7 @@ export function SambaPanel({ serverId }: { serverId: string }) {
   const confirm = useConfirm();
   const canEdit = session?.role === "EDITOR" || session?.role === "ADMIN";
 
+  const [installed, setInstalled] = useState<boolean | null>(null);
   const [users, setUsers] = useState<string[] | null>(null);
   const [shares, setShares] = useState<SambaShare[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,6 +62,15 @@ export function SambaPanel({ serverId }: { serverId: string }) {
   function fail(err: unknown, fallback: string) {
     toast.error(err instanceof Error ? tErrors(err.message) ?? fallback : fallback);
   }
+
+  const loadInstalled = useCallback(async () => {
+    try {
+      const data = await api(`/api/servers/${serverId}/storage/samba/install`);
+      setInstalled(!!data.installed);
+    } catch (err) {
+      fail(err, t("loadFailed"));
+    }
+  }, [serverId]);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -81,9 +91,38 @@ export function SambaPanel({ serverId }: { serverId: string }) {
   }, [serverId]);
 
   useEffect(() => {
+    loadInstalled();
     loadUsers();
     loadShares();
-  }, [loadUsers, loadShares]);
+  }, [loadInstalled, loadUsers, loadShares]);
+
+  async function installNow() {
+    setBusy(true);
+    try {
+      await api(`/api/servers/${serverId}/storage/samba/install`, { method: "POST" });
+      toast.success(t("installSuccess"));
+      loadInstalled();
+    } catch (err) {
+      fail(err, t("installFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uninstallNow() {
+    if (!(await confirm({ title: t("uninstallTitle"), description: t("uninstallDescription"), variant: "destructive" })))
+      return;
+    setBusy(true);
+    try {
+      await api(`/api/servers/${serverId}/storage/samba/install`, { method: "DELETE" });
+      toast.success(t("uninstallSuccess"));
+      loadInstalled();
+    } catch (err) {
+      fail(err, t("uninstallFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function createUser() {
     setBusy(true);
@@ -163,10 +202,34 @@ export function SambaPanel({ serverId }: { serverId: string }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>{t("usersTitle")}</CardTitle>
-          <CardDescription>{t("usersDescription")}</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Samba</CardTitle>
+            <CardDescription>
+              {installed === false ? t("notInstalledDescription") : t("installedDescription")}
+            </CardDescription>
+          </div>
+          {canEdit && installed === false && (
+            <Button size="sm" onClick={installNow} disabled={busy}>
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {t("install")}
+            </Button>
+          )}
+          {canEdit && installed === true && (
+            <Button size="sm" variant="destructive" onClick={uninstallNow} disabled={busy}>
+              {t("uninstall")}
+            </Button>
+          )}
         </CardHeader>
+      </Card>
+
+      {installed !== false && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("usersTitle")}</CardTitle>
+              <CardDescription>{t("usersDescription")}</CardDescription>
+            </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {(users ?? []).map((u) => (
@@ -286,6 +349,8 @@ export function SambaPanel({ serverId }: { serverId: string }) {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

@@ -935,7 +935,12 @@
       "vmDockerPollInterval": "VM/Docker-Poll-Intervall (Min.)",
       "vmDockerPollIntervalHint": "Wie oft der (teure) Proxmox-/Docker-Status im Hintergrund abgefragt wird. Bleibt live über Ping und solange eine VM-/Container-Detailseite offen ist.",
       "enableStorage": "Storage-Verwaltung aktivieren",
-      "enableStorageHint": "Disks/Partitionen/LVM/RAID, NFS-Server & -Client, Samba-Freigaben mit User-Verwaltung (benötigt Root oder Sudo-Passwort)"
+      "enableStorageHint": "Disks/Partitionen/LVM/RAID, NFS-Server & -Client, Samba-Freigaben mit User-Verwaltung (benötigt Root oder Sudo-Passwort)",
+      "installSambaTitle": "Samba installieren?",
+      "installSambaDescription": "Samba ist auf diesem Server noch nicht installiert. Jetzt installieren, damit Freigaben sofort eingerichtet werden können?",
+      "install": "Installieren",
+      "installSambaFailed": "Samba konnte nicht installiert werden",
+      "installSambaSuccess": "Samba installiert"
     },
     "networkGraph": {
       "fetchFailed": "Port-Daten konnten nicht geladen werden",
@@ -1246,7 +1251,17 @@
         "shareSaveFailed": "Freigabe konnte nicht gespeichert werden",
         "removeShareTitle": "Freigabe entfernen",
         "shareRemoved": "Freigabe entfernt",
-        "shareRemoveFailed": "Freigabe konnte nicht entfernt werden"
+        "shareRemoveFailed": "Freigabe konnte nicht entfernt werden",
+        "notInstalledDescription": "Samba ist auf diesem Server nicht installiert.",
+        "installedDescription": "Datei-Freigabedienst für Windows-/macOS-/Linux-Clients",
+        "install": "Samba installieren",
+        "installSuccess": "Samba installiert",
+        "installFailed": "Samba konnte nicht installiert werden",
+        "uninstall": "Samba deinstallieren",
+        "uninstallTitle": "Samba deinstallieren",
+        "uninstallDescription": "Entfernt das Samba-Paket und den zugehörigen Dienst von diesem Server. Konfigurierte Samba-Nutzer und -Freigaben gehen verloren; dafür angelegte System-User bleiben erhalten.",
+        "uninstallSuccess": "Samba deinstalliert",
+        "uninstallFailed": "Samba konnte nicht deinstalliert werden"
       }
     }
   },

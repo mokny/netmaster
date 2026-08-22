@@ -935,7 +935,12 @@
       "vmDockerPollInterval": "VM/Docker-pollinterval (min.)",
       "vmDockerPollIntervalHint": "Hoe vaak de (dure) Proxmox-/Docker-status op de achtergrond wordt opgevraagd. Blijft live via ping en zolang een VM-/containerdetailpagina open is.",
       "enableStorage": "Storagebeheer inschakelen",
-      "enableStorageHint": "Schijven/partities/LVM/RAID, NFS-server & -client, Samba-shares met gebruikersbeheer (root of sudo-wachtwoord vereist)"
+      "enableStorageHint": "Schijven/partities/LVM/RAID, NFS-server & -client, Samba-shares met gebruikersbeheer (root of sudo-wachtwoord vereist)",
+      "installSambaTitle": "Samba installeren?",
+      "installSambaDescription": "Samba is nog niet geïnstalleerd op deze server. Nu installeren zodat shares direct kunnen worden ingesteld?",
+      "install": "Installeren",
+      "installSambaFailed": "Samba installeren mislukt",
+      "installSambaSuccess": "Samba geïnstalleerd"
     },
     "networkGraph": {
       "fetchFailed": "Poortgegevens konden niet worden geladen",
@@ -1246,7 +1251,17 @@
         "shareSaveFailed": "Share opslaan mislukt",
         "removeShareTitle": "Share verwijderen",
         "shareRemoved": "Share verwijderd",
-        "shareRemoveFailed": "Share verwijderen mislukt"
+        "shareRemoveFailed": "Share verwijderen mislukt",
+        "notInstalledDescription": "Samba is niet geïnstalleerd op deze server.",
+        "installedDescription": "Bestandsdeling voor Windows-/macOS-/Linux-clients",
+        "install": "Samba installeren",
+        "installSuccess": "Samba geïnstalleerd",
+        "installFailed": "Samba installeren mislukt",
+        "uninstall": "Samba verwijderen",
+        "uninstallTitle": "Samba verwijderen",
+        "uninstallDescription": "Verwijdert het Samba-pakket en de bijbehorende service van deze server. Geconfigureerde Samba-gebruikers en -shares gaan verloren; hiervoor aangemaakte systeemgebruikers blijven behouden.",
+        "uninstallSuccess": "Samba verwijderd",
+        "uninstallFailed": "Samba verwijderen mislukt"
       }
     }
   },

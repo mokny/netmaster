@@ -1,5 +1,5 @@
 import type { Server as ServerModel } from "@/generated/prisma/client";
-import { runRootScript, ensureCommand, assertMountpoint, assertName } from "./exec";
+import { runRootScript, ensureCommand, installBlock, assertMountpoint, assertName } from "./exec";
 
 const SAMBA_PACKAGES = ["samba"];
 const SHARES_FILE = "/etc/samba/netmaster-shares.conf";
@@ -21,6 +21,50 @@ function restartSmb(): string {
 testparm -s >/dev/null 2>&1 || true
 systemctl restart smbd 2>/dev/null || systemctl restart smb 2>/dev/null || true
 `.trim();
+}
+
+// --- Installation -------------------------------------------------------------
+
+export async function isSambaInstalled(server: ServerModel): Promise<boolean> {
+  const result = await runRootScript(
+    server,
+    "command -v smbd >/dev/null 2>&1 && echo yes || echo no"
+  );
+  return result.stdout.trim() === "yes";
+}
+
+export async function installSamba(server: ServerModel): Promise<void> {
+  const script = `
+set -e
+${installBlock(SAMBA_PACKAGES)}
+touch ${SHARES_FILE}
+if ! grep -qF ${JSON.stringify(INCLUDE_LINE)} ${MAIN_CONF} 2>/dev/null; then
+  printf '\\n${INCLUDE_LINE}\\n' >> ${MAIN_CONF}
+fi
+systemctl enable --now smbd 2>/dev/null || systemctl enable --now smb 2>/dev/null || true
+`.trim();
+  await runRootScript(server, script, 120_000);
+}
+
+// Deinstalliert das Samba-Paket wieder vollständig (Service stoppen, Paket
+// purgen, eigene Freigaben-Datei entfernen). System-User, die zuvor für
+// Samba angelegt wurden, bleiben unangetastet - deren Entfernung ist eine
+// bewusste Einzelaktion über removeSambaUser (removeSystemUser-Flag).
+export async function uninstallSamba(server: ServerModel): Promise<void> {
+  const script = `
+systemctl stop smbd 2>/dev/null || systemctl stop smb 2>/dev/null || true
+systemctl disable smbd 2>/dev/null || systemctl disable smb 2>/dev/null || true
+if command -v apt-get >/dev/null 2>&1; then
+  DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq samba samba-common-bin 2>/dev/null || true
+  apt-get autoremove -y -qq 2>/dev/null || true
+elif command -v dnf >/dev/null 2>&1; then
+  dnf remove -y -q samba 2>/dev/null || true
+elif command -v yum >/dev/null 2>&1; then
+  yum remove -y -q samba 2>/dev/null || true
+fi
+rm -f ${SHARES_FILE}
+`.trim();
+  await runRootScript(server, script, 120_000);
 }
 
 // --- Samba-Nutzer -------------------------------------------------------------

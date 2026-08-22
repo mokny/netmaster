@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Loader2, Plus } from "lucide-react";
 import type { ServerDTO } from "@/lib/types";
 
@@ -81,6 +82,7 @@ export function ServerFormDialog({
 }: Props) {
   const t = useTranslations("servers.formDialog");
   const tErrors = useTranslations("errors");
+  const confirm = useConfirm();
   const isEdit = Boolean(server);
   const controlled = openProp !== undefined;
   const [openState, setOpenState] = useState(false);
@@ -121,10 +123,45 @@ export function ServerFormDialog({
       toast.success(isEdit ? t("serverUpdated") : t("serverAdded"));
       setOpen(false);
       onSaved();
+
+      const enablingStorage = form.storageEnabled && !(server?.storageEnabled ?? false);
+      if (enablingStorage) {
+        void offerSambaInstall(data.server.id);
+      }
     } catch {
       toast.error(t("connectionFailed"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Storage-Verwaltung schaltet Disk/NFS/Samba frei - Samba braucht dafür
+  // aber ein installiertes Paket auf dem Zielserver. Statt den User in den
+  // Storage-Tab schicken zu müssen, wird das Fehlen direkt nach dem
+  // Aktivieren erkannt und die Installation mit einer Rückfrage angeboten.
+  async function offerSambaInstall(serverId: string) {
+    try {
+      const statusRes = await fetch(`/api/servers/${serverId}/storage/samba/install`);
+      const statusData = await statusRes.json().catch(() => ({}));
+      if (!statusRes.ok || statusData.installed) return;
+
+      const ok = await confirm({
+        title: t("installSambaTitle"),
+        description: t("installSambaDescription"),
+        confirmText: t("install"),
+      });
+      if (!ok) return;
+
+      const installRes = await fetch(`/api/servers/${serverId}/storage/samba/install`, { method: "POST" });
+      const installData = await installRes.json().catch(() => ({}));
+      if (!installRes.ok) {
+        toast.error(installData.error ? tErrors(installData.error) : t("installSambaFailed"));
+        return;
+      }
+      toast.success(t("installSambaSuccess"));
+    } catch {
+      // Server evtl. noch nicht erreichbar - Installation kann später manuell
+      // aus dem Storage-Tab nachgeholt werden.
     }
   }
 

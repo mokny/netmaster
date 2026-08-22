@@ -935,7 +935,12 @@
       "vmDockerPollInterval": "Intervalle de sondage VM/Docker (min.)",
       "vmDockerPollIntervalHint": "Fréquence de l'interrogation (coûteuse) du statut Proxmox/Docker en arrière-plan. Reste en direct via le ping et tant qu'une page de détail VM/conteneur est ouverte.",
       "enableStorage": "Activer la gestion du stockage",
-      "enableStorageHint": "Disques/partitions/LVM/RAID, serveur et client NFS, partages Samba avec gestion des utilisateurs (nécessite root ou un mot de passe sudo)"
+      "enableStorageHint": "Disques/partitions/LVM/RAID, serveur et client NFS, partages Samba avec gestion des utilisateurs (nécessite root ou un mot de passe sudo)",
+      "installSambaTitle": "Installer Samba ?",
+      "installSambaDescription": "Samba n'est pas encore installé sur ce serveur. L'installer maintenant pour configurer les partages tout de suite ?",
+      "install": "Installer",
+      "installSambaFailed": "Échec de l'installation de Samba",
+      "installSambaSuccess": "Samba installé"
     },
     "networkGraph": {
       "fetchFailed": "Échec de la récupération des données de ports",
@@ -1246,7 +1251,17 @@
         "shareSaveFailed": "Échec de l'enregistrement du partage",
         "removeShareTitle": "Supprimer le partage",
         "shareRemoved": "Partage supprimé",
-        "shareRemoveFailed": "Échec de la suppression du partage"
+        "shareRemoveFailed": "Échec de la suppression du partage",
+        "notInstalledDescription": "Samba n'est pas installé sur ce serveur.",
+        "installedDescription": "Service de partage de fichiers pour les clients Windows/macOS/Linux",
+        "install": "Installer Samba",
+        "installSuccess": "Samba installé",
+        "installFailed": "Échec de l'installation de Samba",
+        "uninstall": "Désinstaller Samba",
+        "uninstallTitle": "Désinstaller Samba",
+        "uninstallDescription": "Supprime le paquet Samba et son service de ce serveur. Les utilisateurs et partages Samba configurés sont perdus ; les utilisateurs système créés pour eux sont conservés.",
+        "uninstallSuccess": "Samba désinstallé",
+        "uninstallFailed": "Échec de la désinstallation de Samba"
       }
     }
   },
