@@ -2,6 +2,34 @@
 
 Self-hosted network admin panel: live monitoring of your servers (CPU/RAM/disk/load/network via SSH), HTTP health checks, a Docker container overview, and a freely arrangeable dashboard – behind a multi-user login with roles (Admin/Editor/Viewer).
 
+![Dashboard](docs/screenshots/dashboard.png)
+
+
+## Installation (Linux server, recommended)
+
+A single command installs Docker (if needed), downloads the latest release,
+walks you through a short setup (admin account, port, optional HTTPS via
+Caddy + Let's Encrypt) and starts NetMaster:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mokny/netmaster/main/install.sh | bash
+```
+
+Afterwards the `netmaster` command is available:
+
+```bash
+netmaster status              # show status & URL
+netmaster logs                # live logs
+netmaster restart             # restart the container
+netmaster update               # update to the latest release (with DB backup)
+netmaster update --nightly     # update to the latest main commit
+netmaster uninstall            # remove interactively
+```
+
+The one-liner is also safe to re-run for updates/repair: an existing
+installation is detected automatically and updated instead
+(secrets/`.env` are left untouched).
+
 ## Features
 
 ### Dashboard
@@ -46,31 +74,6 @@ Live graph of the connections between servers with network tools enabled.
 - SQLite via Prisma (`@prisma/adapter-better-sqlite3`)
 - SSH monitoring via `ssh2`, encrypted credentials (AES-256-GCM)
 - Recharts for live graphs, `react-grid-layout` for the drag-and-drop dashboard
-
-## Installation (Linux server, recommended)
-
-A single command installs Docker (if needed), downloads the latest release,
-walks you through a short setup (admin account, port, optional HTTPS via
-Caddy + Let's Encrypt) and starts NetMaster:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/mokny/netmaster/main/install.sh | bash
-```
-
-Afterwards the `netmaster` command is available:
-
-```bash
-netmaster status              # show status & URL
-netmaster logs                # live logs
-netmaster restart             # restart the container
-netmaster update               # update to the latest release (with DB backup)
-netmaster update --nightly     # update to the latest main commit
-netmaster uninstall            # remove interactively
-```
-
-The one-liner is also safe to re-run for updates/repair: an existing
-installation is detected automatically and updated instead
-(secrets/`.env` are left untouched).
 
 ## Local development
 
