@@ -469,6 +469,7 @@
     "VM_NOT_FOUND": "VM no encontrada",
     "WIREGUARD_NOT_ENABLED": "WireGuard no está habilitado para este servidor",
     "WRITE_CONFIG_FAILED": "No se pudo guardar la configuración",
+    "LIST_INTERFACES_FAILED": "No se pudieron listar las interfaces",
     "WRITE_LOCAL_CONFIG_FAILED": "No se pudo escribir la configuración local",
     "WRITE_PEER_CONFIG_FAILED": "No se pudo escribir la configuración del otro servidor",
     "PASSKEY_SETUP_UNAVAILABLE": "Configuración de passkey no disponible",

@@ -85,8 +85,13 @@ export function buildInstallCommand(server: ServerModel): { command: string; std
 // Interfaces auflisten / lesen
 // ---------------------------------------------------------------------------
 
+// `find` liefert bei leerem Verzeichnis Exit-Code 0 (anders als ein
+// nicht-matchendes `ls`-Glob, das Exit != 0 zurückgibt) - so lässt sich ein
+// echter Fehler (z.B. fehlende Sudo-Rechte für /etc/wireguard) vom
+// "einfach noch keine Interfaces vorhanden"-Fall unterscheiden (siehe GET
+// in app/api/servers/[id]/wireguard/route.ts, das den Exit-Code prüft).
 export const LIST_INTERFACES_COMMAND =
-  "ls -1 /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\\.conf$//'";
+  "find /etc/wireguard -maxdepth 1 -type f -name '*.conf' -printf '%f\\n' | sed 's/\\.conf$//'";
 
 export function buildListInterfacesCommand(server: ServerModel) {
   return buildRootCommand(server, LIST_INTERFACES_COMMAND);

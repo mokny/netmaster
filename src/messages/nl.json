@@ -469,6 +469,7 @@
     "VM_NOT_FOUND": "VM niet gevonden",
     "WIREGUARD_NOT_ENABLED": "WireGuard is niet ingeschakeld voor deze server",
     "WRITE_CONFIG_FAILED": "Configuratie kon niet worden opgeslagen",
+    "LIST_INTERFACES_FAILED": "Interfaces konden niet worden opgehaald",
     "WRITE_LOCAL_CONFIG_FAILED": "Kon lokale configuratie niet opslaan",
     "WRITE_PEER_CONFIG_FAILED": "Kon configuratie van de andere server niet opslaan",
     "PASSKEY_SETUP_UNAVAILABLE": "Passkey-installatie niet beschikbaar",

@@ -38,6 +38,9 @@ export async function GET(
     }
     const { command, stdin } = buildListInterfacesCommand(server);
     const res = await execOnServer(server, command, 15_000, stdin);
+    if (res.code !== 0) {
+      throw new ApiError(400, "LIST_INTERFACES_FAILED", res.stderr.trim() || undefined);
+    }
     const interfaces = parseInterfaceNames(res.stdout);
     return NextResponse.json({ installed: true, interfaces });
   } catch (err) {

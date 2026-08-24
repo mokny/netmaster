@@ -144,7 +144,8 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
         setSelected(data.interfaces[0]);
       }
     } else {
-      toast.error(data.error ? tErrors(data.error) : t("loadFailed"));
+      const message = data.error ? tErrors(data.error) : t("loadFailed");
+      toast.error(data.detail ? `${message}: ${data.detail}` : message);
     }
   }, [serverId, selected]);
 
