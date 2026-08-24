@@ -19,7 +19,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: { routerDeviceId: id, timestamp: { gte: from, lte: to } },
       orderBy: { timestamp: "asc" },
     });
-    const samples = downsampleRows(rawSamples, from, to, ["bytesReceived", "bytesSent"]);
+    const samples = downsampleRows(rawSamples, from, to, [
+      "bytesReceived",
+      "bytesSent",
+      "connectedDevices",
+    ]);
 
     return NextResponse.json({ samples });
   } catch (err) {

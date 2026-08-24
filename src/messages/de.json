@@ -534,6 +534,7 @@
       "firmware": "Firmware",
       "uptime": "Laufzeit",
       "connectedDevices": "Verbundene Geräte",
+      "connectedDevicesHistory": "Verbundene Geräte im Verlauf",
       "wanConnection": "WAN-Verbindung",
       "throughput": "Durchsatz",
       "wifi": "WLAN",

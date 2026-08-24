@@ -21,16 +21,28 @@ export interface NetworkChartPoint {
 const RX_COLOR = "#3b82f6";
 const TX_COLOR = "#a855f7";
 
+export interface NetworkChartSeries {
+  key: "rx" | "tx";
+  name: string;
+  color: string;
+}
+
 export function NetworkChart({
   data,
   formatValue,
   height = 160,
+  series,
 }: {
   data: NetworkChartPoint[];
   formatValue: (value: number) => string;
   height?: number | `${number}%`;
+  series?: NetworkChartSeries[];
 }) {
   const t = useTranslations("network.chart");
+  const lines = series ?? [
+    { key: "rx", name: t("received"), color: RX_COLOR },
+    { key: "tx", name: t("sent"), color: TX_COLOR },
+  ];
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -64,26 +76,19 @@ export function NetworkChart({
           formatter={(value, name) => [formatValue(Number(value)), name]}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Line
-          type="monotone"
-          dataKey="rx"
-          name={t("received")}
-          stroke={RX_COLOR}
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-          connectNulls
-        />
-        <Line
-          type="monotone"
-          dataKey="tx"
-          name={t("sent")}
-          stroke={TX_COLOR}
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-          connectNulls
-        />
+        {lines.map((line) => (
+          <Line
+            key={line.key}
+            type="monotone"
+            dataKey={line.key}
+            name={line.name}
+            stroke={line.color}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+            connectNulls
+          />
+        ))}
       </LineChart>
     </ResponsiveContainer>
   );

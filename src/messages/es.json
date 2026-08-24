@@ -534,6 +534,7 @@
       "firmware": "Firmware",
       "uptime": "Tiempo activo",
       "connectedDevices": "Dispositivos conectados",
+      "connectedDevicesHistory": "Dispositivos conectados en el tiempo",
       "wanConnection": "Conexión WAN",
       "throughput": "Tráfico",
       "wifi": "Wifi",

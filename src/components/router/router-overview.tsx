@@ -83,6 +83,14 @@ function DeviceCard({
     };
   });
 
+  // Repeater haben keinen WAN-Durchsatz (siehe router-collect.ts) - für sie
+  // zeigen wir stattdessen die Anzahl aktiver Hosts über der Zeit an.
+  const deviceCountPoints: NetworkChartPoint[] = samples.map((s) => ({
+    timestamp: s.timestamp,
+    rx: s.connectedDevices,
+    tx: null,
+  }));
+
   async function runAction(action: string, extra: Record<string, unknown> = {}) {
     setBusy(action);
     try {
@@ -171,7 +179,7 @@ function DeviceCard({
           </div>
         )}
 
-        {ratePoints.length > 0 && (
+        {device.type === "FRITZBOX" && ratePoints.length > 0 && (
           <div>
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">{t("throughput")}</p>
@@ -179,6 +187,23 @@ function DeviceCard({
             </div>
             <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
               <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
+            </ChartPanOverlay>
+          </div>
+        )}
+
+        {device.type === "REPEATER" && deviceCountPoints.length > 0 && (
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("connectedDevicesHistory")}</p>
+              <ChartTimeToolbar window={chartWindow} compact />
+            </div>
+            <ChartPanOverlay windowMs={chartWindow.windowMs} onPanBy={chartWindow.panBy}>
+              <NetworkChart
+                data={deviceCountPoints}
+                formatValue={(v) => Math.round(v).toString()}
+                height={140}
+                series={[{ key: "rx", name: t("connectedDevices"), color: "#3b82f6" }]}
+              />
             </ChartPanOverlay>
           </div>
         )}

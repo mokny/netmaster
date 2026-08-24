@@ -45,26 +45,34 @@ export async function collectRouterDevice(device: RouterDevice) {
     }
 
     // Durchsatz-Zähler nur, wenn WANCommonInterfaceConfig verfügbar ist
-    // (ebenfalls nicht bei Repeatern) - Fehler hier soll den restlichen Poll
-    // nicht abbrechen.
+    // (nicht bei Repeatern) - Fehler hier soll den restlichen Poll nicht
+    // abbrechen. Die Anzahl aktiver Hosts wird trotzdem immer aufgezeichnet,
+    // damit Repeater (ohne WAN-Durchsatz) einen eigenen Verlaufs-Chart
+    // bekommen (siehe DeviceCard).
+    let bytesReceived: number | null = null;
+    let bytesSent: number | null = null;
     try {
       const counters = await getWanByteCounters(config);
-      await prisma.routerSample.create({
-        data: {
-          routerDeviceId: device.id,
-          bytesReceived: counters.bytesReceived,
-          bytesSent: counters.bytesSent,
-        },
-      });
-      await prisma.routerSample.deleteMany({
-        where: {
-          routerDeviceId: device.id,
-          timestamp: { lt: new Date(Date.now() - SAMPLE_RETENTION_DAYS * 24 * 60 * 60 * 1000) },
-        },
-      });
+      bytesReceived = counters.bytesReceived;
+      bytesSent = counters.bytesSent;
     } catch {
       // kein WANCommonInterfaceConfig-Service auf diesem Gerät.
     }
+
+    await prisma.routerSample.create({
+      data: {
+        routerDeviceId: device.id,
+        bytesReceived,
+        bytesSent,
+        connectedDevices: hosts.filter((h) => h.active).length,
+      },
+    });
+    await prisma.routerSample.deleteMany({
+      where: {
+        routerDeviceId: device.id,
+        timestamp: { lt: new Date(Date.now() - SAMPLE_RETENTION_DAYS * 24 * 60 * 60 * 1000) },
+      },
+    });
 
     await prisma.routerDevice.update({
       where: { id: device.id },

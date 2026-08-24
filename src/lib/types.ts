@@ -285,4 +285,5 @@ export interface RouterSampleDTO {
   timestamp: string;
   bytesReceived: number | null;
   bytesSent: number | null;
+  connectedDevices: number | null;
 }

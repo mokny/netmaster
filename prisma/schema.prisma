@@ -827,5 +827,9 @@ model RouterSample {
   bytesReceived Float?
   bytesSent     Float?
 
+  // Aktive Hosts im Zeitpunkt der Messung - bei Repeatern (kein WAN-Durchsatz
+  // verfügbar) die einzige sinnvolle Zeitreihe für den Verlauf-Chart.
+  connectedDevices Int?
+
   @@index([routerDeviceId, timestamp])
 }

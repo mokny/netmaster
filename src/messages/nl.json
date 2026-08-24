@@ -534,6 +534,7 @@
       "firmware": "Firmware",
       "uptime": "Uptime",
       "connectedDevices": "Verbonden apparaten",
+      "connectedDevicesHistory": "Verbonden apparaten in de tijd",
       "wanConnection": "WAN-verbinding",
       "throughput": "Doorvoer",
       "wifi": "Wifi",
