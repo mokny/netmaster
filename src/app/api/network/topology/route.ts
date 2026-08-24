@@ -8,7 +8,7 @@ import { PORTS_COMMAND, parsePortsOutput, type PortsSnapshot } from "@/lib/ports
 
 interface NodeInfo {
   id: string;
-  kind: "server" | "router" | "repeater";
+  kind: "server" | "router" | "repeater" | "client";
   name: string;
   addresses: string[];
   status: "ok" | "error";
@@ -19,6 +19,14 @@ interface EdgeInfo {
   fromServerId: string;
   toServerId: string;
   connectionCount: number;
+}
+
+interface RouterHostEntry {
+  name: string;
+  ip: string;
+  mac: string;
+  active: boolean;
+  interfaceType: string;
 }
 
 export async function GET() {
@@ -54,12 +62,22 @@ export async function GET() {
       error: error ?? undefined,
     }));
 
+    const clientEdges: EdgeInfo[] = [];
+
     // Router/Repeater-Verwaltung ist Admin-only (siehe /api/router-devices) -
     // in der Topologie werden sie deshalb nur für Admins mit angezeigt.
     if (hasRole(session, "ADMIN")) {
       const routerDevices = await prisma.routerDevice.findMany({
         orderBy: { name: "asc" },
-        select: { id: true, name: true, type: true, hostname: true, lastStatus: true, lastError: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          hostname: true,
+          lastStatus: true,
+          lastError: true,
+          connectedHostsJson: true,
+        },
       });
       for (const device of routerDevices) {
         nodes.push({
@@ -70,6 +88,41 @@ export async function GET() {
           status: device.lastStatus === "OK" ? "ok" : "error",
           error: device.lastStatus === "OK" ? undefined : device.lastError ?? undefined,
         });
+      }
+
+      // Client-Geräte (per TR-064 auf Router/Repeater erkannt): ein MAC kann
+      // in mehreren Geräte-Host-Listen auftauchen (z.B. Mesh-Client sichtbar
+      // auf FritzBox und Repeater). Da es kein explizites Uplink-/Parent-Feld
+      // gibt, wird der Repeater bevorzugt, da er der Client-Verbindung
+      // topologisch näher ist (siehe Schema-Kommentar bei RouterDevice).
+      const clientOwner = new Map<string, { deviceNodeId: string; host: RouterHostEntry; priority: number }>();
+      for (const device of routerDevices) {
+        const priority = device.type === "REPEATER" ? 1 : 0;
+        let hosts: RouterHostEntry[] = [];
+        try {
+          hosts = JSON.parse(device.connectedHostsJson || "[]");
+        } catch {
+          hosts = [];
+        }
+        for (const host of hosts) {
+          if (!host.active || !host.mac) continue;
+          const existing = clientOwner.get(host.mac);
+          if (!existing || priority > existing.priority) {
+            clientOwner.set(host.mac, { deviceNodeId: `router:${device.id}`, host, priority });
+          }
+        }
+      }
+
+      for (const [mac, { deviceNodeId, host }] of clientOwner) {
+        const clientNodeId = `client:${mac}`;
+        nodes.push({
+          id: clientNodeId,
+          kind: "client",
+          name: host.name || host.ip || mac,
+          addresses: [host.ip].filter(Boolean),
+          status: "ok",
+        });
+        clientEdges.push({ fromServerId: deviceNodeId, toServerId: clientNodeId, connectionCount: 1 });
       }
     }
 
@@ -106,7 +159,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ nodes, edges: Array.from(edgeCounts.values()) });
+    return NextResponse.json({ nodes, edges: [...edgeCounts.values(), ...clientEdges] });
   } catch (err) {
     return handleApiError(err);
   }
