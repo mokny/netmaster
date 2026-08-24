@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
-import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 import type { ContainerWithServerDTO } from "@/lib/types";
 
 export async function GET() {
@@ -16,9 +15,6 @@ export async function GET() {
 
     const perServer = await Promise.all(
       servers.map(async (server) => {
-        // Debounced, siehe scheduler.ts - stößt frischen Poll an, statt bis
-        // zum nächsten vmDockerPollIntervalSec-Tick zu warten.
-        ensureFreshDockerPoll(server.id);
         const latest = await prisma.dockerContainerSnapshot.findFirst({
           where: { serverId: server.id },
           orderBy: { timestamp: "desc" },
@@ -27,6 +23,11 @@ export async function GET() {
         const snapshots = await prisma.dockerContainerSnapshot.findMany({
           where: { serverId: server.id, timestamp: latest.timestamp },
         });
+        const states = await prisma.dockerContainerState.findMany({
+          where: { serverId: server.id },
+          select: { containerId: true, ipsJson: true },
+        });
+        const ipsByContainer = new Map(states.map((s) => [s.containerId, s.ipsJson]));
         return snapshots.map(
           (s): ContainerWithServerDTO => ({
             id: s.id,
@@ -38,7 +39,7 @@ export async function GET() {
             memUsageMb: s.memUsageMb,
             netRxMb: s.netRxMb,
             netTxMb: s.netTxMb,
-            ips: getCachedIps(dockerIpKey(server.id, s.containerId)) ?? [],
+            ips: parseIpsJson(ipsByContainer.get(s.containerId) ?? "[]"),
             serverId: server.id,
             serverName: server.name,
             timestamp: s.timestamp.toISOString(),

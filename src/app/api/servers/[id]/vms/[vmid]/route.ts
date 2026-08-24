@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
-import { getCachedIps, vmIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 import { resolveTimeRange, downsampleRows } from "@/lib/monitor/time-range";
 
 export async function GET(
@@ -14,8 +13,6 @@ export async function GET(
     const { id, vmid } = await params;
     const vmidNum = Number(vmid);
     if (!Number.isInteger(vmidNum)) throw new ApiError(400, "INVALID_VM_ID");
-
-    ensureFreshProxmoxPoll(id);
 
     const vm = await prisma.proxmoxVm.findUnique({
       where: { serverId_vmid: { serverId: id, vmid: vmidNum } },
@@ -37,7 +34,7 @@ export async function GET(
     ]);
 
     return NextResponse.json({
-      vm: { ...vm, ips: getCachedIps(vmIpKey(id, vmidNum)) ?? [] },
+      vm: { ...vm, ips: parseIpsJson(vm.ipsJson) },
       samples,
     });
   } catch (err) {

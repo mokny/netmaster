@@ -1,5 +1,6 @@
+import { prisma } from "@/lib/prisma";
 import { runPingCheck } from "@/lib/ping";
-import { getAllCachedIpEntries } from "./ip-cache";
+import { parseIpsJson } from "./ip-cache";
 import { publish } from "./events";
 import { logPoll } from "./poll-log";
 
@@ -12,32 +13,52 @@ let timer: NodeJS.Timeout | null = null;
 let currentIntervalSec: number | null = null;
 let running = false;
 
-function parseKey(key: string): { serverId: string; kind: "vm" | "docker"; vmid?: number; containerId?: string } | null {
-  const [kind, serverId, rest] = key.split(":");
-  if (!kind || !serverId || rest === undefined) return null;
-  if (kind === "vm") {
-    const vmid = Number(rest);
-    if (!Number.isInteger(vmid)) return null;
-    return { serverId, kind: "vm", vmid };
+interface PingTarget {
+  serverId: string;
+  kind: "vm" | "docker";
+  vmid?: number;
+  containerId?: string;
+  ips: string[];
+}
+
+// Liest die zu pingenden Ziele direkt aus der DB (ProxmoxVm/DockerContainerState.
+// ipsJson) statt aus dem In-Memory-Cache - macht den Ping unabhängig von einem
+// warmen Cache und robust gegen Neustarts (siehe ip-discovery-scheduler.ts, das
+// diese Felder alle 5 Min aktuell hält).
+async function loadPingTargets(): Promise<PingTarget[]> {
+  const [vms, containers] = await Promise.all([
+    prisma.proxmoxVm.findMany({
+      where: { status: "running" },
+      select: { serverId: true, vmid: true, ipsJson: true },
+    }),
+    prisma.dockerContainerState.findMany({
+      where: { running: true },
+      select: { serverId: true, containerId: true, ipsJson: true },
+    }),
+  ]);
+
+  const targets: PingTarget[] = [];
+  for (const vm of vms) {
+    const ips = parseIpsJson(vm.ipsJson);
+    if (ips.length > 0) targets.push({ serverId: vm.serverId, kind: "vm", vmid: vm.vmid, ips });
   }
-  if (kind === "docker") {
-    return { serverId, kind: "docker", containerId: rest };
+  for (const c of containers) {
+    const ips = parseIpsJson(c.ipsJson);
+    if (ips.length > 0) targets.push({ serverId: c.serverId, kind: "docker", containerId: c.containerId, ips });
   }
-  return null;
+  return targets;
 }
 
 async function pingAllKnownHosts() {
   if (running) return;
   running = true;
   try {
-    const entries = getAllCachedIpEntries();
-    for (let i = 0; i < entries.length; i += CONCURRENCY) {
-      const batch = entries.slice(i, i + CONCURRENCY);
+    const targets = await loadPingTargets();
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+      const batch = targets.slice(i, i + CONCURRENCY);
       await Promise.all(
-        batch.map(async ({ key, ips }) => {
-          const target = parseKey(key);
-          if (!target) return;
-          const result = await runPingCheck(ips[0], PING_TIMEOUT_MS);
+        batch.map(async (target) => {
+          const result = await runPingCheck(target.ips[0], PING_TIMEOUT_MS);
           logPoll(target.serverId, "ping", result.success);
           publish({
             type: "ping",

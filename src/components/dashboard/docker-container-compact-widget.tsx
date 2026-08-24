@@ -1,8 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { VM_GENERIC_WARN, VM_GENERIC_CRIT } from "@/lib/thresholds";
@@ -19,12 +21,27 @@ export function DockerContainerCompactWidget({
 }) {
   const t = useTranslations("common");
   const [container, setContainer] = useState<ContainerSnapshotDTO | null>(null);
+  const [polling, setPolling] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/servers/${serverId}/containers/${containerId}?hours=1`)
+  const load = useCallback(() => {
+    return fetch(`/api/servers/${serverId}/containers/${containerId}?hours=1`)
       .then((res) => (res.ok ? res.json() : { container: null }))
       .then((data) => setContainer(data.container));
   }, [serverId, containerId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      await fetch(`/api/servers/${serverId}/containers/poll-now`, { method: "POST" });
+      await load();
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "docker" || event.serverId !== serverId) return;
@@ -44,9 +61,21 @@ export function DockerContainerCompactWidget({
     <div className="flex h-full min-w-0 flex-col justify-center gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-sm text-muted-foreground">{container.image}</span>
-        <Badge variant={running ? "default" : "secondary"} className="shrink-0 capitalize">
-          {container.state}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-1">
+          <Badge variant={running ? "default" : "secondary"} className="capitalize">
+            {container.state}
+          </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
+            disabled={polling}
+            onClick={pollNow}
+            aria-label={t("refresh")}
+          >
+            <RefreshCw className={`size-3.5 ${polling ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </div>
       <MetricBar
         label="CPU"

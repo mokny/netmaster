@@ -23,7 +23,6 @@ import { FileManagerTab } from "@/components/servers/file-manager/file-manager-t
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
-import { useDetailPresence } from "@/hooks/use-detail-presence";
 import { ArrowLeft, Play, Square, RotateCw, TerminalSquare, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,8 +62,6 @@ export function DockerDetail({
   const [ping, setPing] = useState<{ alive: boolean; latencyMs: number | null } | null>(null);
   const [refreshingIp, setRefreshingIp] = useState(false);
   const [polling, setPolling] = useState(false);
-
-  useDetailPresence(serverId, "docker");
 
   const chartWindow = useChartTimeWindow();
   const debouncedFrom = useDebouncedValue(chartWindow.from, 250);

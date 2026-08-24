@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
-import { getCachedIps, vmIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 
 export async function GET() {
   try {
@@ -13,12 +12,6 @@ export async function GET() {
       orderBy: [{ name: "asc" }],
       include: { server: { select: { id: true, name: true } } },
     });
-
-    // Stößt pro Server (debounced, siehe scheduler.ts) einen frischen Poll an,
-    // statt bis zum nächsten vmDockerPollIntervalSec-Tick zu warten.
-    for (const serverId of new Set(vms.map((v) => v.serverId))) {
-      ensureFreshProxmoxPoll(serverId);
-    }
 
     const dtos = vms.map((v) => ({
       id: v.id,
@@ -33,7 +26,7 @@ export async function GET() {
       memTotalMb: v.memTotalMb,
       diskUsedGb: v.diskUsedGb,
       diskTotalGb: v.diskTotalGb,
-      ips: getCachedIps(vmIpKey(v.serverId, v.vmid)) ?? [],
+      ips: parseIpsJson(v.ipsJson),
     }));
 
     return NextResponse.json({ vms: dtos });

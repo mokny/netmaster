@@ -45,7 +45,7 @@ import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import { useTerminalManager } from "@/hooks/use-terminal-manager";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { ArrowLeft, Trash2, Pencil, Container, TerminalSquare, RotateCw, Power, Cpu, Boxes, Eraser } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Container, TerminalSquare, RotateCw, Power, Boxes, Eraser, RefreshCw } from "lucide-react";
 import type {
   ServerDTO,
   MetricSampleDTO,
@@ -58,6 +58,7 @@ import type {
 
 export function ServerDetail({ serverId }: { serverId: string }) {
   const t = useTranslations("servers.detail");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const session = useSession();
   const confirm = useConfirm();
@@ -74,6 +75,8 @@ export function ServerDetail({ serverId }: { serverId: string }) {
   const [containers, setContainers] = useState<ContainerSnapshotDTO[]>([]);
   const [vms, setVms] = useState<ProxmoxVmDTO[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [dockerPolling, setDockerPolling] = useState(false);
+  const [proxmoxPolling, setProxmoxPolling] = useState(false);
 
   const chartWindow = useChartTimeWindow();
   const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
@@ -96,6 +99,28 @@ export function ServerDetail({ serverId }: { serverId: string }) {
     const res = await fetch(`/api/servers/${serverId}/check`, { method: "POST" });
     if (!res.ok) throw new Error(t("checkFailed"));
     await loadAll();
+  }
+
+  async function pollDockerNow() {
+    setDockerPolling(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/containers/poll-now`, { method: "POST" });
+      if (res.ok) await loadAll();
+      else toast.error(t("pollFailed"));
+    } finally {
+      setDockerPolling(false);
+    }
+  }
+
+  async function pollProxmoxNow() {
+    setProxmoxPolling(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/vms/poll-now`, { method: "POST" });
+      if (res.ok) await loadAll();
+      else toast.error(t("pollFailed"));
+    } finally {
+      setProxmoxPolling(false);
+    }
   }
 
   useEffect(() => {
@@ -420,13 +445,19 @@ export function ServerDetail({ serverId }: { serverId: string }) {
               <CardDescription>Aktueller Stand</CardDescription>
             </div>
             {server.dockerEnabled ? (
-              <Link
-                href={`/docker/${serverId}`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <Container className="size-4" />
-                Verwalten
-              </Link>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={dockerPolling} onClick={pollDockerNow}>
+                  <RefreshCw className={`size-4 ${dockerPolling ? "animate-spin" : ""}`} />
+                  {tCommon("refresh")}
+                </Button>
+                <Link
+                  href={`/docker/${serverId}`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <Container className="size-4" />
+                  Verwalten
+                </Link>
+              </div>
             ) : (
               <Container className="size-4 text-muted-foreground" />
             )}
@@ -550,7 +581,7 @@ export function ServerDetail({ serverId }: { serverId: string }) {
             </p>
           </CardContent>
         </Card>
-      ) : vms.length > 0 && (
+      ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -558,7 +589,10 @@ export function ServerDetail({ serverId }: { serverId: string }) {
                 <CardTitle>{t("virtualMachines")}</CardTitle>
                 <CardDescription>Proxmox QEMU-VMs auf diesem Host</CardDescription>
               </div>
-              <Cpu className="size-4 text-muted-foreground" />
+              <Button variant="outline" size="sm" disabled={proxmoxPolling} onClick={pollProxmoxNow}>
+                <RefreshCw className={`size-4 ${proxmoxPolling ? "animate-spin" : ""}`} />
+                {tCommon("refresh")}
+              </Button>
             </CardHeader>
             <CardContent>
               {vms.filter((v) => v.type === "QEMU").length === 0 ? (

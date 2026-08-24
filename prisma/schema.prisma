@@ -252,11 +252,11 @@ model Server {
   encryptedSudoPassword String?
 
   pollIntervalSec Int @default(30)
-  // Intervall (Sek.) für Proxmox-VM-/Docker-Container-Status-Polling, getrennt
-  // von pollIntervalSec (das nur noch für Host-Metriken gilt) - dieser Poll ist
-  // deutlich teurer (pvesh/docker inspect via SSH) und läuft daher standardmäßig
-  // sehr selten; wird bei Bedarf per Seitenaufruf/Button/offener Detailseite
-  // zusätzlich angestoßen (siehe scheduler.ts).
+  // Nicht mehr von scheduler.ts gelesen (siehe PollingSettings.advancedPollingEnabled/
+  // advancedPollingIntervalSec, das seit dem Advanced-Polling-Umbau global steuert,
+  // ob/wie schnell Proxmox/Docker im Hintergrund gepollt werden). Feld bleibt aus
+  // Migrations-Kompatibilität erhalten, ist aber vestigial - Kandidat für eine
+  // spätere Entfernung.
   vmDockerPollIntervalSec Int @default(7200)
   retentionDays   Int @default(30)
 
@@ -353,6 +353,9 @@ model DockerContainerState {
   name        String
   running     Boolean   @default(true)
   stoppedSince DateTime?
+  // Siehe ProxmoxVm.ipsJson - dasselbe Muster für Docker-Container (ermittelt per
+  // 'docker inspect', refreshDockerIp in collect.ts).
+  ipsJson     String    @default("[]")
   updatedAt   DateTime  @updatedAt
 
   @@unique([serverId, containerId])
@@ -542,6 +545,13 @@ model ProxmoxVm {
   diskUsedGb  Float?
   diskTotalGb Float?
 
+  // Zuletzt bekannte IP(s) als JSON-Array, ermittelt per Guest-Agent (QEMU) bzw.
+  // 'ip addr show' (LXC) - siehe refreshVmIp in collect.ts. Persistiert (statt nur
+  // im In-Memory-Cache), damit Ping und Anzeige auch über einen Neustart hinweg
+  // sofort verfügbar sind; wird von der leichtgewichtigen IP-Discovery (siehe
+  // ip-discovery-scheduler.ts) alle 5 Min aktualisiert.
+  ipsJson String @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -697,6 +707,14 @@ model PollingSettings {
   // den bisherigen häufigen Proxmox-/Docker-Status-Poll als Live-Signal.
   pingEnabled     Boolean @default(true)
   pingIntervalSec Int     @default(15)
+
+  // Globaler "Vollgas"-Schalter: schaltet Live-Polling für ALLE Proxmox-/Docker-
+  // Server ein (unabhängig von Server.vmDockerPollIntervalSec, das dafür nicht
+  // mehr gelesen wird - siehe scheduler.ts). Nur für Admins über die Navbar
+  // umschaltbar; wird automatisch wieder deaktiviert, sobald kein Client mehr per
+  // WebSocket verbunden ist (siehe server.ts).
+  advancedPollingEnabled     Boolean @default(false)
+  advancedPollingIntervalSec Int     @default(30)
 
   updatedAt DateTime @updatedAt
 }

@@ -5,10 +5,12 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { DockerRow } from "@/components/docker/docker-row";
-import { Container, Layers } from "lucide-react";
+import { Container, Layers, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ContainerWithServerDTO } from "@/lib/types";
@@ -17,6 +19,7 @@ export function DockerOverview() {
   const t = useTranslations("docker.overview");
   const [containers, setContainers] = useState<ContainerWithServerDTO[] | null>(null);
   const [search, setSearch] = useState("");
+  const [polling, setPolling] = useState(false);
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
 
@@ -28,6 +31,17 @@ export function DockerOverview() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      const res = await fetch("/api/containers/poll-now", { method: "POST" });
+      if (res.ok) await load();
+      else toast.error(t("pollFailed"));
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "docker") return;
@@ -88,12 +102,18 @@ export function DockerOverview() {
             {t("subtitle")}
           </p>
         </div>
-        <Input
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64"
+          />
+          <Button variant="outline" size="sm" disabled={polling} onClick={pollNow}>
+            <RefreshCw className={`size-4 ${polling ? "animate-spin" : ""}`} />
+            {t("pollNow")}
+          </Button>
+        </div>
       </div>
 
       {servers.length > 0 && (

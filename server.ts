@@ -16,10 +16,12 @@ import { handleVmTerminalSocket } from "./src/lib/ws/vm-terminal-handler";
 import { handleVmVncSocket } from "./src/lib/ws/vm-vnc-handler";
 import { handleDockerTerminalSocket } from "./src/lib/ws/docker-terminal-handler";
 import { handleProcessesSocket } from "./src/lib/ws/processes-handler";
-import { handleDetailPresenceSocket, type DetailPresenceKind } from "./src/lib/ws/detail-presence-handler";
 import { handleFilesSocket } from "./src/lib/ws/files-handler";
 import { handleExecFilesSocket } from "./src/lib/ws/exec-files-handler";
 import { resolveDockerFileBackend, resolveProxmoxFileBackend } from "./src/lib/exec-file-target";
+import { prisma } from "./src/lib/prisma";
+import { publish } from "./src/lib/monitor/events";
+import { getCachedPollingSettings, refreshPollingSettingsCache } from "./src/lib/monitor/polling-settings";
 
 const roleRank: Record<SessionPayload["role"], number> = {
   VIEWER: 0,
@@ -31,6 +33,21 @@ const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
 const app = next({ dev });
 const handle = app.getRequestHandler();
+
+// Schaltet Advanced Polling automatisch ab, sobald der letzte Client die
+// Haupt-WS-Verbindung (/api/ws, die jede offene Seite über useLiveEvents hält)
+// schließt - verhindert, dass der "Vollgas"-Modus unbemerkt weiterläuft, wenn
+// niemand mehr zuschaut.
+async function onLastClientDisconnected() {
+  const settings = getCachedPollingSettings() ?? (await refreshPollingSettingsCache());
+  if (!settings.advancedPollingEnabled) return;
+  const updated = await prisma.pollingSettings.update({
+    where: { id: settings.id },
+    data: { advancedPollingEnabled: false },
+  });
+  await refreshPollingSettingsCache();
+  publish({ type: "polling-settings", settings: updated });
+}
 
 function readCookie(header: string | undefined, name: string): string | null {
   if (!header) return null;
@@ -55,7 +72,6 @@ app.prepare().then(() => {
   const vmVncWss = new WebSocketServer({ noServer: true });
   const dockerTerminalWss = new WebSocketServer({ noServer: true });
   const processesWss = new WebSocketServer({ noServer: true });
-  const detailPresenceWss = new WebSocketServer({ noServer: true });
   const filesWss = new WebSocketServer({ noServer: true });
   const dockerFilesWss = new WebSocketServer({ noServer: true });
   const proxmoxFilesWss = new WebSocketServer({ noServer: true });
@@ -74,7 +90,6 @@ app.prepare().then(() => {
       pathname !== "/api/ws/vm-vnc" &&
       pathname !== "/api/ws/docker-terminal" &&
       pathname !== "/api/ws/processes" &&
-      pathname !== "/api/ws/detail-presence" &&
       pathname !== "/api/ws/files" &&
       pathname !== "/api/ws/docker-files" &&
       pathname !== "/api/ws/proxmox-files"
@@ -94,24 +109,10 @@ app.prepare().then(() => {
     if (pathname === "/api/ws") {
       wss.handleUpgrade(req, socket, head, (ws) => {
         clients.add(ws);
-        ws.on("close", () => clients.delete(ws));
-      });
-      return;
-    }
-
-    // Reiner Präsenz-Signal-Socket (siehe detail-presence-handler.ts) - keine
-    // Shell-/Dateisystem-Zugriffsrechte nötig, daher nicht auf Editor+
-    // beschränkt wie der Block darunter.
-    if (pathname === "/api/ws/detail-presence") {
-      const serverId = typeof query.serverId === "string" ? query.serverId : null;
-      const kind = typeof query.kind === "string" ? query.kind : null;
-      if (!serverId || (kind !== "proxmox" && kind !== "docker")) {
-        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-        socket.destroy();
-        return;
-      }
-      detailPresenceWss.handleUpgrade(req, socket, head, (ws) => {
-        handleDetailPresenceSocket(ws, serverId, kind as DetailPresenceKind);
+        ws.on("close", () => {
+          clients.delete(ws);
+          if (clients.size === 0) void onLastClientDisconnected();
+        });
       });
       return;
     }

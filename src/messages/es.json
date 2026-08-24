@@ -148,7 +148,9 @@
     "overview": {
       "subtitle": "Contenedores de todos los servidores de un vistazo.",
       "searchPlaceholder": "Buscar por nombre, servidor o imagen…",
-      "emptyState": "No se encontraron contenedores Docker. Los servidores se detectan automáticamente en cuanto Docker es accesible por SSH."
+      "emptyState": "No se encontraron contenedores Docker. Los servidores se detectan automáticamente en cuanto Docker es accesible por SSH.",
+      "pollNow": "Actualizar ahora",
+      "pollFailed": "Error al actualizar"
     },
     "row": {
       "ipUnknown": "IP desconocida",
@@ -233,7 +235,9 @@
       "emptyState": "No se encontraron VMs/contenedores LXC de Proxmox. Los servidores se detectan automáticamente en cuanto son accesibles por SSH.",
       "virtualMachines": "Máquinas virtuales ({count})",
       "lxcContainers": "Contenedores LXC ({count})",
-      "noMatches": "Sin resultados."
+      "noMatches": "Sin resultados.",
+      "pollNow": "Actualizar ahora",
+      "pollFailed": "Error al actualizar"
     },
     "row": {
       "ipUnknown": "IP desconocida",
@@ -891,7 +895,8 @@
       "delete": "Eliminar",
       "dockerNotEnabled": "Docker no está habilitado para este servidor. Habilítalo en \"Editar\".",
       "proxmoxNotEnabled": "Proxmox no está habilitado para este servidor. Habilítalo en \"Editar\".",
-      "virtualMachines": "Máquinas virtuales"
+      "virtualMachines": "Máquinas virtuales",
+      "pollFailed": "Error al actualizar"
     },
     "formDialog": {
       "saveFailed": "Error al guardar",
@@ -1313,7 +1318,8 @@
     "openMenu": "Abrir menú",
     "account": "Cuenta",
     "logout": "Cerrar sesión",
-    "toggleTheme": "Cambiar tema"
+    "toggleTheme": "Cambiar tema",
+    "advancedPolling": "Sondeo avanzado"
   },
   "auth": {
     "connectionFailed": "Error de conexión con el servidor",
@@ -1517,11 +1523,11 @@
       "serverMetricsLabel": "Server metrics",
       "serverMetricsDescription": "CPU, memory, disk and network stats collected via SSH (per-server interval, default 30s).",
       "dockerContainersLabel": "Docker containers",
-      "dockerContainersDescription": "Container list per server (SSH), polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "dockerContainersDescription": "Container list per server (SSH) - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "dockerImagesLabel": "Docker images",
       "dockerImagesDescription": "Docker image list per server (SSH), polled at the per-server VM/Docker interval (default 120 min).",
       "proxmoxVmsLabel": "Proxmox VMs / LXCs",
-      "proxmoxVmsDescription": "VM and container status via Proxmox, polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "proxmoxVmsDescription": "VM and container status via Proxmox - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "routerDevicesLabel": "Router devices",
       "routerDevicesDescription": "FritzBox / Repeater status via TR-064 (per-device interval, default 60s).",
       "uptimeChecksLabel": "Uptime checks",
@@ -1540,7 +1546,11 @@
       "pingDescription": "Centralized ICMP reachability check from the NetMaster server against known VM/container IPs - no SSH load on the target host.",
       "pingIntervalLabel": "Ping interval (seconds)",
       "pingIntervalDescription": "How often known VM/container IPs are pinged.",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "advancedPollingLabel": "Advanced polling",
+      "advancedPollingDescription": "Global live-polling for all Proxmox/Docker servers, admin-only (toggle in the top navbar). Automatically turns off once no browser tab is open.",
+      "advancedPollingIntervalLabel": "Advanced polling interval (seconds)",
+      "advancedPollingIntervalDescription": "How often all servers are polled while advanced polling is active."
     }
   },
   "status": {

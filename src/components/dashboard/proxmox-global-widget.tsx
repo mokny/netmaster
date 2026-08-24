@@ -1,8 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import type { ProxmoxVmWithServerDTO } from "@/lib/types";
 
@@ -12,12 +14,27 @@ export function ProxmoxGlobalWidget() {
   const t = useTranslations("dashboard.widgets.proxmox");
   const tCommon = useTranslations("common");
   const [vms, setVms] = useState<ProxmoxVmWithServerDTO[] | null>(null);
+  const [polling, setPolling] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/vms")
+  const load = useCallback(() => {
+    return fetch("/api/vms")
       .then((res) => (res.ok ? res.json() : { vms: [] }))
       .then((data) => setVms(data.vms ?? []));
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      await fetch("/api/vms/poll-now", { method: "POST" });
+      await load();
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "proxmox") return;
@@ -53,6 +70,18 @@ export function ProxmoxGlobalWidget() {
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-3">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          disabled={polling}
+          onClick={pollNow}
+          aria-label={tCommon("refresh")}
+        >
+          <RefreshCw className={`size-3.5 ${polling ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-2 text-center text-xs @xs:grid-cols-4">
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{running}</p>

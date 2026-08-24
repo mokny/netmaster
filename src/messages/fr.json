@@ -148,7 +148,9 @@
     "overview": {
       "subtitle": "Les conteneurs de tous les serveurs en un coup d'œil.",
       "searchPlaceholder": "Rechercher par nom, serveur ou image…",
-      "emptyState": "Aucun conteneur Docker trouvé. Les serveurs sont détectés automatiquement dès que Docker est joignable via SSH."
+      "emptyState": "Aucun conteneur Docker trouvé. Les serveurs sont détectés automatiquement dès que Docker est joignable via SSH.",
+      "pollNow": "Actualiser maintenant",
+      "pollFailed": "Échec de l'actualisation"
     },
     "row": {
       "ipUnknown": "IP inconnue",
@@ -233,7 +235,9 @@
       "emptyState": "Aucune VM/conteneur LXC Proxmox trouvé. Les serveurs sont détectés automatiquement dès qu'ils sont joignables via SSH.",
       "virtualMachines": "Machines virtuelles ({count})",
       "lxcContainers": "Conteneurs LXC ({count})",
-      "noMatches": "Aucun résultat."
+      "noMatches": "Aucun résultat.",
+      "pollNow": "Actualiser maintenant",
+      "pollFailed": "Échec de l'actualisation"
     },
     "row": {
       "ipUnknown": "IP inconnue",
@@ -891,7 +895,8 @@
       "delete": "Supprimer",
       "dockerNotEnabled": "Docker n'est pas activé pour ce serveur. Activez-le sous « Modifier ».",
       "proxmoxNotEnabled": "Proxmox n'est pas activé pour ce serveur. Activez-le sous « Modifier ».",
-      "virtualMachines": "Machines virtuelles"
+      "virtualMachines": "Machines virtuelles",
+      "pollFailed": "Échec de l'actualisation"
     },
     "formDialog": {
       "saveFailed": "Échec de l'enregistrement",
@@ -1313,7 +1318,8 @@
     "openMenu": "Ouvrir le menu",
     "account": "Compte",
     "logout": "Se déconnecter",
-    "toggleTheme": "Changer de thème"
+    "toggleTheme": "Changer de thème",
+    "advancedPolling": "Interrogation avancée"
   },
   "auth": {
     "connectionFailed": "Échec de la connexion au serveur",
@@ -1517,11 +1523,11 @@
       "serverMetricsLabel": "Server metrics",
       "serverMetricsDescription": "CPU, memory, disk and network stats collected via SSH (per-server interval, default 30s).",
       "dockerContainersLabel": "Docker containers",
-      "dockerContainersDescription": "Container list per server (SSH), polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "dockerContainersDescription": "Container list per server (SSH) - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "dockerImagesLabel": "Docker images",
       "dockerImagesDescription": "Docker image list per server (SSH), polled at the per-server VM/Docker interval (default 120 min).",
       "proxmoxVmsLabel": "Proxmox VMs / LXCs",
-      "proxmoxVmsDescription": "VM and container status via Proxmox, polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "proxmoxVmsDescription": "VM and container status via Proxmox - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "routerDevicesLabel": "Router devices",
       "routerDevicesDescription": "FritzBox / Repeater status via TR-064 (per-device interval, default 60s).",
       "uptimeChecksLabel": "Uptime checks",
@@ -1540,7 +1546,11 @@
       "pingDescription": "Centralized ICMP reachability check from the NetMaster server against known VM/container IPs - no SSH load on the target host.",
       "pingIntervalLabel": "Ping interval (seconds)",
       "pingIntervalDescription": "How often known VM/container IPs are pinged.",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "advancedPollingLabel": "Advanced polling",
+      "advancedPollingDescription": "Global live-polling for all Proxmox/Docker servers, admin-only (toggle in the top navbar). Automatically turns off once no browser tab is open.",
+      "advancedPollingIntervalLabel": "Advanced polling interval (seconds)",
+      "advancedPollingIntervalDescription": "How often all servers are polled while advanced polling is active."
     }
   },
   "status": {

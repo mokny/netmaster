@@ -1,6 +1,8 @@
-// In-Memory-Cache für per SSH ermittelte IPs von Docker-Containern und
-// Proxmox-VMs/LXCs. Bewusst nicht in der DB persistiert (siehe collect.ts) -
-// geht bei Neustart/Deploy verloren und wird beim nächsten Poll neu ermittelt.
+// Kurzzeit-Cache für per SSH ermittelte IPs von Docker-Containern und
+// Proxmox-VMs/LXCs. Die dauerhafte Quelle ist seit dem Advanced-Polling-Umbau
+// das ipsJson-Feld auf ProxmoxVm/DockerContainerState (siehe collect.ts) - diese
+// Map dient nur noch als TTL-/Inflight-Bookkeeping, um innerhalb eines
+// Poll-Zyklus nicht mehrfach dieselbe teure SSH-IP-Abfrage auszulösen.
 const TTL_MS = 5 * 60_000;
 
 interface CacheEntry {
@@ -58,18 +60,13 @@ export function removeCachedIp(key: string) {
   cache.delete(key);
 }
 
-// Für den Ping-Scheduler (ping-scheduler.ts): alle aktuell bekannten
-// VM-/Container-IPs, unabhängig davon ob der Eintrag noch "frisch" ist -
-// Ping soll auch mit einer veralteten, aber zuletzt bekannten IP versuchen.
-export function getAllCachedIpEntries(): { key: string; ips: string[] }[] {
-  return [...cache.entries()]
-    .filter(([, entry]) => entry.ips.length > 0)
-    .map(([key, entry]) => ({ key, ips: entry.ips }));
-}
-
-// Reichert eine Liste von DB-Zeilen (Docker-Container-Snapshots /
-// Proxmox-VMs) um die zuletzt bekannte(n) IP(s) aus dem Cache an, ohne dass
-// dafür ein DB-Feld existieren muss (siehe collect.ts).
-export function attachIps<T>(rows: T[], keyOf: (row: T) => string): (T & { ips: string[] })[] {
-  return rows.map((row) => ({ ...row, ips: getCachedIps(keyOf(row)) ?? [] }));
+// Parst das persistierte ipsJson-Feld (ProxmoxVm/DockerContainerState) sicher -
+// liefert [] statt zu werfen, falls der Wert (noch) kein valides JSON-Array ist.
+export function parseIpsJson(json: string): string[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
 }

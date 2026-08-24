@@ -10,8 +10,7 @@ import {
 import { execOnServer, buildDockerRemoveContainerCommand } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
-import { getCachedIps, dockerIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 import { resolveTimeRange, downsampleRows } from "@/lib/monitor/time-range";
 
 export async function GET(
@@ -21,8 +20,6 @@ export async function GET(
   try {
     await requireSession();
     const { id, containerId } = await params;
-
-    ensureFreshDockerPoll(id);
 
     const server = await prisma.server.findUnique({
       where: { id },
@@ -50,8 +47,13 @@ export async function GET(
       "netTxMb",
     ]);
 
+    const state = await prisma.dockerContainerState.findUnique({
+      where: { serverId_containerId: { serverId: id, containerId } },
+      select: { ipsJson: true },
+    });
+
     return NextResponse.json({
-      container: { ...latest, server, ips: getCachedIps(dockerIpKey(id, containerId)) ?? [] },
+      container: { ...latest, server, ips: parseIpsJson(state?.ipsJson ?? "[]") },
       samples,
     });
   } catch (err) {

@@ -24,6 +24,7 @@ const BACKGROUND_JOB_KEYS = [
   "uptimeChecksEnabled",
   "discoveryScanEnabled",
   "pingEnabled",
+  "advancedPollingEnabled",
 ] as const;
 
 const LIVE_VIEW_KEYS = [
@@ -44,13 +45,17 @@ const LABEL_KEYS: Record<ToggleKey, string> = {
   uptimeChecksEnabled: "uptimeChecks",
   discoveryScanEnabled: "discoveryScan",
   pingEnabled: "ping",
+  advancedPollingEnabled: "advancedPolling",
   topologyGraphEnabled: "topologyGraph",
   portsEnabled: "ports",
   dashboardLookupsEnabled: "dashboardLookups",
   wsProcessesEnabled: "wsProcesses",
 };
 
-type PollingSettingsDTO = Record<ToggleKey, boolean> & { pingIntervalSec: number };
+type PollingSettingsDTO = Record<ToggleKey, boolean> & {
+  pingIntervalSec: number;
+  advancedPollingIntervalSec: number;
+};
 
 export default function PollingSettingsPage() {
   const t = useTranslations("admin.settings");
@@ -58,6 +63,8 @@ export default function PollingSettingsPage() {
   const [pending, setPending] = useState<ToggleKey | null>(null);
   const [pingIntervalInput, setPingIntervalInput] = useState("");
   const [pingIntervalSaving, setPingIntervalSaving] = useState(false);
+  const [advancedPollingIntervalInput, setAdvancedPollingIntervalInput] = useState("");
+  const [advancedPollingIntervalSaving, setAdvancedPollingIntervalSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -66,7 +73,10 @@ export default function PollingSettingsPage() {
       .then((data) => {
         if (active) {
           setSettings(data.settings);
-          if (data.settings) setPingIntervalInput(String(data.settings.pingIntervalSec));
+          if (data.settings) {
+            setPingIntervalInput(String(data.settings.pingIntervalSec));
+            setAdvancedPollingIntervalInput(String(data.settings.advancedPollingIntervalSec));
+          }
         }
       });
     return () => {
@@ -113,6 +123,29 @@ export default function PollingSettingsPage() {
       toast.success(t("saved"));
     } finally {
       setPingIntervalSaving(false);
+    }
+  }
+
+  async function saveAdvancedPollingInterval() {
+    if (!settings) return;
+    const value = Math.max(
+      5,
+      Number(advancedPollingIntervalInput) || settings.advancedPollingIntervalSec
+    );
+    setAdvancedPollingIntervalSaving(true);
+    try {
+      const res = await fetch("/api/polling-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ advancedPollingIntervalSec: value }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSettings(data.settings);
+      setAdvancedPollingIntervalInput(String(data.settings.advancedPollingIntervalSec));
+      toast.success(t("saved"));
+    } finally {
+      setAdvancedPollingIntervalSaving(false);
     }
   }
 
@@ -174,6 +207,33 @@ export default function PollingSettingsPage() {
                     }}
                   />
                   {pingIntervalSaving && (
+                    <span className="text-xs text-muted-foreground">{t("saving")}</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t("advancedPollingIntervalLabel")}</p>
+                  <p className="text-sm text-muted-foreground">{t("advancedPollingIntervalDescription")}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="advanced-polling-interval-sec" className="sr-only">
+                    {t("advancedPollingIntervalLabel")}
+                  </Label>
+                  <Input
+                    id="advanced-polling-interval-sec"
+                    type="number"
+                    min={5}
+                    className="w-24"
+                    value={advancedPollingIntervalInput}
+                    disabled={!settings}
+                    onChange={(e) => setAdvancedPollingIntervalInput(e.target.value)}
+                    onBlur={saveAdvancedPollingInterval}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                  />
+                  {advancedPollingIntervalSaving && (
                     <span className="text-xs text-muted-foreground">{t("saving")}</span>
                   )}
                 </div>

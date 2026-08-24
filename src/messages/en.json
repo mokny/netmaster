@@ -148,7 +148,9 @@
     "overview": {
       "subtitle": "Containers across all servers at a glance.",
       "searchPlaceholder": "Search by name, server, or image…",
-      "emptyState": "No Docker containers found. Servers are detected automatically once Docker is reachable via SSH."
+      "emptyState": "No Docker containers found. Servers are detected automatically once Docker is reachable via SSH.",
+      "pollNow": "Refresh now",
+      "pollFailed": "Refresh failed"
     },
     "row": {
       "ipUnknown": "IP unknown",
@@ -233,7 +235,9 @@
       "emptyState": "No Proxmox VMs/LXC containers found. Servers are detected automatically once reachable via SSH.",
       "virtualMachines": "Virtual machines ({count})",
       "lxcContainers": "LXC containers ({count})",
-      "noMatches": "No matches."
+      "noMatches": "No matches.",
+      "pollNow": "Refresh now",
+      "pollFailed": "Refresh failed"
     },
     "row": {
       "ipUnknown": "IP unknown",
@@ -891,7 +895,8 @@
       "delete": "Delete",
       "dockerNotEnabled": "Docker is not enabled for this server. Enable it under \"Edit\".",
       "proxmoxNotEnabled": "Proxmox is not enabled for this server. Enable it under \"Edit\".",
-      "virtualMachines": "Virtual Machines"
+      "virtualMachines": "Virtual Machines",
+      "pollFailed": "Refresh failed"
     },
     "formDialog": {
       "saveFailed": "Save failed",
@@ -1313,7 +1318,8 @@
     "openMenu": "Open menu",
     "account": "Account",
     "logout": "Log out",
-    "toggleTheme": "Toggle theme"
+    "toggleTheme": "Toggle theme",
+    "advancedPolling": "Advanced polling"
   },
   "auth": {
     "connectionFailed": "Connection to the server failed",
@@ -1517,11 +1523,11 @@
       "serverMetricsLabel": "Server metrics",
       "serverMetricsDescription": "CPU, memory, disk and network stats collected via SSH (per-server interval, default 30s).",
       "dockerContainersLabel": "Docker containers",
-      "dockerContainersDescription": "Container list per server (SSH), polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "dockerContainersDescription": "Container list per server (SSH) - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "dockerImagesLabel": "Docker images",
       "dockerImagesDescription": "Docker image list per server (SSH), polled at the per-server VM/Docker interval (default 120 min).",
       "proxmoxVmsLabel": "Proxmox VMs / LXCs",
-      "proxmoxVmsDescription": "VM and container status via Proxmox, polled at the per-server VM/Docker interval (default 120 min) - kept live via ping and while a detail page is open.",
+      "proxmoxVmsDescription": "VM and container status via Proxmox - only polled automatically while Advanced Polling is active, otherwise via manual refresh.",
       "routerDevicesLabel": "Router devices",
       "routerDevicesDescription": "FritzBox / Repeater status via TR-064 (per-device interval, default 60s).",
       "uptimeChecksLabel": "Uptime checks",
@@ -1540,7 +1546,11 @@
       "pingDescription": "Centralized ICMP reachability check from the NetMaster server against known VM/container IPs - no SSH load on the target host.",
       "pingIntervalLabel": "Ping interval (seconds)",
       "pingIntervalDescription": "How often known VM/container IPs are pinged.",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "advancedPollingLabel": "Advanced polling",
+      "advancedPollingDescription": "Global live-polling for all Proxmox/Docker servers, admin-only (toggle in the top navbar). Automatically turns off once no browser tab is open.",
+      "advancedPollingIntervalLabel": "Advanced polling interval (seconds)",
+      "advancedPollingIntervalDescription": "How often all servers are polled while advanced polling is active."
     }
   },
   "status": {

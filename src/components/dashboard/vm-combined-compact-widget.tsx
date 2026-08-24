@@ -1,8 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { VM_GENERIC_WARN, VM_GENERIC_CRIT } from "@/lib/thresholds";
 import type { ProxmoxVmDTO } from "@/lib/types";
@@ -26,12 +28,27 @@ export function VmCombinedCompactWidget({
 }) {
   const t = useTranslations("common");
   const [vm, setVm] = useState<ProxmoxVmDTO | null>(null);
+  const [polling, setPolling] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/servers/${serverId}/vms/${vmid}?hours=1`)
+  const load = useCallback(() => {
+    return fetch(`/api/servers/${serverId}/vms/${vmid}?hours=1`)
       .then((res) => (res.ok ? res.json() : { vm: null }))
       .then((data) => setVm(data.vm));
   }, [serverId, vmid]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      await fetch(`/api/servers/${serverId}/vms/poll-now`, { method: "POST" });
+      await load();
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "proxmox" || event.serverId !== serverId) return;
@@ -45,6 +62,18 @@ export function VmCombinedCompactWidget({
 
   return (
     <div className="flex h-full min-w-0 flex-col justify-center gap-3">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          disabled={polling}
+          onClick={pollNow}
+          aria-label={t("refresh")}
+        >
+          <RefreshCw className={`size-3.5 ${polling ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
       <MetricBar label="CPU" value={vm.cpuPercent} warn={VM_GENERIC_WARN} crit={VM_GENERIC_CRIT} />
       <MetricBar
         label="RAM"

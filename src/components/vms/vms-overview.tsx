@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VmRow } from "@/components/vms/vm-row";
-import { Boxes } from "lucide-react";
+import { Boxes, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ProxmoxVmWithServerDTO } from "@/lib/types";
@@ -15,20 +17,30 @@ export function VmsOverview() {
   const t = useTranslations("vms.overview");
   const [vms, setVms] = useState<ProxmoxVmWithServerDTO[] | null>(null);
   const [search, setSearch] = useState("");
+  const [polling, setPolling] = useState(false);
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
 
-  useEffect(() => {
-    let active = true;
-    fetch("/api/vms")
-      .then((res) => (res.ok ? res.json() : { vms: [] }))
-      .then((data) => {
-        if (active) setVms(data.vms);
-      });
-    return () => {
-      active = false;
-    };
+  const load = useCallback(async () => {
+    const res = await fetch("/api/vms");
+    const data = res.ok ? await res.json() : { vms: [] };
+    setVms(data.vms);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      const res = await fetch("/api/vms/poll-now", { method: "POST" });
+      if (res.ok) await load();
+      else toast.error(t("pollFailed"));
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "proxmox") return;
@@ -66,12 +78,18 @@ export function VmsOverview() {
             {t("subtitle")}
           </p>
         </div>
-        <Input
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64"
+          />
+          <Button variant="outline" size="sm" disabled={polling} onClick={pollNow}>
+            <RefreshCw className={`size-4 ${polling ? "animate-spin" : ""}`} />
+            {t("pollNow")}
+          </Button>
+        </div>
       </div>
 
       {vms === null ? (

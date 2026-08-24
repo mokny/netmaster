@@ -51,6 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WakeLockManager } from "@/components/wake-lock-manager";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { AdvancedPollingToggle } from "@/components/advanced-polling-toggle";
 import type { SessionPayload } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -270,6 +271,7 @@ export function AppShell({
           </div>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2">
+            {session.role === "ADMIN" && <AdvancedPollingToggle />}
             <Button
               variant="ghost"
               size="icon"

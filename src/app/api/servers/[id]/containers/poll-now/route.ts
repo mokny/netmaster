@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError, requireDockerEnabled } from "@/lib/api-helpers";
-import { collectDockerContainers } from "@/lib/monitor/collect";
+import { collectDockerContainers, collectDockerImages } from "@/lib/monitor/collect";
 
 export async function POST(
   _req: Request,
@@ -15,7 +15,7 @@ export async function POST(
     if (!server) throw new ApiError(404, "SERVER_NOT_FOUND");
     requireDockerEnabled(server);
 
-    await collectDockerContainers(server, "on_demand");
+    await Promise.all([collectDockerContainers(server, "on_demand"), collectDockerImages(server)]);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   CombinedMetricChart,
   DISK_KEY_PREFIX,
@@ -8,6 +9,8 @@ import {
 } from "@/components/servers/combined-metric-chart";
 import { ChartTimeToolbar } from "@/components/charts/chart-time-toolbar";
 import { ChartPanOverlay } from "@/components/charts/chart-pan-overlay";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { useChartTimeWindow } from "@/hooks/use-chart-time-window";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLiveEvents } from "@/hooks/use-live-events";
@@ -22,16 +25,32 @@ export function VmCombinedChartWidget({
   serverId: string;
   vmid: number;
 }) {
+  const t = useTranslations("common");
   const [samples, setSamples] = useState<ProxmoxVmSampleDTO[]>([]);
+  const [polling, setPolling] = useState(false);
   const chartWindow = useChartTimeWindow();
   const debouncedFrom = useDebouncedValue(chartWindow.from, 250);
   const debouncedTo = useDebouncedValue(chartWindow.to, 250);
 
-  useEffect(() => {
-    fetch(`/api/servers/${serverId}/vms/${vmid}?from=${debouncedFrom}&to=${debouncedTo}`)
+  const load = useCallback(() => {
+    return fetch(`/api/servers/${serverId}/vms/${vmid}?from=${debouncedFrom}&to=${debouncedTo}`)
       .then((res) => (res.ok ? res.json() : { samples: [] }))
       .then((data) => setSamples(data.samples ?? []));
   }, [serverId, vmid, debouncedFrom, debouncedTo]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      await fetch(`/api/servers/${serverId}/vms/poll-now`, { method: "POST" });
+      await load();
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type !== "proxmox" || event.serverId !== serverId) return;
@@ -52,8 +71,18 @@ export function VmCombinedChartWidget({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-1">
-      <div className="flex shrink-0 justify-end">
+      <div className="flex shrink-0 items-center justify-end gap-1">
         <ChartTimeToolbar window={chartWindow} compact />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          disabled={polling}
+          onClick={pollNow}
+          aria-label={t("refresh")}
+        >
+          <RefreshCw className={`size-3.5 ${polling ? "animate-spin" : ""}`} />
+        </Button>
       </div>
       <ChartPanOverlay
         windowMs={chartWindow.windowMs}

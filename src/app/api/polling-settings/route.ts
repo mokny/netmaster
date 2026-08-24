@@ -17,6 +17,7 @@ const TOGGLE_KEYS = [
   "dashboardLookupsEnabled",
   "wsProcessesEnabled",
   "pingEnabled",
+  "advancedPollingEnabled",
 ] as const;
 
 // GET ist absichtlich nur an eine gültige Session gebunden (nicht ADMIN-only):
@@ -45,6 +46,12 @@ export async function PATCH(req: Request) {
     }
     if (body.pingIntervalSec !== undefined) {
       data.pingIntervalSec = Math.max(5, Number(body.pingIntervalSec) || current.pingIntervalSec);
+    }
+    if (body.advancedPollingIntervalSec !== undefined) {
+      data.advancedPollingIntervalSec = Math.max(
+        5,
+        Number(body.advancedPollingIntervalSec) || current.advancedPollingIntervalSec
+      );
     }
 
     const settings = await prisma.pollingSettings.update({

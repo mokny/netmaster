@@ -10,8 +10,7 @@ import {
 import { execOnServer, buildDockerRunCommand, type DockerRunOptions } from "@/lib/ssh";
 import { writeAuditLog } from "@/lib/audit";
 import { collectDockerContainers } from "@/lib/monitor/collect";
-import { attachIps, dockerIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshDockerPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 
 export async function GET(
   _req: Request,
@@ -20,8 +19,6 @@ export async function GET(
   try {
     await requireSession();
     const { id } = await params;
-
-    ensureFreshDockerPoll(id);
 
     const latest = await prisma.dockerContainerSnapshot.findFirst({
       where: { serverId: id },
@@ -32,7 +29,15 @@ export async function GET(
     const containers = await prisma.dockerContainerSnapshot.findMany({
       where: { serverId: id, timestamp: latest.timestamp },
     });
-    const withIps = attachIps(containers, (c) => dockerIpKey(c.serverId, c.containerId));
+    const states = await prisma.dockerContainerState.findMany({
+      where: { serverId: id },
+      select: { containerId: true, ipsJson: true },
+    });
+    const ipsByContainer = new Map(states.map((s) => [s.containerId, s.ipsJson]));
+    const withIps = containers.map((c) => ({
+      ...c,
+      ips: parseIpsJson(ipsByContainer.get(c.containerId) ?? "[]"),
+    }));
 
     return NextResponse.json({ containers: withIps, timestamp: latest.timestamp });
   } catch (err) {

@@ -30,7 +30,6 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
-import { useDetailPresence } from "@/hooks/use-detail-presence";
 import { ArrowLeft, Play, Square, RotateCw, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import type { ProxmoxVmDTO, ProxmoxVmSampleDTO } from "@/lib/types";
@@ -49,8 +48,6 @@ export function VmDetail({ serverId, vmid }: { serverId: string; vmid: number })
   const [ping, setPing] = useState<{ alive: boolean; latencyMs: number | null } | null>(null);
   const [refreshingIp, setRefreshingIp] = useState(false);
   const [polling, setPolling] = useState(false);
-
-  useDetailPresence(serverId, "proxmox");
 
   const chartWindow = useChartTimeWindow();
   const debouncedFrom = useDebouncedValue(chartWindow.from, 250);

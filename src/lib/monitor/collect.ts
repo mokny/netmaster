@@ -362,7 +362,14 @@ export function refreshDockerIp(server: ServerModel, containerId: string, force 
     dockerIpKey(server.id, containerId),
     async () => {
       const { stdout } = await execPooled(server, buildDockerInspectIpsCommand(containerId));
-      return parseDockerInspectIps(stdout);
+      const ips = parseDockerInspectIps(stdout);
+      await prisma.dockerContainerState
+        .updateMany({
+          where: { serverId: server.id, containerId },
+          data: { ipsJson: JSON.stringify(ips) },
+        })
+        .catch(() => {});
+      return ips;
     },
     force
   );
@@ -374,7 +381,14 @@ export function refreshVmIp(server: ServerModel, type: "qemu" | "lxc", vmid: num
     async () => {
       const { command, stdin } = buildVmIpCommand(server, type, vmid);
       const { stdout } = await execOnServer(server, command, 10_000, stdin);
-      return type === "qemu" ? parseQemuAgentIps(stdout) : parseIpAddrShowIps(stdout);
+      const ips = type === "qemu" ? parseQemuAgentIps(stdout) : parseIpAddrShowIps(stdout);
+      await prisma.proxmoxVm
+        .updateMany({
+          where: { serverId: server.id, vmid },
+          data: { ipsJson: JSON.stringify(ips) },
+        })
+        .catch(() => {});
+      return ips;
     },
     force
   );
@@ -406,15 +420,6 @@ export async function collectDockerContainers(
         })),
       });
     }
-
-    for (const c of containers) {
-      if (c.state.toLowerCase() === "running") refreshDockerIp(server, c.containerId);
-    }
-    const containersWithIps = containers.map((c) => ({
-      ...c,
-      ips: getCachedIps(dockerIpKey(server.id, c.containerId)) ?? [],
-    }));
-    publish({ type: "docker", serverId: server.id, containers: containersWithIps });
 
     const previousStates = await prisma.dockerContainerState.findMany({
       where: { serverId: server.id },
@@ -501,6 +506,15 @@ export async function collectDockerContainers(
     if (staleIds.length > 0) {
       await prisma.dockerContainerState.deleteMany({ where: { id: { in: staleIds } } });
     }
+
+    for (const c of containers) {
+      if (c.state.toLowerCase() === "running") refreshDockerIp(server, c.containerId);
+    }
+    const containersWithIps = containers.map((c) => ({
+      ...c,
+      ips: getCachedIps(dockerIpKey(server.id, c.containerId)) ?? [],
+    }));
+    publish({ type: "docker", serverId: server.id, containers: containersWithIps });
 
     // Nur die letzte Momentaufnahme pro Server behalten, um die DB schlank zu halten.
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);

@@ -1,9 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MetricBar } from "@/components/dashboard/metric-bar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { VM_GENERIC_WARN, VM_GENERIC_CRIT } from "@/lib/thresholds";
 import type { ContainerSnapshotDTO } from "@/lib/types";
@@ -27,12 +29,27 @@ export function DockerHostWidget({
   const t = useTranslations("dashboard.widgets.docker");
   const tCommon = useTranslations("common");
   const [containers, setContainers] = useState<ContainerSnapshotDTO[] | null>(null);
+  const [polling, setPolling] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/servers/${serverId}/containers`)
+  const load = useCallback(() => {
+    return fetch(`/api/servers/${serverId}/containers`)
       .then((res) => (res.ok ? res.json() : { containers: [] }))
       .then((data) => setContainers(data.containers ?? []));
   }, [serverId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      await fetch(`/api/servers/${serverId}/containers/poll-now`, { method: "POST" });
+      await load();
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type === "docker" && event.serverId === serverId) {
@@ -62,6 +79,18 @@ export function DockerHostWidget({
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-3">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          disabled={polling}
+          onClick={pollNow}
+          aria-label={tCommon("refresh")}
+        >
+          <RefreshCw className={`size-3.5 ${polling ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-2 text-center text-xs">
         <div className="min-w-0 overflow-hidden rounded-md border p-2">
           <p className="truncate text-lg font-semibold">{running.length}</p>

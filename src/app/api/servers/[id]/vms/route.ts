@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
-import { attachIps, vmIpKey } from "@/lib/monitor/ip-cache";
-import { ensureFreshProxmoxPoll } from "@/lib/monitor/scheduler";
+import { parseIpsJson } from "@/lib/monitor/ip-cache";
 
 export async function GET(
   _req: Request,
@@ -12,13 +11,11 @@ export async function GET(
     await requireSession();
     const { id } = await params;
 
-    ensureFreshProxmoxPoll(id);
-
     const vms = await prisma.proxmoxVm.findMany({
       where: { serverId: id },
       orderBy: [{ type: "asc" }, { vmid: "asc" }],
     });
-    const withIps = attachIps(vms, (v) => vmIpKey(v.serverId, v.vmid));
+    const withIps = vms.map((v) => ({ ...v, ips: parseIpsJson(v.ipsJson) }));
 
     return NextResponse.json({ vms: withIps });
   } catch (err) {

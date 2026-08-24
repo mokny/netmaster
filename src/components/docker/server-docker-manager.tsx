@@ -5,25 +5,28 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DockerRow } from "@/components/docker/docker-row";
 import { ImageRow } from "@/components/docker/image-row";
 import { PullImageDialog } from "@/components/docker/pull-image-dialog";
 import { CreateContainerDialog } from "@/components/docker/create-container-dialog";
-import { ArrowLeft, Container, Layers } from "lucide-react";
+import { ArrowLeft, Container, Layers, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { useSession } from "@/hooks/use-session";
 import type { ContainerSnapshotDTO, ContainerWithServerDTO, DockerImageDTO, ServerDTO } from "@/lib/types";
 
 export function ServerDockerManager({ serverId }: { serverId: string }) {
   const t = useTranslations("docker.serverManager");
+  const tCommon = useTranslations("common");
   const session = useSession();
   const canControl = session?.role === "EDITOR" || session?.role === "ADMIN";
 
   const [server, setServer] = useState<ServerDTO | null>(null);
   const [containers, setContainers] = useState<ContainerSnapshotDTO[] | null>(null);
   const [images, setImages] = useState<DockerImageDTO[] | null>(null);
+  const [polling, setPolling] = useState(false);
 
   const load = useCallback(async () => {
     const [serverRes, containersRes, imagesRes] = await Promise.all([
@@ -39,6 +42,17 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function pollNow() {
+    setPolling(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/containers/poll-now`, { method: "POST" });
+      if (res.ok) await load();
+      else toast.error(tCommon("error"));
+    } finally {
+      setPolling(false);
+    }
+  }
 
   useLiveEvents((event) => {
     if (event.type === "docker" && event.serverId === serverId) {
@@ -63,12 +77,16 @@ export function ServerDockerManager({ serverId }: { serverId: string }) {
         <Link href={`/servers/${serverId}`} className={buttonVariants({ variant: "ghost", size: "icon" })}>
           <ArrowLeft className="size-4" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">
             Docker · {server?.name ?? "…"}
           </h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
+        <Button variant="outline" size="sm" disabled={polling} onClick={pollNow}>
+          <RefreshCw className={`size-4 ${polling ? "animate-spin" : ""}`} />
+          {tCommon("refresh")}
+        </Button>
       </div>
 
       {server && !server.dockerEnabled ? (
