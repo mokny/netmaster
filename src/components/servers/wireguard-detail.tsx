@@ -157,7 +157,8 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       if (res.ok) {
         setDetail(data);
       } else {
-        toast.error(data.error ? tErrors(data.error) : t("loadInterfaceFailed"));
+        const message = data.error ? tErrors(data.error) : t("loadInterfaceFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
       }
     } finally {
       setLoadingDetail(false);
@@ -186,7 +187,8 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       const res = await fetch(`/api/servers/${serverId}/wireguard/install`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("installFailed"));
+        const message = data.error ? tErrors(data.error) : t("installFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("installSuccess"));
@@ -215,7 +217,8 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("deleteFailed"));
+        const message = data.error ? tErrors(data.error) : t("deleteFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("interfaceDeleted"));
@@ -237,7 +240,8 @@ export function WireguardDetail({ serverId }: { serverId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("actionFailed", { action }));
+        const message = data.error ? tErrors(data.error) : t("actionFailed", { action });
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("actionExecuted", { name, action }));
@@ -591,7 +595,8 @@ function RawEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("saveFailed"));
+        const message = data.error ? tErrors(data.error) : t("saveFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("configSaved"));
@@ -931,7 +936,8 @@ function AddPeerDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("peerCreateFailed"));
+        const message = data.error ? tErrors(data.error) : t("peerCreateFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       const qr = await QRCode.toDataURL(data.peerConfig, { margin: 1, width: 256 });
@@ -1098,7 +1104,8 @@ function BulkPeersDialog({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error ? tErrors(data.error) : t("bulkCreateFailed"));
+        const message = data.error ? tErrors(data.error) : t("bulkCreateFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       const blob = await res.blob();
@@ -1189,7 +1196,8 @@ function RemovePeerButton({
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("removeFailed"));
+        const message = data.error ? tErrors(data.error) : t("removeFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("peerRemoved"));
@@ -1271,7 +1279,8 @@ function LinkServerDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("linkFailed"));
+        const message = data.error ? tErrors(data.error) : t("linkFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(t("serverLinked"));
