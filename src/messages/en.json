@@ -521,7 +521,8 @@
       "throughputLast6h": "Network throughput (last 6h)",
       "throughputRate": "Throughput rate",
       "cumulativeVolume": "Cumulative volume",
-      "goToServer": "Go to server"
+      "goToServer": "Go to server",
+      "goToRouter": "Go to router management"
     }
   },
   "router": {

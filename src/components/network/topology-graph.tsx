@@ -18,8 +18,11 @@ import type { MetricSampleDTO } from "@/lib/types";
 import { useTranslations } from "next-intl";
 import { usePollingEnabled } from "@/hooks/use-polling-enabled";
 
+type TopologyNodeKind = "server" | "router" | "repeater";
+
 interface TopologyNode {
-  serverId: string;
+  id: string;
+  kind: TopologyNodeKind;
   name: string;
   addresses: string[];
   status: "ok" | "error";
@@ -34,6 +37,18 @@ interface TopologyEdge {
 
 const POLL_MS = 20_000;
 
+const KIND_COLORS: Record<TopologyNodeKind, string> = {
+  server: "#3b82f6",
+  router: "#16a34a",
+  repeater: "#a855f7",
+};
+
+const KIND_ICONS: Record<TopologyNodeKind, string> = {
+  server: "🖥️",
+  router: "📡",
+  repeater: "📶",
+};
+
 function layoutCircular(nodes: TopologyNode[]): Node[] {
   const radius = Math.max(160, nodes.length * 40);
   const cx = radius + 60;
@@ -41,11 +56,11 @@ function layoutCircular(nodes: TopologyNode[]): Node[] {
   return nodes.map((n, i) => {
     const angle = (2 * Math.PI * i) / Math.max(nodes.length, 1);
     return {
-      id: n.serverId,
+      id: n.id,
       position: { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) },
-      data: { label: n.name },
+      data: { label: `${KIND_ICONS[n.kind]} ${n.name}` },
       style: {
-        background: n.status === "error" ? "#ef4444" : "#3b82f6",
+        background: n.status === "error" ? "#ef4444" : KIND_COLORS[n.kind],
         color: "white",
         borderRadius: 8,
         fontSize: 12,
@@ -93,9 +108,9 @@ export function TopologyGraph() {
   }, [pollingEnabled]);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || selected.kind !== "server") return;
     let stopped = false;
-    fetch(`/api/servers/${selected.serverId}/metrics?hours=6`)
+    fetch(`/api/servers/${selected.id}/metrics?hours=6`)
       .then((res) => res.json())
       .then((data) => {
         if (!stopped) setSamples(data.samples ?? []);
@@ -163,7 +178,7 @@ export function TopologyGraph() {
             colorMode="system"
             proOptions={{ hideAttribution: true }}
             onNodeClick={(_, node) => {
-              const found = nodes.find((n) => n.serverId === node.id);
+              const found = nodes.find((n) => n.id === node.id);
               if (found) setSelected(found);
             }}
           >
@@ -180,31 +195,44 @@ export function TopologyGraph() {
             <SheetDescription>
               {selected?.status === "error"
                 ? t("errorPrefix", { error: selected.error ?? "" })
-                : t("throughputLast6h")}
+                : selected?.kind === "server"
+                  ? t("throughputLast6h")
+                  : selected?.addresses[0]}
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 px-4 pb-4">
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                {t("throughputRate")}
-              </p>
-              <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                {t("cumulativeVolume")}
-              </p>
-              <NetworkChart data={cumulativePoints} formatValue={formatBytesGB} height={140} />
-            </div>
-            {selected && (
+          {selected?.kind === "server" ? (
+            <div className="space-y-4 px-4 pb-4">
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  {t("throughputRate")}
+                </p>
+                <NetworkChart data={ratePoints} formatValue={formatBitRate} height={140} />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  {t("cumulativeVolume")}
+                </p>
+                <NetworkChart data={cumulativePoints} formatValue={formatBytesGB} height={140} />
+              </div>
               <Link
-                href={`/servers/${selected.serverId}`}
+                href={`/servers/${selected.id}`}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 {t("goToServer")}
               </Link>
-            )}
-          </div>
+            </div>
+          ) : (
+            selected && (
+              <div className="space-y-4 px-4 pb-4">
+                <Link
+                  href="/router"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  {t("goToRouter")}
+                </Link>
+              </div>
+            )
+          )}
         </SheetContent>
       </Sheet>
     </div>

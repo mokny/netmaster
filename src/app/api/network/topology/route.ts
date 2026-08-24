@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-helpers";
+import { hasRole } from "@/lib/auth";
 import { buildRootScriptCommand } from "@/lib/ssh";
 import { execPooled } from "@/lib/ssh-pool";
 import { PORTS_COMMAND, parsePortsOutput, type PortsSnapshot } from "@/lib/ports";
 
 interface NodeInfo {
-  serverId: string;
+  id: string;
+  kind: "server" | "router" | "repeater";
   name: string;
   addresses: string[];
   status: "ok" | "error";
@@ -21,7 +23,7 @@ interface EdgeInfo {
 
 export async function GET() {
   try {
-    await requireSession();
+    const session = await requireSession();
     const servers = await prisma.server.findMany({
       where: { networkToolsEnabled: true },
       orderBy: { name: "asc" },
@@ -44,20 +46,43 @@ export async function GET() {
     );
 
     const nodes: NodeInfo[] = results.map(({ server, snapshot, error }) => ({
-      serverId: server.id,
+      id: server.id,
+      kind: "server",
       name: server.name,
       addresses: [server.hostname, ...snapshot.interfaces.map((i) => i.address)],
       status: error ? "error" : "ok",
       error: error ?? undefined,
     }));
 
+    // Router/Repeater-Verwaltung ist Admin-only (siehe /api/router-devices) -
+    // in der Topologie werden sie deshalb nur für Admins mit angezeigt.
+    if (hasRole(session, "ADMIN")) {
+      const routerDevices = await prisma.routerDevice.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, type: true, hostname: true, lastStatus: true, lastError: true },
+      });
+      for (const device of routerDevices) {
+        nodes.push({
+          id: `router:${device.id}`,
+          kind: device.type === "REPEATER" ? "repeater" : "router",
+          name: device.name,
+          addresses: [device.hostname],
+          status: device.lastStatus === "OK" ? "ok" : "error",
+          error: device.lastStatus === "OK" ? undefined : device.lastError ?? undefined,
+        });
+      }
+    }
+
     // Baut eine Adresse -> Server-ID Lookup-Tabelle für die Korrelation
     // (erweiterter Abgleich: alle lokalen Interface-IPs, nicht nur die
-    // konfigurierte SSH-Host-Adresse).
+    // konfigurierte SSH-Host-Adresse). Nur Server nehmen an der
+    // Verbindungs-Korrelation teil, da für Router/Repeater keine
+    // Ports-Snapshots erhoben werden.
     const addressToServerId = new Map<string, string>();
-    for (const node of nodes) {
-      for (const addr of node.addresses) {
-        addressToServerId.set(addr, node.serverId);
+    for (const { server, snapshot } of results) {
+      addressToServerId.set(server.hostname, server.id);
+      for (const addr of snapshot.interfaces.map((i) => i.address)) {
+        addressToServerId.set(addr, server.id);
       }
     }
 

@@ -521,7 +521,8 @@
       "throughputLast6h": "Netwerkdoorvoer (laatste 6u)",
       "throughputRate": "Doorvoersnelheid",
       "cumulativeVolume": "Cumulatief volume",
-      "goToServer": "Naar server"
+      "goToServer": "Naar server",
+      "goToRouter": "Naar routerbeheer"
     }
   },
   "router": {

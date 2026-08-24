@@ -521,7 +521,8 @@
       "throughputLast6h": "Tráfico de red (últimas 6h)",
       "throughputRate": "Tasa de tráfico",
       "cumulativeVolume": "Volumen acumulado",
-      "goToServer": "Ir al servidor"
+      "goToServer": "Ir al servidor",
+      "goToRouter": "Ir a la gestión de routers"
     }
   },
   "router": {

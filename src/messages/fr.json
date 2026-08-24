@@ -521,7 +521,8 @@
       "throughputLast6h": "Débit réseau (6 dernières heures)",
       "throughputRate": "Débit",
       "cumulativeVolume": "Volume cumulé",
-      "goToServer": "Aller au serveur"
+      "goToServer": "Aller au serveur",
+      "goToRouter": "Aller à la gestion des routeurs"
     }
   },
   "router": {
