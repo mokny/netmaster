@@ -53,6 +53,7 @@ interface CreateBody {
   mtu?: number;
   nat?: { egressIface: string };
   autoStart?: boolean;
+  raw?: string;
 }
 
 export async function POST(
@@ -67,32 +68,39 @@ export async function POST(
 
     const body = (await req.json()) as CreateBody;
     validateIfaceName(body.name);
-    if (!body.address || typeof body.address !== "string") {
-      throw new ApiError(400, "ADDRESS_REQUIRED");
+
+    let raw: string;
+    if (body.raw) {
+      raw = body.raw;
+    } else {
+      if (!body.address || typeof body.address !== "string") {
+        throw new ApiError(400, "ADDRESS_REQUIRED");
+      }
+      if (!Number.isInteger(body.listenPort) || body.listenPort < 1 || body.listenPort > 65535) {
+        throw new ApiError(400, "INVALID_LISTEN_PORT");
+      }
+
+      const { privateKey } = await generateKeypair(server);
+
+      const config: WgInterfaceConfig = {
+        name: body.name,
+        address: body.address,
+        listenPort: body.listenPort,
+        privateKey,
+        dns: body.dns || undefined,
+        mtu: body.mtu || undefined,
+        peers: [],
+      };
+
+      if (body.nat?.egressIface) {
+        const { postUp, postDown } = buildNatRules(body.name, body.nat.egressIface);
+        config.postUp = postUp;
+        config.postDown = postDown;
+      }
+
+      raw = serializeWgConfig(config);
     }
-    if (!Number.isInteger(body.listenPort) || body.listenPort < 1 || body.listenPort > 65535) {
-      throw new ApiError(400, "INVALID_LISTEN_PORT");
-    }
 
-    const { privateKey } = await generateKeypair(server);
-
-    const config: WgInterfaceConfig = {
-      name: body.name,
-      address: body.address,
-      listenPort: body.listenPort,
-      privateKey,
-      dns: body.dns || undefined,
-      mtu: body.mtu || undefined,
-      peers: [],
-    };
-
-    if (body.nat?.egressIface) {
-      const { postUp, postDown } = buildNatRules(body.name, body.nat.egressIface);
-      config.postUp = postUp;
-      config.postDown = postDown;
-    }
-
-    const raw = serializeWgConfig(config);
     const { command, stdin } = buildWriteConfigCommand(server, body.name, raw);
     const writeRes = await execOnServer(server, command, 15_000, stdin);
     if (writeRes.code !== 0) {
@@ -108,7 +116,9 @@ export async function POST(
 
     await writeAuditLog(session, "wireguard.interface.create", {
       serverId: id,
-      detail: `Interface ${body.name} (Port ${body.listenPort}) angelegt`,
+      detail: body.raw
+        ? `Interface ${body.name} importiert`
+        : `Interface ${body.name} (Port ${body.listenPort}) angelegt`,
     });
 
     return NextResponse.json({ ok: true, name: body.name });
