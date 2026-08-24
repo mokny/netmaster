@@ -222,13 +222,18 @@ export function serializeWgConfig(config: WgInterfaceConfig): string {
 export function buildWriteConfigScript(name: string, content: string): string {
   const path = confPath(name);
   const b64 = Buffer.from(content, "utf8").toString("base64");
+  // `wg-quick strip` lehnt Dateien ab, deren Name nicht dem Muster
+  // <interface-name>.conf entspricht (siehe IFACE_NAME_PATTERN) - ein
+  // gewöhnlicher `mktemp`-Pfad (z.B. /tmp/tmp.Xy12Z) erfüllt das nicht.
   return `
 set -e
-TMP=$(mktemp)
+TMPDIR=$(mktemp -d)
+TMP="$TMPDIR/${name}.conf"
 echo ${shellQuote(b64)} | base64 -d > "$TMP"
 wg-quick strip "$TMP" >/dev/null
 if [ -f ${shellQuote(path)} ]; then cp ${shellQuote(path)} ${shellQuote(`${path}.bak`)}; fi
 mv "$TMP" ${shellQuote(path)}
+rmdir "$TMPDIR" 2>/dev/null || true
 chmod 600 ${shellQuote(path)}
 `.trim();
 }

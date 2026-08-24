@@ -371,9 +371,16 @@ export function buildRootScriptCommand(
   }
   if (server.encryptedSudoPassword) {
     const sudoPassword = decryptSecret(server.encryptedSudoPassword);
+    // Script wird als Kommandozeilen-Argument (nicht via stdin) übergeben:
+    // Ist auf dem Zielserver kein Sudo-Passwort nötig (NOPASSWD/gecachtes
+    // Ticket), liest `sudo -S` nichts von stdin und würde die Passwortzeile
+    // sonst unverändert an `bash -s` durchreichen, wo sie als erste Zeile
+    // des Skripts fehlschlägt.
+    const b64 = Buffer.from(script, "utf8").toString("base64");
+    const runner = `echo ${shellQuote(b64)} | base64 -d | bash`;
     return {
-      command: "sudo -S -p '' bash -s",
-      stdin: `${sudoPassword}\n${script}`,
+      command: `sudo -S -p '' bash -c ${shellQuote(runner)}`,
+      stdin: `${sudoPassword}\n`,
     };
   }
   throw new Error(
