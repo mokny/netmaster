@@ -6,6 +6,13 @@
 # Installs Docker (if missing), clones the app, walks through a short setup
 # dialog and starts it via docker compose. Safe to re-run: an existing
 # installation is redirected to `netmaster update` instead of reinstalling.
+#
+# Flags:
+#   --no-whiptail, --plain   Skip the whiptail TUI and use plain text
+#                            prompts instead (useful if whiptail dialogs
+#                            don't respond, e.g. in some SSH/tty setups).
+#                            Pass through curl | bash like this:
+#                              curl -fsSL <url> | bash -s -- --no-whiptail
 
 set -euo pipefail
 
@@ -14,6 +21,16 @@ REPO_SLUG="mokny/netmaster"
 SCRIPT_URL="https://raw.githubusercontent.com/mokny/netmaster/main/install.sh"
 INSTALL_DIR="/opt/netmaster"
 BIN_PATH="/usr/local/bin/netmaster"
+
+# ---------------------------------------------------------------------------
+# args
+# ---------------------------------------------------------------------------
+NO_WHIPTAIL=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-whiptail|--plain) NO_WHIPTAIL=1 ;;
+  esac
+done
 
 # ---------------------------------------------------------------------------
 # logging
@@ -130,7 +147,9 @@ fi
 # whiptail (TUI), with plain-read fallback
 # ---------------------------------------------------------------------------
 HAS_WHIPTAIL=0
-if command -v whiptail >/dev/null 2>&1; then
+if [ "$NO_WHIPTAIL" -eq 1 ]; then
+  log "--no-whiptail gesetzt, verwende einfache Texteingaben."
+elif command -v whiptail >/dev/null 2>&1; then
   HAS_WHIPTAIL=1
 else
   log "Installiere whiptail für den interaktiven Setup-Dialog..."
