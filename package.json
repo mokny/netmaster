@@ -1,6 +1,6 @@
 {
   "name": "netmaster",
-  "version": "1.4.16",
+  "version": "1.4.17",
   "private": true,
   "scripts": {
     "dev": "tsx watch server.ts",

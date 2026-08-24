@@ -63,9 +63,18 @@ function layoutCircular(nodes: TopologyNode[], edges: TopologyEdge[]): Node[] {
   const hubNodes = nodes.filter((n) => n.kind !== "client");
   const clientNodes = nodes.filter((n) => n.kind === "client");
 
-  const radius = Math.max(160, hubNodes.length * 50);
-  const cx = radius + 220;
-  const cy = radius + 220;
+  const clientCountByParent = new Map<string, number>();
+  for (const [, parent] of parentOf) {
+    clientCountByParent.set(parent, (clientCountByParent.get(parent) ?? 0) + 1);
+  }
+  const maxClientsPerHub = Math.max(0, ...clientCountByParent.values());
+
+  // Radius wächst nicht nur mit der Anzahl Hubs, sondern auch mit der
+  // größten Client-Anzahl pro Hub - sonst überlappen sich die Client-
+  // Cluster benachbarter Hubs, wenn ein Gerät viele Clients hat.
+  const radius = Math.max(160, hubNodes.length * 50, maxClientsPerHub * 26);
+  const cx = radius + 260;
+  const cy = radius + 260;
 
   const hubAngle = new Map<string, number>();
   const hubPosition = new Map<string, { x: number; y: number }>();
@@ -97,31 +106,56 @@ function layoutCircular(nodes: TopologyNode[], edges: TopologyEdge[]): Node[] {
     clientsByParent.set(key, list);
   }
 
+  // Clients werden fächerförmig um ihren Hub verteilt: pro Ring nur so viele
+  // Knoten, dass der Winkelabstand zwischen ihnen konstant bleibt (sonst
+  // rücken sie bei vielen Clients zu eng zusammen und überlappen). Reicht
+  // ein Ring nicht aus, wird auf einen weiter außen liegenden Ring
+  // ausgewichen.
+  const MIN_ANGULAR_GAP = 0.5;
+  const RING_GAP = 80;
+  const BASE_CLIENT_RADIUS = 100;
+  const BASE_RING_CAPACITY = 5;
+  const RING_CAPACITY_STEP = 4;
+
   for (const [parentId, children] of clientsByParent) {
     const baseAngle = hubAngle.get(parentId) ?? 0;
     const parentPos = hubPosition.get(parentId) ?? { x: cx, y: cy };
-    const clientRadius = 90;
-    const spread = Math.min(Math.PI / 2, 0.35 * children.length);
-    children.forEach((n, i) => {
-      const offset = children.length > 1 ? -spread / 2 + (spread * i) / (children.length - 1) : 0;
-      const angle = baseAngle + offset;
-      positions.push({
-        id: n.id,
-        position: {
-          x: parentPos.x + clientRadius * Math.cos(angle),
-          y: parentPos.y + clientRadius * Math.sin(angle),
-        },
-        data: { label: `${KIND_ICONS[n.kind]} ${n.name}` },
-        style: {
-          background: n.status === "error" ? "#ef4444" : KIND_COLORS[n.kind],
-          color: "white",
-          borderRadius: 8,
-          fontSize: 11,
-          padding: 6,
-          opacity: 0.9,
-        },
-      });
-    });
+
+    let index = 0;
+    let ring = 0;
+    while (index < children.length) {
+      const ringRadius = BASE_CLIENT_RADIUS + ring * RING_GAP;
+      // Weiter außen liegende Ringe haben eine größere Bogenlänge und
+      // fassen bei gleichem Winkelabstand entsprechend mehr Knoten.
+      const capacity = BASE_RING_CAPACITY + ring * RING_CAPACITY_STEP;
+      const remaining = children.length - index;
+      const countInRing = Math.min(capacity, remaining);
+      const spread = Math.min(1.6 * Math.PI, MIN_ANGULAR_GAP * Math.max(countInRing - 1, 0));
+
+      for (let i = 0; i < countInRing; i++) {
+        const n = children[index];
+        const offset = countInRing > 1 ? -spread / 2 + (spread * i) / (countInRing - 1) : 0;
+        const angle = baseAngle + offset;
+        positions.push({
+          id: n.id,
+          position: {
+            x: parentPos.x + ringRadius * Math.cos(angle),
+            y: parentPos.y + ringRadius * Math.sin(angle),
+          },
+          data: { label: `${KIND_ICONS[n.kind]} ${n.name}` },
+          style: {
+            background: n.status === "error" ? "#ef4444" : KIND_COLORS[n.kind],
+            color: "white",
+            borderRadius: 8,
+            fontSize: 11,
+            padding: 6,
+            opacity: 0.9,
+          },
+        });
+        index++;
+      }
+      ring++;
+    }
   }
 
   return positions;
