@@ -496,6 +496,7 @@
     "HOST_REQUIRED": "El host es obligatorio",
     "INVALID_URL": "La URL debe comenzar con http:// o https://",
     "STORAGE_NOT_ENABLED": "La gestión de almacenamiento no está habilitada para este servidor",
+    "STORAGE_COMMAND_FAILED": "Error en el comando",
     "MISSING_DEVICE": "No se especificó ningún dispositivo",
     "INVALID_PARTITION_RANGE": "Rango de partición no válido",
     "INVALID_RAID_DEVICE": "Dispositivo RAID no válido",

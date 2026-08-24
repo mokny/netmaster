@@ -87,13 +87,30 @@ function partitionNumber(row: FlatRow): number | null {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
+class ApiRequestError extends Error {
+  constructor(public code: string, public detail?: string) {
+    super(code);
+  }
+}
+
+function formatError(
+  err: unknown,
+  tErrors: (key: string) => string,
+  fallback: string
+): string {
+  const code = err instanceof Error ? err.message : "";
+  const message = code ? (tErrors(code) ?? fallback) : fallback;
+  const detail = err instanceof ApiRequestError ? err.detail : undefined;
+  return detail ? `${message}: ${detail}` : message;
+}
+
 async function api(url: string, init?: RequestInit) {
   const res = await fetch(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? "ERROR");
+  if (!res.ok) throw new ApiRequestError(data.error ?? "ERROR", data.detail);
   return data;
 }
 
@@ -115,8 +132,7 @@ export function DisksPanel({ serverId }: { serverId: string }) {
   const [mdstat, setMdstat] = useState<string>("");
 
   function fail(err: unknown, fallback: string) {
-    const code = err instanceof Error ? err.message : "";
-    toast.error(code ? tErrors(code) ?? fallback : fallback);
+    toast.error(formatError(err, tErrors, fallback));
   }
 
   const load = useCallback(async () => {
@@ -330,7 +346,7 @@ function PartitionTableDialog({ serverId, device, onDone }: { serverId: string; 
       setOpen(false);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("partitionTableFailed") : t("partitionTableFailed"));
+      toast.error(formatError(err, tErrors, t("partitionTableFailed")));
     } finally {
       setSaving(false);
     }
@@ -389,7 +405,7 @@ function PartitionDialog({ serverId, device, onDone }: { serverId: string; devic
       setOpen(false);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("partitionFailed") : t("partitionFailed"));
+      toast.error(formatError(err, tErrors, t("partitionFailed")));
     } finally {
       setSaving(false);
     }
@@ -471,7 +487,7 @@ function FormatDialog({ serverId, device, onDone }: { serverId: string; device: 
       setOpen(false);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("formatFailed") : t("formatFailed"));
+      toast.error(formatError(err, tErrors, t("formatFailed")));
     } finally {
       setSaving(false);
     }
@@ -537,7 +553,7 @@ function MountDialog({ serverId, device, onDone }: { serverId: string; device: s
       setOpen(false);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("mountFailed") : t("mountFailed"));
+      toast.error(formatError(err, tErrors, t("mountFailed")));
     } finally {
       setSaving(false);
     }
@@ -615,7 +631,7 @@ function LvmCard({
       toast.success(successMsg);
       onReload();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? failMsg : failMsg);
+      toast.error(formatError(err, tErrors, failMsg));
     } finally {
       setBusy(false);
     }
@@ -835,7 +851,7 @@ function RaidCard({
       toast.success(t("created"));
       onReload();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("createFailed") : t("createFailed"));
+      toast.error(formatError(err, tErrors, t("createFailed")));
     } finally {
       setBusy(false);
     }
@@ -853,7 +869,7 @@ function RaidCard({
       setGrowDevices("");
       onReload();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("growFailed") : t("growFailed"));
+      toast.error(formatError(err, tErrors, t("growFailed")));
     } finally {
       setBusy(false);
     }
@@ -877,7 +893,7 @@ function RaidCard({
       toast.success(t("stopped"));
       onReload();
     } catch (err) {
-      toast.error(err instanceof Error ? tErrors(err.message) ?? t("stopFailed") : t("stopFailed"));
+      toast.error(formatError(err, tErrors, t("stopFailed")));
     } finally {
       setBusy(false);
     }

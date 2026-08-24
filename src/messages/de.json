@@ -496,6 +496,7 @@
     "HOST_REQUIRED": "Host ist erforderlich",
     "INVALID_URL": "URL muss mit http:// oder https:// beginnen",
     "STORAGE_NOT_ENABLED": "Storage-Verwaltung ist für diesen Server nicht aktiviert",
+    "STORAGE_COMMAND_FAILED": "Befehl fehlgeschlagen",
     "MISSING_DEVICE": "Kein Gerät angegeben",
     "INVALID_PARTITION_RANGE": "Ungültiger Partitionsbereich",
     "INVALID_RAID_DEVICE": "Ungültiges RAID-Gerät",

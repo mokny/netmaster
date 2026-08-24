@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession, hasRole, type SessionPayload } from "@/lib/auth";
 import type { Role, Server as ServerModel } from "@/generated/prisma/client";
+import { StorageCommandError } from "@/lib/storage/exec";
 
 // `code` is a stable, machine-translatable identifier (SCREAMING_SNAKE_CASE)
 // that must have a matching key under the `errors` namespace in every
@@ -74,6 +75,12 @@ export function handleApiError(err: unknown): NextResponse {
     return NextResponse.json(
       { error: err.code, detail: err.detail },
       { status: err.status }
+    );
+  }
+  if (err instanceof StorageCommandError) {
+    return NextResponse.json(
+      { error: "STORAGE_COMMAND_FAILED", detail: err.message },
+      { status: 500 }
     );
   }
   console.error(err);

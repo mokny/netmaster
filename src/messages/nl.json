@@ -496,6 +496,7 @@
     "HOST_REQUIRED": "Host is verplicht",
     "INVALID_URL": "URL moet beginnen met http:// of https://",
     "STORAGE_NOT_ENABLED": "Storage-beheer is niet ingeschakeld voor deze server",
+    "STORAGE_COMMAND_FAILED": "Opdracht mislukt",
     "MISSING_DEVICE": "Geen apparaat opgegeven",
     "INVALID_PARTITION_RANGE": "Ongeldig partitiebereik",
     "INVALID_RAID_DEVICE": "Ongeldig RAID-apparaat",
