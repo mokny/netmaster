@@ -15,10 +15,13 @@ import {
   parseInterfaceNames,
   validateIfaceName,
   serializeWgConfig,
+  parseWgConfig,
   buildWriteConfigCommand,
   buildControlCommand,
   generateKeypair,
   buildNatRules,
+  ensureResolvconfForConfig,
+  appendServiceJournal,
   type WgInterfaceConfig,
 } from "@/lib/wireguard";
 
@@ -111,10 +114,17 @@ export async function POST(
     }
 
     if (body.autoStart !== false) {
+      const parsedConfig = body.raw ? parseWgConfig(body.name, body.raw) : undefined;
+      await ensureResolvconfForConfig(server, { dns: parsedConfig?.dns ?? body.dns });
+
       const startCmd = buildControlCommand(server, body.name, "enable");
       await execOnServer(server, startCmd.command, 15_000, startCmd.stdin);
       const upCmd = buildControlCommand(server, body.name, "start");
-      await execOnServer(server, upCmd.command, 15_000, upCmd.stdin);
+      const upRes = await execOnServer(server, upCmd.command, 15_000, upCmd.stdin);
+      if (upRes.code !== 0) {
+        const detail = await appendServiceJournal(server, body.name, upRes.stderr.trim() || "start");
+        throw new ApiError(500, "ACTION_FAILED", detail);
+      }
     }
 
     await writeAuditLog(session, "wireguard.interface.create", {

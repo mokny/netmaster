@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireWireguardEnabled, handleApiError, ApiError } from "@/lib/api-helpers";
 import { writeAuditLog } from "@/lib/audit";
-import { execOnServer, buildRootCommand, shellQuote } from "@/lib/ssh";
-import { buildControlCommand, validateIfaceName, type WgAction } from "@/lib/wireguard";
+import { execOnServer } from "@/lib/ssh";
+import {
+  buildControlCommand,
+  validateIfaceName,
+  readAndParseConfig,
+  ensureResolvconfForConfig,
+  appendServiceJournal,
+  type WgAction,
+} from "@/lib/wireguard";
 
 const ACTIONS: WgAction[] = ["start", "stop", "restart", "enable", "disable"];
+const START_ACTIONS: WgAction[] = ["start", "restart", "enable"];
 
 export async function POST(
   req: Request,
@@ -23,6 +31,16 @@ export async function POST(
       throw new ApiError(400, "INVALID_ACTION");
     }
 
+    if (START_ACTIONS.includes(body.action)) {
+      try {
+        const config = await readAndParseConfig(server, iface);
+        await ensureResolvconfForConfig(server, config);
+      } catch {
+        // Best effort - schlägt das Lesen/Nachinstallieren fehl, läuft
+        // der eigentliche Start-Versuch trotzdem weiter.
+      }
+    }
+
     const { command, stdin } = buildControlCommand(server, iface, body.action);
     const res = await execOnServer(server, command, 15_000, stdin);
     if (res.code !== 0) {
@@ -31,19 +49,8 @@ export async function POST(
       // Startvorgang nur auf journalctl verweisenden Text zurück - die
       // eigentliche Ursache (z.B. ungültige Peer-Konfiguration, belegter
       // Port) steht erst im Journal des Units.
-      if (body.action === "start" || body.action === "restart" || body.action === "enable") {
-        try {
-          const journalCmd = buildRootCommand(
-            server,
-            `journalctl -u ${shellQuote(`wg-quick@${iface}.service`)} --no-pager -n 15 2>/dev/null`
-          );
-          const journalRes = await execOnServer(server, journalCmd.command, 10_000, journalCmd.stdin);
-          const journal = journalRes.stdout.trim();
-          if (journal) detail = `${detail}\n${journal}`;
-        } catch {
-          // Zusatzinfo ist optional - Fehler hier sollen die eigentliche
-          // ACTION_FAILED-Antwort nicht verschlucken.
-        }
+      if (START_ACTIONS.includes(body.action)) {
+        detail = await appendServiceJournal(server, iface, detail);
       }
       throw new ApiError(500, "ACTION_FAILED", detail);
     }

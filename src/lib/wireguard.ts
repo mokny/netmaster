@@ -81,6 +81,70 @@ export function buildInstallCommand(server: ServerModel): { command: string; std
   return buildRootScriptCommand(server, buildInstallScript());
 }
 
+// `wg-quick up` ruft bei einem gesetzten `DNS =`-Eintrag extern `resolvconf`
+// auf, um resolv.conf zu verwalten - fehlt das Tool (z.B. auf schlanken
+// NAS-Distros), bricht der komplette Interface-Start mit "command not
+// found" ab, obwohl Link/Adresse/Key-Setup erfolgreich waren.
+export const DETECT_RESOLVCONF_COMMAND =
+  "command -v resolvconf >/dev/null 2>&1 && echo yes || echo no";
+
+export async function isResolvconfInstalled(server: ServerModel): Promise<boolean> {
+  const res = await execOnServer(server, DETECT_RESOLVCONF_COMMAND, 10_000);
+  return res.stdout.trim() === "yes";
+}
+
+export function buildInstallResolvconfScript(): string {
+  return `
+set -e
+if command -v resolvconf >/dev/null 2>&1; then
+  exit 0
+fi
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y openresolv || apt-get install -y resolvconf
+elif command -v dnf >/dev/null 2>&1; then
+  dnf install -y openresolv
+elif command -v yum >/dev/null 2>&1; then
+  yum install -y openresolv
+elif command -v pacman >/dev/null 2>&1; then
+  pacman -Sy --noconfirm openresolv
+elif command -v apk >/dev/null 2>&1; then
+  apk add --no-cache openresolv
+elif command -v zypper >/dev/null 2>&1; then
+  zypper install -y openresolv
+else
+  echo "Kein unterstuetzter Paketmanager fuer resolvconf gefunden (apt/dnf/yum/pacman/apk/zypper)" >&2
+  exit 1
+fi
+`.trim();
+}
+
+export function buildInstallResolvconfCommand(
+  server: ServerModel
+): { command: string; stdin?: string } {
+  return buildRootScriptCommand(server, buildInstallResolvconfScript());
+}
+
+// Prüft best-effort, ob ein `DNS =`-Eintrag `resolvconf` beim Start
+// benötigen würde, und installiert es bei Bedarf nach - schlägt die
+// Installation fehl (z.B. kein Internetzugang), läuft der eigentliche
+// Start-Versuch trotzdem weiter und liefert die reale Fehlermeldung.
+export async function ensureResolvconfForConfig(
+  server: ServerModel,
+  config: Pick<WgInterfaceConfig, "dns">
+): Promise<void> {
+  if (!config.dns) return;
+  try {
+    if (await isResolvconfInstalled(server)) return;
+    const { command, stdin } = buildInstallResolvconfCommand(server);
+    await execOnServer(server, command, 60_000, stdin);
+  } catch {
+    // Best effort - der eigentliche Start-Befehl liefert bei
+    // fortbestehendem Problem die reale Fehlermeldung inkl. journalctl.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Interfaces auflisten / lesen
 // ---------------------------------------------------------------------------
@@ -268,6 +332,28 @@ export function buildDeleteInterfaceCommand(
 ): { command: string; stdin?: string } {
   validateIfaceName(name);
   return buildRootScriptCommand(server, buildDeleteInterfaceScript(name));
+}
+
+// Ergänzt eine Fehlermeldung um die letzten Zeilen aus dem systemd-Journal
+// des wg-quick-Units - `systemctl start/restart` liefert bei einem
+// fehlgeschlagenen Startvorgang selbst oft nur einen Verweis auf
+// "journalctl -xeu ...", die eigentliche Ursache steht erst dort.
+export async function appendServiceJournal(
+  server: ServerModel,
+  name: string,
+  detail: string
+): Promise<string> {
+  try {
+    const { command, stdin } = buildRootCommand(
+      server,
+      `journalctl -u ${shellQuote(`wg-quick@${name}.service`)} --no-pager -n 15 2>/dev/null`
+    );
+    const res = await execOnServer(server, command, 10_000, stdin);
+    const journal = res.stdout.trim();
+    return journal ? `${detail}\n${journal}` : detail;
+  } catch {
+    return detail;
+  }
 }
 
 // ---------------------------------------------------------------------------
