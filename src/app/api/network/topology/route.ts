@@ -64,6 +64,19 @@ export async function GET() {
 
     const clientEdges: EdgeInfo[] = [];
 
+    // Adresse -> Server-ID Lookup-Tabelle (alle lokalen Interface-IPs der
+    // Server, nicht nur die konfigurierte SSH-Host-Adresse). Wird sowohl für
+    // die Server<->Server-Korrelation als auch für den Router/Repeater-Host-
+    // Abgleich unten verwendet, damit angelegte Server nicht als doppelter
+    // "client"-Knoten neben ihrem echten Server-Knoten auftauchen.
+    const addressToServerId = new Map<string, string>();
+    for (const { server, snapshot } of results) {
+      addressToServerId.set(server.hostname, server.id);
+      for (const addr of snapshot.interfaces.map((i) => i.address)) {
+        addressToServerId.set(addr, server.id);
+      }
+    }
+
     // Router/Repeater-Verwaltung ist Admin-only (siehe /api/router-devices) -
     // in der Topologie werden sie deshalb nur für Admins mit angezeigt.
     if (hasRole(session, "ADMIN")) {
@@ -114,6 +127,14 @@ export async function GET() {
       }
 
       for (const [mac, { deviceNodeId, host }] of clientOwner) {
+        // Host-IP gehört zu einem angelegten Server -> direkt mit dem
+        // existierenden Server-Knoten verbinden statt einen doppelten
+        // "client"-Knoten für denselben Host anzulegen.
+        const matchedServerId = host.ip ? addressToServerId.get(host.ip) : undefined;
+        if (matchedServerId) {
+          clientEdges.push({ fromServerId: deviceNodeId, toServerId: matchedServerId, connectionCount: 1 });
+          continue;
+        }
         const clientNodeId = `client:${mac}`;
         nodes.push({
           id: clientNodeId,
@@ -123,19 +144,6 @@ export async function GET() {
           status: "ok",
         });
         clientEdges.push({ fromServerId: deviceNodeId, toServerId: clientNodeId, connectionCount: 1 });
-      }
-    }
-
-    // Baut eine Adresse -> Server-ID Lookup-Tabelle für die Korrelation
-    // (erweiterter Abgleich: alle lokalen Interface-IPs, nicht nur die
-    // konfigurierte SSH-Host-Adresse). Nur Server nehmen an der
-    // Verbindungs-Korrelation teil, da für Router/Repeater keine
-    // Ports-Snapshots erhoben werden.
-    const addressToServerId = new Map<string, string>();
-    for (const { server, snapshot } of results) {
-      addressToServerId.set(server.hostname, server.id);
-      for (const addr of snapshot.interfaces.map((i) => i.address)) {
-        addressToServerId.set(addr, server.id);
       }
     }
 
