@@ -1159,6 +1159,7 @@
         "mountTitle": "Mount device",
         "mountpoint": "Mountpoint",
         "mountOptions": "Mount options",
+        "autoMountOnBoot": "Automatically mount on boot",
         "mounted": "Mounted",
         "mountFailed": "Mount failed"
       },

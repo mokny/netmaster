@@ -15,9 +15,10 @@ export async function POST(
     const device = String(body.device ?? "");
     const mountpoint = String(body.mountpoint ?? "");
     const options = String(body.options ?? "defaults");
+    const autoMount = body.autoMount !== false;
     if (!device || !mountpoint) throw new ApiError(400, "MISSING_REQUIRED_FIELDS");
 
-    await mountDevice(server, device, mountpoint, options);
+    await mountDevice(server, device, mountpoint, options, autoMount);
     await writeAuditLog(session, "storage.disk.mount", {
       serverId: id,
       detail: `${device} -> ${mountpoint}`,

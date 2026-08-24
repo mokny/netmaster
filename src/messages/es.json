@@ -1159,6 +1159,7 @@
         "mountTitle": "Montar dispositivo",
         "mountpoint": "Punto de montaje",
         "mountOptions": "Opciones de montaje",
+        "autoMountOnBoot": "Montar automáticamente al arrancar",
         "mounted": "Montado",
         "mountFailed": "Error al montar"
       },

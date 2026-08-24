@@ -1159,6 +1159,7 @@
         "mountTitle": "Gerät mounten",
         "mountpoint": "Mountpoint",
         "mountOptions": "Mount-Optionen",
+        "autoMountOnBoot": "Beim Booten automatisch mounten",
         "mounted": "Gemountet",
         "mountFailed": "Mount fehlgeschlagen"
       },

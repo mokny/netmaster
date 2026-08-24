@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -522,6 +523,7 @@ function MountDialog({ serverId, device, onDone }: { serverId: string; device: s
   const [open, setOpen] = useState(false);
   const [mountpoint, setMountpoint] = useState("/mnt/");
   const [options, setOptions] = useState("defaults");
+  const [autoMount, setAutoMount] = useState(true);
   const [saving, setSaving] = useState(false);
 
   async function submit() {
@@ -529,7 +531,7 @@ function MountDialog({ serverId, device, onDone }: { serverId: string; device: s
     try {
       await api(`/api/servers/${serverId}/storage/disks/mount`, {
         method: "POST",
-        body: JSON.stringify({ device, mountpoint, options }),
+        body: JSON.stringify({ device, mountpoint, options, autoMount }),
       });
       toast.success(t("mounted"));
       setOpen(false);
@@ -558,6 +560,16 @@ function MountDialog({ serverId, device, onDone }: { serverId: string; device: s
         <div className="space-y-2">
           <Label>{t("mountOptions")}</Label>
           <Input value={options} onChange={(e) => setOptions(e.target.value)} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`automount-${device}`}
+            checked={autoMount}
+            onCheckedChange={(v) => setAutoMount(v === true)}
+          />
+          <Label htmlFor={`automount-${device}`} className="font-normal">
+            {t("autoMountOnBoot")}
+          </Label>
         </div>
         <DialogFooter>
           <Button onClick={submit} disabled={saving}>

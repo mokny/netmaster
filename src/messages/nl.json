@@ -1159,6 +1159,7 @@
         "mountTitle": "Apparaat mounten",
         "mountpoint": "Mountpoint",
         "mountOptions": "Mount-opties",
+        "autoMountOnBoot": "Automatisch mounten bij opstarten",
         "mounted": "Gemount",
         "mountFailed": "Mounten mislukt"
       },

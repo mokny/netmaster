@@ -1159,6 +1159,7 @@
         "mountTitle": "Monter le périphérique",
         "mountpoint": "Point de montage",
         "mountOptions": "Options de montage",
+        "autoMountOnBoot": "Monter automatiquement au démarrage",
         "mounted": "Monté",
         "mountFailed": "Échec du montage"
       },

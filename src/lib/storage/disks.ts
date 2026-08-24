@@ -78,22 +78,28 @@ export async function mountDevice(
   server: ServerModel,
   device: string,
   mountpoint: string,
-  options: string
+  options: string,
+  autoMount: boolean = true
 ): Promise<void> {
   assertDevicePath(device);
   assertMountpoint(mountpoint);
   const opts = options.replace(/[^a-zA-Z0-9,=._-]/g, "") || "defaults";
-  const script = `
-set -e
-mkdir -p ${mountpoint}
+  const fstabScript = autoMount
+    ? `
 UUID=$(blkid -s UUID -o value ${device} || true)
-mount -o ${opts} ${device} ${mountpoint}
-sed -i "\\#${mountpoint} .*${FSTAB_MARKER}#d" /etc/fstab
 if [ -n "$UUID" ]; then
   echo "UUID=$UUID ${mountpoint} auto ${opts} 0 2 ${FSTAB_MARKER}" >> /etc/fstab
 else
   echo "${device} ${mountpoint} auto ${opts} 0 2 ${FSTAB_MARKER}" >> /etc/fstab
 fi
+`.trim()
+    : "";
+  const script = `
+set -e
+mkdir -p ${mountpoint}
+mount -o ${opts} ${device} ${mountpoint}
+sed -i "\\#${mountpoint} .*${FSTAB_MARKER}#d" /etc/fstab
+${fstabScript}
 `.trim();
   await runRootScript(server, script);
 }
