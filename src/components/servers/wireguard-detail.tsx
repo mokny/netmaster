@@ -700,7 +700,8 @@ function CreateInterfaceDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ? tErrors(data.error) : t("createFailed"));
+        const message = data.error ? tErrors(data.error) : t("createFailed");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
       toast.success(mode === "import" ? t("interfaceImported") : t("interfaceCreated"));
