@@ -152,7 +152,7 @@ fi
 ui_info() {
   local text="$1"
   if [ "$HAS_WHIPTAIL" -eq 1 ]; then
-    whiptail --title "NetMaster Setup" --msgbox "$text" 12 70
+    whiptail --title "NetMaster Setup" --msgbox "$text" 12 70 < /dev/tty
   else
     printf '\n%s\n\n' "$text"
   fi
@@ -162,7 +162,7 @@ ui_info() {
 ui_input() {
   local prompt="$1" default="$2" result
   if [ "$HAS_WHIPTAIL" -eq 1 ]; then
-    result=$(whiptail --title "NetMaster Setup" --inputbox "$prompt" 10 70 "$default" 3>&1 1>&2 2>&3) || result="$default"
+    result=$(whiptail --title "NetMaster Setup" --inputbox "$prompt" 10 70 "$default" 3>&1 1>&2 2>&3 < /dev/tty) || result="$default"
   else
     read -r -p "$prompt [$default]: " result </dev/tty || true
   fi
@@ -173,7 +173,7 @@ ui_input() {
 ui_password() {
   local prompt="$1" result
   if [ "$HAS_WHIPTAIL" -eq 1 ]; then
-    result=$(whiptail --title "NetMaster Setup" --passwordbox "$prompt" 10 70 3>&1 1>&2 2>&3) || result=""
+    result=$(whiptail --title "NetMaster Setup" --passwordbox "$prompt" 10 70 3>&1 1>&2 2>&3 < /dev/tty) || result=""
   else
     read -r -s -p "$prompt: " result </dev/tty || true
     printf '\n'
@@ -185,7 +185,7 @@ ui_password() {
 ui_yesno() {
   local prompt="$1"
   if [ "$HAS_WHIPTAIL" -eq 1 ]; then
-    whiptail --title "NetMaster Setup" --yesno "$prompt" 10 70
+    whiptail --title "NetMaster Setup" --yesno "$prompt" 10 70 < /dev/tty
   else
     local ans
     read -r -p "$prompt [j/N]: " ans </dev/tty || true
