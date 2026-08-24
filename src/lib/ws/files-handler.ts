@@ -1,6 +1,8 @@
 import type { WebSocket } from "ws";
+import type { Client } from "ssh2";
 import { prisma } from "@/lib/prisma";
-import { openSftpSession } from "@/lib/ssh";
+import { openSftpSession, execOnConnection, buildRootCommand, shellQuote } from "@/lib/ssh";
+import type { Server as ServerModel } from "@/generated/prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import type { SessionPayload } from "@/lib/session-token";
 import {
@@ -23,6 +25,30 @@ import type {
   FileManagerClientMessage,
   FileManagerServerMessage,
 } from "@/lib/file-manager-types";
+
+// Fallback für chmod/chown, wenn der SSH-User die Datei nicht selbst besitzt:
+// SFTP kennt kein sudo, daher wird stattdessen ein `chmod`/`chown`-Shell-Befehl
+// über die schon offene SSH-Verbindung ausgeführt (root oder per sudo-Passwort).
+async function chmodAsRoot(conn: Client, server: ServerModel, filePath: string, modeStr: string) {
+  const baseCommand = `chmod ${shellQuote(modeStr)} ${shellQuote(filePath)}`;
+  const { command, stdin } = buildRootCommand(server, baseCommand);
+  const res = await execOnConnection(conn, command, 15_000, stdin);
+  if (res.code !== 0) {
+    throw new SftpOpError(res.stderr.trim() || "chmod fehlgeschlagen", "OTHER");
+  }
+}
+
+async function chownAsRoot(conn: Client, server: ServerModel, filePath: string, uid: number, gid: number) {
+  if (!Number.isInteger(uid) || !Number.isInteger(gid)) {
+    throw new SftpOpError("Invalid uid/gid", "OTHER");
+  }
+  const baseCommand = `chown ${uid}:${gid} ${shellQuote(filePath)}`;
+  const { command, stdin } = buildRootCommand(server, baseCommand);
+  const res = await execOnConnection(conn, command, 15_000, stdin);
+  if (res.code !== 0) {
+    throw new SftpOpError(res.stderr.trim() || "chown fehlgeschlagen", "OTHER");
+  }
+}
 
 // Eine persistente SFTP-Session pro geöffnetem Dateimanager-Panel. Schreibende
 // Aktionen werden auditiert (nur Pfad, keine Dateiinhalte).
@@ -126,13 +152,32 @@ export async function handleFilesSocket(
         case "chmod": {
           const mode = parseInt(msg.mode, 8);
           if (Number.isNaN(mode)) throw new SftpOpError("Invalid mode", "OTHER");
-          await chmodPath(sftp, msg.path, mode);
+          try {
+            await chmodPath(sftp, msg.path, mode);
+          } catch (err) {
+            // Eigener User besitzt die Datei ggf. nicht (z.B. root-Dateien) -
+            // per sudo über die Shell nachziehen statt den SFTP-Fehler direkt
+            // durchzureichen.
+            if (err instanceof SftpOpError) {
+              await chmodAsRoot(conn, server, msg.path, msg.mode);
+            } else {
+              throw err;
+            }
+          }
           audit("chmod", `${msg.path} -> ${msg.mode}`);
           send({ type: "ok", reqId: msg.reqId });
           break;
         }
         case "chown": {
-          await chownPath(sftp, msg.path, msg.uid, msg.gid);
+          try {
+            await chownPath(sftp, msg.path, msg.uid, msg.gid);
+          } catch (err) {
+            if (err instanceof SftpOpError) {
+              await chownAsRoot(conn, server, msg.path, msg.uid, msg.gid);
+            } else {
+              throw err;
+            }
+          }
           audit("chown", `${msg.path} -> uid=${msg.uid} gid=${msg.gid}`);
           send({ type: "ok", reqId: msg.reqId });
           break;
