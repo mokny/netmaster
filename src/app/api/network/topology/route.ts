@@ -103,6 +103,15 @@ export async function GET() {
         });
       }
 
+      // Adresse -> Router/Repeater-Node-ID, damit ein Gerät, das sich selbst
+      // (oder ein anderes im System hinterlegtes Router-/Repeater-Gerät) in
+      // seiner eigenen connectedHostsJson auflistet, nicht als "Klon"-Client
+      // dargestellt wird.
+      const addressToRouterNodeId = new Map<string, string>();
+      for (const device of routerDevices) {
+        addressToRouterNodeId.set(device.hostname, `router:${device.id}`);
+      }
+
       // Client-Geräte (per TR-064 auf Router/Repeater erkannt): ein MAC kann
       // in mehreren Geräte-Host-Listen auftauchen (z.B. Mesh-Client sichtbar
       // auf FritzBox und Repeater). Da es kein explizites Uplink-/Parent-Feld
@@ -126,6 +135,7 @@ export async function GET() {
         }
       }
 
+      const seenHubEdges = new Set<string>();
       for (const [mac, { deviceNodeId, host }] of clientOwner) {
         // Host-IP gehört zu einem angelegten Server -> direkt mit dem
         // existierenden Server-Knoten verbinden statt einen doppelten
@@ -135,6 +145,21 @@ export async function GET() {
           clientEdges.push({ fromServerId: deviceNodeId, toServerId: matchedServerId, connectionCount: 1 });
           continue;
         }
+
+        // Host-IP gehört zu einem im System hinterlegten Router/Repeater ->
+        // entweder Selbstreferenz (Gerät listet sich selbst als Host, z.B.
+        // Repeater) und wird komplett verworfen, oder eine Kante zwischen den
+        // beiden echten Geräten statt eines Klon-Client-Knotens.
+        const matchedRouterNodeId = host.ip ? addressToRouterNodeId.get(host.ip) : undefined;
+        if (matchedRouterNodeId) {
+          if (matchedRouterNodeId === deviceNodeId) continue;
+          const key = [deviceNodeId, matchedRouterNodeId].sort().join(":");
+          if (seenHubEdges.has(key)) continue;
+          seenHubEdges.add(key);
+          clientEdges.push({ fromServerId: deviceNodeId, toServerId: matchedRouterNodeId, connectionCount: 1 });
+          continue;
+        }
+
         const clientNodeId = `client:${mac}`;
         nodes.push({
           id: clientNodeId,
