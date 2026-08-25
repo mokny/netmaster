@@ -270,6 +270,11 @@ fi
 log "Erzeuge .env mit generierten Secrets..."
 MASTER_SECRET=$(openssl rand -hex 32)
 AUTH_SECRET=$(openssl rand -hex 32)
+# Secret zur gegenseitigen Authentifizierung zwischen Hauptcontainer und dem
+# optionalen NAS-Gateway (siehe docker-compose.yml, Profil "nas"). Wird immer
+# generiert, auch wenn der Gateway (noch) nicht gestartet wird - dann bleibt
+# er ungenutzt, aber .env muss nicht nachträglich manuell ergänzt werden.
+NAS_INTERNAL_SECRET=$(openssl rand -hex 32)
 
 cat > "$INSTALL_DIR/.env" <<EOF
 DATABASE_URL="file:/app/data/netmaster.db"
@@ -279,6 +284,7 @@ SEED_ADMIN_EMAIL="${ADMIN_EMAIL}"
 SEED_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
 SEED_ADMIN_NAME="${ADMIN_NAME}"
 HOST_PORT="${HOST_PORT}"
+NAS_INTERNAL_SECRET="${NAS_INTERNAL_SECRET}"
 EOF
 
 if [ -n "$DOMAIN" ]; then

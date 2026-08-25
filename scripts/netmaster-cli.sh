@@ -39,6 +39,28 @@ ui_yesno() {
   fi
 }
 
+# ensure_env_secret <key> - backfills a missing/empty value for <key> in
+# .env with a freshly generated random secret, without touching any value
+# the user already has set. Used to pick up new required secrets (e.g.
+# NAS_INTERNAL_SECRET, introduced after this install was first set up)
+# on `netmaster update` without requiring a manual .env edit.
+ensure_env_secret() {
+  local key="$1" existing
+  existing=$(grep -m1 "^${key}=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+  if [ -z "${existing:-}" ]; then
+    log "Ergänze fehlenden Wert für ${key} in .env..."
+    sed -i "/^${key}=/d" "$INSTALL_DIR/.env"
+    printf '%s="%s"\n' "$key" "$(openssl rand -hex 32)" >> "$INSTALL_DIR/.env"
+  fi
+}
+
+# Auto-generiert NAS-relevante Secrets, sofern der User nichts eingetragen
+# hat - läuft bei jedem Update, damit bestehende Installationen (deren .env
+# vor Einführung des NAS-Gateways erzeugt wurde) automatisch nachziehen.
+ensure_nas_env_defaults() {
+  ensure_env_secret NAS_INTERNAL_SECRET
+}
+
 current_url() {
   if [ -f "$INSTALL_DIR/Caddyfile" ]; then
     local domain
@@ -115,6 +137,8 @@ cmd_update() {
   git fetch --depth 1 origin "$ref"
   git checkout --detach FETCH_HEAD
   git reset --hard FETCH_HEAD
+
+  ensure_nas_env_defaults
 
   log "Baue und starte Container neu..."
   compose up -d --build
