@@ -92,10 +92,15 @@ async function mountSshfs(share: GatewayShare, mountPoint: string): Promise<stri
     command = "sshfs";
     args = [target, mountPoint, ...sshOpts, "-o", `IdentityFile=${keyFilePath}`, "-o", "IdentitiesOnly=yes"];
   } else {
-    // sshpass reicht das Passwort an den ssh-askpass-Mechanismus von sshfs
-    // durch - Standard-Workaround, da sshfs kein natives password_stdin kennt.
+    // sshpass reicht das Passwort per PTY an den Passwort-Prompt von ssh
+    // durch. WICHTIG: kein zusätzliches "-o password_stdin" - das würde
+    // sshfs/ssh anweisen, den Prompt zu überspringen und das Passwort
+    // stattdessen direkt von stdin zu lesen, das hier aber nie beschrieben
+    // wird (stdio ist unten bewusst "ignore", siehe spawn-Aufruf) - die
+    // beiden Mechanismen schließen sich gegenseitig aus, kombiniert kommt
+    // nie ein Passwort an und die Authentifizierung schlägt jedes Mal fehl.
     command = "sshpass";
-    args = ["-p", server.secret, "sshfs", target, mountPoint, ...sshOpts, "-o", "password_stdin"];
+    args = ["-p", server.secret, "sshfs", target, mountPoint, ...sshOpts];
   }
 
   await new Promise<void>((resolve, reject) => {
