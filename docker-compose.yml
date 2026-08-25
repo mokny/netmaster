@@ -35,11 +35,13 @@ services:
     restart: unless-stopped
 
   # Zentraler NAS-Zugriff (Web/FTP/SFTP/Samba) auf Freigaben, die tatsächlich
-  # auf beliebigen von NetMaster verwalteten Servern liegen. Optional - nur
-  # gestartet, wenn COMPOSE_PROFILES die "nas"-Profile-Zeile enthält.
+  # auf beliebigen von NetMaster verwalteten Servern liegen. Läuft immer mit
+  # (kein Profil-Opt-in mehr) - läuft ohne konfigurierte Freigaben einfach
+  # untätig, startet aber automatisch, sobald der Admin NAS-Freigaben unter
+  # /admin/nas anlegt, statt dass zusätzlich `COMPOSE_PROFILES=nas` gesetzt
+  # werden muss.
   netmaster-nas-gateway:
     build: ./gateway
-    profiles: ["nas"]
     depends_on:
       - netmaster
     # network_mode: host aus demselben Grund wie beim Hauptcontainer (siehe
