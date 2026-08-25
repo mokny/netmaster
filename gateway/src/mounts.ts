@@ -33,7 +33,11 @@ export function mountPointFor(shareId: string): string {
 // aber keinen Zugriff mehr auf das Passwort (das kam nur beim initialen
 // Start per sshpass rein), der interne Reconnect schlägt also fehl und der
 // Mountpoint bleibt dauerhaft in einem "gemountet, aber tot"-Zustand hängen
-// (jeder Zugriff liefert EIO/ENOTCONN). Ein Stat mit Timeout deckt das auf.
+// (jeder Zugriff liefert EIO/ENOTCONN). Ein bloßes stat() auf den Mountpoint
+// selbst reicht dafür NICHT als Test - das liefert oft noch gecachte/billige
+// Attribute zurück, obwohl scandir/mkdir im Verzeichnis längst EIO werfen
+// (genau das war live so zu beobachten). readdir() erzwingt einen echten
+// Roundtrip zum FUSE-Backend und deckt den toten Zustand zuverlässig auf.
 async function isMounted(mountPoint: string): Promise<boolean> {
   try {
     await execFileAsync("mountpoint", ["-q", mountPoint]);
@@ -42,8 +46,8 @@ async function isMounted(mountPoint: string): Promise<boolean> {
   }
   try {
     await Promise.race([
-      fs.stat(mountPoint),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("stat timeout")), 5_000)),
+      fs.readdir(mountPoint),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("readdir timeout")), 5_000)),
     ]);
     return true;
   } catch {
