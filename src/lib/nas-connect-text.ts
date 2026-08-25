@@ -2,6 +2,16 @@
 // server-only Import), damit sowohl Admin- als auch Self-Service-UI ihn ohne
 // Round-Trip direkt im Browser zusammensetzen können.
 
+// Base64url einer UTF-8-Zeichenkette ohne `Buffer` (im Browser nicht
+// verfügbar) - liefert für dieselbe Eingabe dasselbe Ergebnis wie Node's
+// Buffer.from(str, "utf8").toString("base64url").
+function base64UrlFromUtf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 // Muss exakt mit gateway/src/samba.ts#sambaUsernameFor übereinstimmen - der
 // Samba-Login-Name ist deterministisch aus der E-Mail abgeleitet, nicht die
 // E-Mail selbst.
@@ -11,7 +21,7 @@ export function sambaUsernameFor(email: string): string {
     .replace(/@.*/, "")
     .replace(/[^a-z0-9]/g, "")
     .slice(0, 20);
-  const hash = Buffer.from(email).toString("base64url").slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const hash = base64UrlFromUtf8(email).slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, "");
   return `nas_${base || "user"}_${hash}`.slice(0, 32);
 }
 

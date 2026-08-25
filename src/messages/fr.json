@@ -509,7 +509,7 @@
     "SHARE_QUOTA_EXCEEDED": "This share has exceeded its quota and is read-only",
     "LINK_NOT_FOUND": "This link does not exist or has expired",
     "PASSWORD_REQUIRED": "A password is required for this link",
-    "REMOTE_PATH_CHECK_FAILED": "Le chemin cible sur le serveur n'a pas pu être créé ou n'est pas accessible en écriture.",
+    "REMOTE_PATH_CHECK_FAILED": "Le chemin cible sur le serveur n''a pas pu être créé ou n''est pas accessible en écriture.",
     "INVALID_NAS_PORT": "Port invalide (1-65535)."
   },
   "network": {
@@ -1595,8 +1595,8 @@
       "shareDeleted": "Share deleted",
       "quota": "Quota",
       "connectText": "Infos de connexion",
-      "settingsHeading": "Adresse d'accès NAS",
-      "settingsHint": "Hôte/IP par lequel FTP/FTPS/SFTP/Samba sont joignables depuis l'extérieur - utilisé pour générer le texte de connexion ci-dessous.",
+      "settingsHeading": "Adresse d''accès NAS",
+      "settingsHint": "Hôte/IP par lequel FTP/FTPS/SFTP/Samba sont joignables depuis l''extérieur - utilisé pour générer le texte de connexion ci-dessous.",
       "publicHost": "Hôte ou IP publique",
       "settingsSaved": "Paramètres enregistrés",
       "save": "Enregistrer"
@@ -1615,7 +1615,7 @@
       "updated": "NAS user updated",
       "quotaGb": "Quota (Go)",
       "quotaUnlimited": "illimité",
-      "quotaHint": "S'applique uniquement aux partages dont cet utilisateur est le seul membre - les partages partagés ne comptent pas."
+      "quotaHint": "S''applique uniquement aux partages dont cet utilisateur est le seul membre - les partages partagés ne comptent pas."
     },
     "nasShareForm": {
       "createShare": "New share",
@@ -1889,20 +1889,20 @@
     "title": "Infos de connexion pour {name}",
     "cardTitle": "Infos de connexion",
     "cardHint": "Comment se connecter au NAS avec ce compte.",
-    "passwordShownOnceHint": "Le vrai mot de passe n'est affiché qu'une seule fois ici - copiez-le maintenant si besoin.",
+    "passwordShownOnceHint": "Le vrai mot de passe n''est affiché qu''une seule fois ici - copiez-le maintenant si besoin.",
     "copy": "Copier",
     "copied": "Copié dans le presse-papiers",
     "intro": "Bonjour {name}, voici comment se connecter au NAS :",
     "smbHeading": "Samba (lecteur réseau Windows/macOS/Linux)",
     "smbAddress": "Adresse : {address}",
-    "smbUsername": "Nom d'utilisateur : {username}",
+    "smbUsername": "Nom d''utilisateur : {username}",
     "smbPassword": "Mot de passe : {password}",
     "ftpHost": "Hôte : {host}, Port : {port}",
-    "ftpUsername": "Nom d'utilisateur : {username}",
+    "ftpUsername": "Nom d''utilisateur : {username}",
     "ftpPassword": "Mot de passe : {password}",
     "webHeading": "Navigateur web",
     "webUrl": "URL : {url}",
-    "hostPlaceholder": "<demandez l'adresse du NAS à votre admin>",
-    "passwordPlaceholder": "<communiqué séparément>"
+    "hostPlaceholder": "(demandez l''adresse du NAS à votre admin)",
+    "passwordPlaceholder": "(communiqué séparément)"
   }
 }

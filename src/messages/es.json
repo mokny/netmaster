@@ -1902,7 +1902,7 @@
     "ftpPassword": "Contraseña: {password}",
     "webHeading": "Navegador web",
     "webUrl": "URL: {url}",
-    "hostPlaceholder": "<pide la dirección del NAS a tu admin>",
-    "passwordPlaceholder": "<se comunica por separado>"
+    "hostPlaceholder": "(pide la dirección del NAS a tu admin)",
+    "passwordPlaceholder": "(se comunica por separado)"
   }
 }

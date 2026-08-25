@@ -1902,7 +1902,7 @@
     "ftpPassword": "Passwort: {password}",
     "webHeading": "Webbrowser",
     "webUrl": "URL: {url}",
-    "hostPlaceholder": "<NAS-Adresse beim Admin erfragen>",
-    "passwordPlaceholder": "<wird separat mitgeteilt>"
+    "hostPlaceholder": "(NAS-Adresse beim Admin erfragen)",
+    "passwordPlaceholder": "(wird separat mitgeteilt)"
   }
 }

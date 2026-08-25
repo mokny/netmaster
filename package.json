@@ -1,6 +1,6 @@
 {
   "name": "netmaster",
-  "version": "1.4.29",
+  "version": "1.4.30",
   "private": true,
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 tsx watch server.ts",

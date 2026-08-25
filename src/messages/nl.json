@@ -1902,7 +1902,7 @@
     "ftpPassword": "Wachtwoord: {password}",
     "webHeading": "Webbrowser",
     "webUrl": "URL: {url}",
-    "hostPlaceholder": "<vraag het NAS-adres aan je beheerder>",
-    "passwordPlaceholder": "<wordt apart doorgegeven>"
+    "hostPlaceholder": "(vraag het NAS-adres aan je beheerder)",
+    "passwordPlaceholder": "(wordt apart doorgegeven)"
   }
 }
