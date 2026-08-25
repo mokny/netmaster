@@ -31,6 +31,10 @@ FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sshfs samba samba-common-bin sshpass openssh-client nfs-common \
     && rm -rf /var/lib/apt/lists/*
+# Ersetzt Debians Beispiel-smb.conf (u.a. [homes]/[printers]/[print$], für
+# einen reinen NAS-Gateway irrelevant) durch eine minimale eigene Basis, auf
+# die syncSambaConfig() (samba.ts) seinen verwalteten Freigaben-Block anhängt.
+COPY smb.conf.base /etc/samba/smb.conf
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist

@@ -1,0 +1,22 @@
+# Minimale Basis-Konfiguration für den NetMaster-NAS-Gateway - ersetzt die
+# Debian-Standarddatei (die u.a. [homes]/[printers]/[print$] enthält, alles
+# für einen reinen NAS-Zweck irrelevant und potenzieller unnötiger Ballast).
+# Der von NetMaster verwaltete Block mit den eigentlichen Freigaben wird von
+# samba.ts (syncSambaConfig) darunter angehängt.
+
+[global]
+    workgroup = WORKGROUP
+    server role = standalone server
+    obey pam restrictions = yes
+    unix password sync = yes
+    passwd program = /usr/bin/passwd %u
+    passwd chat = *Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
+    pam password change = yes
+    # Fehlgeschlagene Authentifizierung soll klar abgelehnt werden statt
+    # stillschweigend auf einen Gast-Zugang zurückzufallen, der dann leere
+    # Verzeichnislisten statt eines Fehlers zeigt.
+    map to guest = never
+    log file = /var/log/samba/log.%m
+    max log size = 1000
+    logging = file
+    panic action = /usr/share/samba/panic-action %d

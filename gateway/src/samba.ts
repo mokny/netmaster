@@ -52,6 +52,18 @@ export async function setSambaPassword(email: string, password: string): Promise
   await execFileAsync("smbpasswd", ["-e", username]).catch(() => {});
 }
 
+// Sprechender Freigabename statt der rohen Freigaben-ID, aber weiterhin
+// eindeutig (Suffix aus der ID) - zwei Freigaben mit demselben "name" dürfen
+// sich in smb.conf nicht denselben Sektionsnamen teilen.
+function sambaShareNameFor(share: GatewayShare): string {
+  const base = share.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+  return `${base || "share"}_${share.id.slice(-6)}`;
+}
+
 function renderShareStanza(share: GatewayShare): string {
   const validUsers = share.members.map((m) => sambaUsernameFor(m.email));
   const writeUsers = share.members
@@ -59,7 +71,7 @@ function renderShareStanza(share: GatewayShare): string {
     .map((m) => sambaUsernameFor(m.email));
 
   return [
-    `[nas_${share.id}]`,
+    `[${sambaShareNameFor(share)}]`,
     `    path = ${mountPointFor(share.id)}`,
     `    comment = ${share.name.replace(/[[\]]/g, "")}`,
     "    browseable = yes",
