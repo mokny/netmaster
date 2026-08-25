@@ -500,19 +500,7 @@
     "MISSING_DEVICE": "Geen apparaat opgegeven",
     "INVALID_PARTITION_RANGE": "Ongeldig partitiebereik",
     "INVALID_RAID_DEVICE": "Ongeldig RAID-apparaat",
-    "ERROR": "Er is een fout opgetreden",
-    "NAME_SERVER_PATH_REQUIRED": "Name, server, and remote path are required",
-    "NAS_USER_ID_REQUIRED": "A NAS user is required",
-    "NAS_GATEWAY_NOT_CONFIGURED": "The NAS gateway is not configured on this server",
-    "EMAIL_IN_USE": "This email is already in use",
-    "PUBLIC_LINKS_NOT_ALLOWED": "You are not allowed to create public links",
-    "SHARE_QUOTA_EXCEEDED": "This share has exceeded its quota and is read-only",
-    "LINK_NOT_FOUND": "This link does not exist or has expired",
-    "PASSWORD_REQUIRED": "A password is required for this link",
-    "REMOTE_PATH_CHECK_FAILED": "Het doelpad op de server kon niet worden aangemaakt of is niet beschrijfbaar.",
-    "INVALID_NAS_PORT": "Ongeldige poort (1-65535).",
-    "FILE_OPERATION_FAILED": "Bestandsbewerking mislukt",
-    "UNKNOWN_OPERATION": "Onbekende bewerking"
+    "ERROR": "Er is een fout opgetreden"
   },
   "network": {
     "title": "Netwerktopologie",
@@ -1326,8 +1314,7 @@
       "users": "Gebruikers",
       "settings": "Settings",
       "debug": "Debug",
-      "storage": "Storage",
-      "nas": "NAS"
+      "storage": "Storage"
     },
     "expandNav": "Navigatie uitklappen",
     "collapseNav": "Navigatie inklappen",
@@ -1568,87 +1555,6 @@
       "advancedPollingDescription": "Global live-polling for all Proxmox/Docker servers, admin-only (toggle in the top navbar). Automatically turns off once no browser tab is open.",
       "advancedPollingIntervalLabel": "Advanced polling interval (seconds)",
       "advancedPollingIntervalDescription": "How often all servers are polled while advanced polling is active."
-    },
-    "nas": {
-      "title": "NAS",
-      "subtitle": "Manage NAS users and their shares, centrally accessible via web, FTP, SFTP and Samba regardless of which server the files live on.",
-      "usersHeading": "NAS users",
-      "sharesHeading": "Shares",
-      "name": "Name",
-      "email": "Email",
-      "server": "Server",
-      "usage": "Usage",
-      "mount": "Mount",
-      "publicLinks": "Public links",
-      "allowed": "allowed",
-      "blocked": "blocked",
-      "mountActive": "active",
-      "mountFailed": "failed",
-      "mountPending": "pending",
-      "quotaExceeded": "quota exceeded",
-      "quotaUnlimited": "unlimited",
-      "noStorageServers": "No server has storage management enabled yet - enable it on a server first to use it as a NAS target.",
-      "deleteUserTitle": "Delete NAS user",
-      "deleteUserDescription": "Really delete this NAS user? Their access to all shares is removed immediately.",
-      "deleteShareTitle": "Delete share",
-      "deleteShareDescription": "Really delete this share? This does not delete the files on the target server, only the NAS access to it.",
-      "delete": "Delete",
-      "userDeleted": "NAS user deleted",
-      "shareDeleted": "Share deleted",
-      "quota": "Quotum",
-      "connectText": "Verbindingsinfo",
-      "settingsHeading": "NAS-toegangsadres",
-      "settingsHint": "Host/IP waarop FTP/FTPS/SFTP/Samba van buitenaf bereikbaar zijn - wordt gebruikt voor de verbindingstekst hieronder.",
-      "publicHost": "Openbare host of IP",
-      "settingsSaved": "Instellingen opgeslagen",
-      "save": "Opslaan"
-    },
-    "nasUserForm": {
-      "createUser": "New NAS user",
-      "createTitle": "Create NAS user",
-      "editTitle": "Edit NAS user",
-      "name": "Name",
-      "email": "Email",
-      "password": "Password",
-      "passwordKeepHint": "(leave empty to keep)",
-      "canCreatePublicLinks": "Allowed to create public share links",
-      "save": "Save",
-      "created": "NAS user created",
-      "updated": "NAS user updated",
-      "quotaGb": "Quotum (GB)",
-      "quotaUnlimited": "onbeperkt",
-      "quotaHint": "Geldt alleen voor shares waarbij deze gebruiker het enige lid is - gedeelde shares tellen niet mee."
-    },
-    "nasShareForm": {
-      "createShare": "New share",
-      "createTitle": "Create share",
-      "name": "Name",
-      "server": "Target server",
-      "serverHint": "Only servers with storage management enabled are shown.",
-      "remotePath": "Remote path",
-      "browse": "Browse folders",
-      "browserTitle": "Choose folder",
-      "browserNotFound": "This folder does not exist on the server.",
-      "browserEmpty": "This folder has no subfolders.",
-      "browserCancel": "Cancel",
-      "browserSelectHere": "Select this folder",
-      "quotaGb": "Quota (GB)",
-      "quotaUnlimited": "unlimited",
-      "save": "Save",
-      "created": "Share created",
-      "editTitle": "Share bewerken",
-      "updated": "Share bijgewerkt",
-      "sshfsHint": "Gebruikt SSHFS - vereist alleen normale SSH-toegang op de doelserver, die NetMaster al gebruikt voor de monitoring ervan."
-    },
-    "nasShareMembers": {
-      "title": "Members of \"{share}\"",
-      "noMembers": "No NAS user has access to this share yet.",
-      "addUserPlaceholder": "Select NAS user",
-      "add": "Add",
-      "role": {
-        "READ_ONLY": "Read only",
-        "READ_WRITE": "Read/write"
-      }
     }
   },
   "status": {
@@ -1816,95 +1722,5 @@
       "shareRemoved": "Share verwijderd",
       "shareRemoveFailed": "Share verwijderen mislukt"
     }
-  },
-  "nas": {
-    "auth": {
-      "title": "NAS",
-      "tagline": "Access your files centrally, no matter which server they live on.",
-      "email": "Email",
-      "password": "Password",
-      "login": "Log in",
-      "confirmationCode": "Confirmation code",
-      "confirm": "Confirm",
-      "back": "Back",
-      "connectionFailed": "Connection failed"
-    },
-    "forcePasswordChange": {
-      "title": "Set a new password",
-      "description": "Please choose a new password before continuing.",
-      "newPassword": "New password",
-      "confirmPassword": "Confirm password",
-      "passwordTooShort": "Password must be at least 8 characters",
-      "passwordMismatch": "Passwords do not match",
-      "setPassword": "Set password",
-      "connectionFailed": "Connection failed"
-    },
-    "shell": {
-      "title": "NAS",
-      "logout": "Log out",
-      "nav": {
-        "dashboard": "Dashboard",
-        "account": "Account"
-      }
-    },
-    "dashboard": {
-      "title": "Your shares",
-      "subtitle": "Files you have access to, regardless of which server they are stored on.",
-      "noShares": "You don't have access to any share yet. Ask an administrator.",
-      "unlimited": "unlimited",
-      "quotaExceeded": "quota exceeded",
-      "mountUnavailable": "temporarily unavailable",
-      "role": {
-        "READ_ONLY": "Read only",
-        "READ_WRITE": "Read/write"
-      }
-    },
-    "account": {
-      "title": "Account",
-      "subtitle": "Update your profile and password at any time.",
-      "name": "Name",
-      "email": "Email",
-      "newPassword": "New password",
-      "passwordKeepHint": "Leave empty to keep your current password",
-      "save": "Save",
-      "saved": "Account updated"
-    },
-    "files": {
-      "root": "Home",
-      "newFolder": "New folder",
-      "folderName": "Folder name",
-      "upload": "Upload",
-      "name": "Name",
-      "size": "Size",
-      "empty": "This folder is empty.",
-      "deleteTitle": "Delete",
-      "linkCopied": "Public link copied to clipboard"
-    },
-    "publicLink": {
-      "notFound": "This link does not exist or has expired.",
-      "password": "Password",
-      "download": "Download",
-      "hint": "This is a public link - anyone with this link can download the file."
-    }
-  },
-  "nasConnectText": {
-    "title": "Verbindingsinfo voor {name}",
-    "cardTitle": "Verbindingsinfo",
-    "cardHint": "Zo maak je met dit account verbinding met de NAS.",
-    "passwordShownOnceHint": "Het echte wachtwoord wordt hier maar één keer getoond - kopieer het nu indien nodig.",
-    "copy": "Kopiëren",
-    "copied": "Naar klembord gekopieerd",
-    "intro": "Hoi {name}, zo maak je verbinding met de NAS:",
-    "smbHeading": "Samba (Windows/macOS/Linux-netwerkschijf)",
-    "smbAddress": "Adres: {address}",
-    "smbUsername": "Gebruikersnaam: {username}",
-    "smbPassword": "Wachtwoord: {password}",
-    "ftpHost": "Host: {host}, Poort: {port}",
-    "ftpUsername": "Gebruikersnaam: {username}",
-    "ftpPassword": "Wachtwoord: {password}",
-    "webHeading": "Webbrowser",
-    "webUrl": "URL: {url}",
-    "hostPlaceholder": "(vraag het NAS-adres aan je beheerder)",
-    "passwordPlaceholder": "(wordt apart doorgegeven)"
   }
 }

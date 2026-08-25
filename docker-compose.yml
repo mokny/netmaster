@@ -28,48 +28,8 @@ services:
       # bisherige interne Default) wird von Apples Push-Dienst mit
       # "BadJwtToken" abgelehnt, siehe web-push/src/vapid-helper.js.
       VAPID_SUBJECT: ${VAPID_SUBJECT}
-      NAS_INTERNAL_SECRET: ${NAS_INTERNAL_SECRET}
-      NAS_GATEWAY_INTERNAL_URL: ${NAS_GATEWAY_INTERNAL_URL:-http://localhost:4501}
     volumes:
       - netmaster-data:/app/data
-    restart: unless-stopped
-
-  # Zentraler NAS-Zugriff (Web/FTP/SFTP/Samba) auf Freigaben, die tatsächlich
-  # auf beliebigen von NetMaster verwalteten Servern liegen. Läuft immer mit
-  # (kein Profil-Opt-in mehr) - läuft ohne konfigurierte Freigaben einfach
-  # untätig, startet aber automatisch, sobald der Admin NAS-Freigaben unter
-  # /admin/nas anlegt, statt dass zusätzlich `COMPOSE_PROFILES=nas` gesetzt
-  # werden muss.
-  netmaster-nas-gateway:
-    build: ./gateway
-    depends_on:
-      - netmaster
-    # network_mode: host aus demselben Grund wie beim Hauptcontainer (siehe
-    # oben) - Samba/FTP/SFTP müssen auf dem echten Host-Interface lauschen,
-    # nicht im isolierten Docker-Bridge-Netz.
-    network_mode: host
-    # SYS_ADMIN + /dev/fuse für SSHFS-Mounts (FUSE-Dateisysteme im Container).
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
-    environment:
-      NAS_MAIN_API_URL: ${NAS_MAIN_API_URL:-http://localhost:3000}
-      NAS_INTERNAL_SECRET: ${NAS_INTERNAL_SECRET}
-      NAS_FTP_ENABLED: ${NAS_FTP_ENABLED:-true}
-      NAS_FTP_PORT: ${NAS_FTP_PORT:-21}
-      NAS_FTPS_ENABLED: ${NAS_FTPS_ENABLED:-false}
-      NAS_FTPS_PORT: ${NAS_FTPS_PORT:-990}
-      NAS_FTP_TLS_CERT_PATH: ${NAS_FTP_TLS_CERT_PATH}
-      NAS_FTP_TLS_KEY_PATH: ${NAS_FTP_TLS_KEY_PATH}
-      NAS_FTP_PASV_URL: ${NAS_FTP_PASV_URL}
-      NAS_SFTP_PORT: ${NAS_SFTP_PORT:-2222}
-      NAS_FILES_API_PORT: ${NAS_FILES_API_PORT:-4501}
-    volumes:
-      - netmaster-nas-mounts:/mnt/nas
-      - netmaster-nas-gateway-etc:/etc/netmaster-nas
     restart: unless-stopped
 
   caddy:
@@ -91,5 +51,3 @@ volumes:
   netmaster-data:
   caddy-data:
   caddy-config:
-  netmaster-nas-mounts:
-  netmaster-nas-gateway-etc:

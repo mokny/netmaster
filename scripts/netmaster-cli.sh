@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Updater version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-UPDATER_VERSION="1.3"
+UPDATER_VERSION="1.4"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -55,28 +55,6 @@ ui_yesno() {
     read -r -p "$prompt [y/N]: " ans </dev/tty || true
     case "$ans" in j|J|y|Y|yes|Yes) return 0 ;; *) return 1 ;; esac
   fi
-}
-
-# ensure_env_secret <key> - backfills a missing/empty value for <key> in
-# .env with a freshly generated random secret, without touching any value
-# the user already has set. Used to pick up new required secrets (e.g.
-# NAS_INTERNAL_SECRET, introduced after this install was first set up)
-# on `netmaster update` without requiring a manual .env edit.
-ensure_env_secret() {
-  local key="$1" existing
-  existing=$(grep -m1 "^${key}=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"') || true
-  if [ -z "${existing:-}" ]; then
-    log "Filling in missing value for ${key} in .env..."
-    sed -i "/^${key}=/d" "$INSTALL_DIR/.env"
-    printf '%s="%s"\n' "$key" "$(openssl rand -hex 32)" >> "$INSTALL_DIR/.env"
-  fi
-}
-
-# Auto-generates NAS-related secrets if the user hasn't set any - runs on
-# every update, so existing installs (whose .env was created before the
-# NAS gateway was introduced) automatically pick them up.
-ensure_nas_env_defaults() {
-  ensure_env_secret NAS_INTERNAL_SECRET
 }
 
 current_url() {
@@ -155,8 +133,6 @@ cmd_update() {
   git fetch --depth 1 origin "$ref"
   git checkout --detach FETCH_HEAD
   git reset --hard FETCH_HEAD
-
-  ensure_nas_env_defaults
 
   log "Rebuilding and restarting containers..."
   compose up -d --build

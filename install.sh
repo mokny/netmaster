@@ -18,7 +18,7 @@ set -euo pipefail
 
 # Installer version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-INSTALLER_VERSION="1.3"
+INSTALLER_VERSION="1.4"
 
 REPO_URL="https://github.com/mokny/netmaster.git"
 REPO_SLUG="mokny/netmaster"
@@ -288,10 +288,6 @@ fi
 log "Generating .env with generated secrets..."
 MASTER_SECRET=$(openssl rand -hex 32)
 AUTH_SECRET=$(openssl rand -hex 32)
-# Secret used for mutual authentication between the main container and the
-# NAS gateway (see docker-compose.yml) - the gateway always starts, so this
-# is needed from the first run even before any NAS share exists.
-NAS_INTERNAL_SECRET=$(openssl rand -hex 32)
 
 cat > "$INSTALL_DIR/.env" <<EOF
 DATABASE_URL="file:/app/data/netmaster.db"
@@ -301,7 +297,6 @@ SEED_ADMIN_EMAIL="${ADMIN_EMAIL}"
 SEED_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
 SEED_ADMIN_NAME="${ADMIN_NAME}"
 HOST_PORT="${HOST_PORT}"
-NAS_INTERNAL_SECRET="${NAS_INTERNAL_SECRET}"
 EOF
 
 if [ -n "$DOMAIN" ]; then

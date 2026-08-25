@@ -229,50 +229,6 @@ export interface SessionDTO {
   isCurrent: boolean;
 }
 
-export interface NasUserDTO {
-  id: string;
-  email: string;
-  name: string;
-  canCreatePublicLinks: boolean;
-  mustChangePassword: boolean;
-  totpEnabled: boolean;
-  createdAt: string;
-  quotaBytes: string | null;
-  // Summe usedBytes aller Freigaben, bei denen dieser User das einzige
-  // Mitglied ist - siehe Schema-Kommentar an NasUser.quotaBytes.
-  privateUsedBytes: string;
-}
-
-export interface NasGatewaySettingsDTO {
-  publicHost: string;
-  ftpEnabled: boolean;
-  ftpPort: number;
-  ftpsEnabled: boolean;
-  ftpsPort: number;
-  sftpPort: number;
-}
-
-export interface NasShareMemberDTO {
-  nasUserId: string;
-  role: "READ_ONLY" | "READ_WRITE";
-  nasUser: { id: string; email: string; name: string };
-}
-
-export interface NasShareDTO {
-  id: string;
-  name: string;
-  serverId: string;
-  server: { id: string; name: string; hostname: string };
-  remotePath: string;
-  mountTransport: "SSHFS" | "NFS";
-  quotaBytes: string | null;
-  usedBytes: string;
-  readOnlyLocked: boolean;
-  mountActive: boolean;
-  mountError: string | null;
-  members: NasShareMemberDTO[];
-}
-
 export interface PasskeyDTO {
   id: string;
   name: string;

@@ -500,19 +500,7 @@
     "MISSING_DEVICE": "No device specified",
     "INVALID_PARTITION_RANGE": "Invalid partition range",
     "INVALID_RAID_DEVICE": "Invalid RAID device",
-    "ERROR": "An error occurred",
-    "NAME_SERVER_PATH_REQUIRED": "Name, server, and remote path are required",
-    "NAS_USER_ID_REQUIRED": "A NAS user is required",
-    "NAS_GATEWAY_NOT_CONFIGURED": "The NAS gateway is not configured on this server",
-    "EMAIL_IN_USE": "This email is already in use",
-    "PUBLIC_LINKS_NOT_ALLOWED": "You are not allowed to create public links",
-    "SHARE_QUOTA_EXCEEDED": "This share has exceeded its quota and is read-only",
-    "LINK_NOT_FOUND": "This link does not exist or has expired",
-    "PASSWORD_REQUIRED": "A password is required for this link",
-    "REMOTE_PATH_CHECK_FAILED": "The target path on the server could not be created or is not writable.",
-    "INVALID_NAS_PORT": "Invalid port (1-65535).",
-    "FILE_OPERATION_FAILED": "File operation failed",
-    "UNKNOWN_OPERATION": "Unknown operation"
+    "ERROR": "An error occurred"
   },
   "network": {
     "title": "Network Topology",
@@ -1326,8 +1314,7 @@
       "users": "Users",
       "settings": "Settings",
       "debug": "Debug",
-      "storage": "Storage",
-      "nas": "NAS"
+      "storage": "Storage"
     },
     "expandNav": "Expand navigation",
     "collapseNav": "Collapse navigation",
@@ -1495,87 +1482,6 @@
     }
   },
   "admin": {
-    "nas": {
-      "title": "NAS",
-      "subtitle": "Manage NAS users and their shares, centrally accessible via web, FTP, SFTP and Samba regardless of which server the files live on.",
-      "usersHeading": "NAS users",
-      "sharesHeading": "Shares",
-      "name": "Name",
-      "email": "Email",
-      "server": "Server",
-      "usage": "Usage",
-      "mount": "Mount",
-      "publicLinks": "Public links",
-      "allowed": "allowed",
-      "blocked": "blocked",
-      "mountActive": "active",
-      "mountFailed": "failed",
-      "mountPending": "pending",
-      "quotaExceeded": "quota exceeded",
-      "quotaUnlimited": "unlimited",
-      "noStorageServers": "No server has storage management enabled yet - enable it on a server first to use it as a NAS target.",
-      "deleteUserTitle": "Delete NAS user",
-      "deleteUserDescription": "Really delete this NAS user? Their access to all shares is removed immediately.",
-      "deleteShareTitle": "Delete share",
-      "deleteShareDescription": "Really delete this share? This does not delete the files on the target server, only the NAS access to it.",
-      "delete": "Delete",
-      "userDeleted": "NAS user deleted",
-      "shareDeleted": "Share deleted",
-      "quota": "Quota",
-      "connectText": "Connection info",
-      "settingsHeading": "NAS access address",
-      "settingsHint": "Host/IP the FTP/FTPS/SFTP/Samba services are reachable at from outside - used to build the connection text below.",
-      "publicHost": "Public host or IP",
-      "settingsSaved": "Settings saved",
-      "save": "Save"
-    },
-    "nasUserForm": {
-      "createUser": "New NAS user",
-      "createTitle": "Create NAS user",
-      "editTitle": "Edit NAS user",
-      "name": "Name",
-      "email": "Email",
-      "password": "Password",
-      "passwordKeepHint": "(leave empty to keep)",
-      "canCreatePublicLinks": "Allowed to create public share links",
-      "save": "Save",
-      "created": "NAS user created",
-      "updated": "NAS user updated",
-      "quotaGb": "Quota (GB)",
-      "quotaUnlimited": "unlimited",
-      "quotaHint": "Only applies to shares where this user is the sole member - shared shares are not counted."
-    },
-    "nasShareForm": {
-      "createShare": "New share",
-      "createTitle": "Create share",
-      "name": "Name",
-      "server": "Target server",
-      "serverHint": "Only servers with storage management enabled are shown.",
-      "remotePath": "Remote path",
-      "browse": "Browse folders",
-      "browserTitle": "Choose folder",
-      "browserNotFound": "This folder does not exist on the server.",
-      "browserEmpty": "This folder has no subfolders.",
-      "browserCancel": "Cancel",
-      "browserSelectHere": "Select this folder",
-      "quotaGb": "Quota (GB)",
-      "quotaUnlimited": "unlimited",
-      "save": "Save",
-      "created": "Share created",
-      "editTitle": "Edit share",
-      "updated": "Share updated",
-      "sshfsHint": "Uses SSHFS - only needs normal SSH access on the target server, which NetMaster already uses for monitoring."
-    },
-    "nasShareMembers": {
-      "title": "Members of \"{share}\"",
-      "noMembers": "No NAS user has access to this share yet.",
-      "addUserPlaceholder": "Select NAS user",
-      "add": "Add",
-      "role": {
-        "READ_ONLY": "Read only",
-        "READ_WRITE": "Read/write"
-      }
-    },
     "users": {
       "deleteTitle": "Delete user",
       "deleteDescription": "Really delete this user?",
@@ -1816,95 +1722,5 @@
       "shareRemoved": "Share removed",
       "shareRemoveFailed": "Failed to remove share"
     }
-  },
-  "nas": {
-    "auth": {
-      "title": "NAS",
-      "tagline": "Access your files centrally, no matter which server they live on.",
-      "email": "Email",
-      "password": "Password",
-      "login": "Log in",
-      "confirmationCode": "Confirmation code",
-      "confirm": "Confirm",
-      "back": "Back",
-      "connectionFailed": "Connection failed"
-    },
-    "forcePasswordChange": {
-      "title": "Set a new password",
-      "description": "Please choose a new password before continuing.",
-      "newPassword": "New password",
-      "confirmPassword": "Confirm password",
-      "passwordTooShort": "Password must be at least 8 characters",
-      "passwordMismatch": "Passwords do not match",
-      "setPassword": "Set password",
-      "connectionFailed": "Connection failed"
-    },
-    "shell": {
-      "title": "NAS",
-      "logout": "Log out",
-      "nav": {
-        "dashboard": "Dashboard",
-        "account": "Account"
-      }
-    },
-    "dashboard": {
-      "title": "Your shares",
-      "subtitle": "Files you have access to, regardless of which server they are stored on.",
-      "noShares": "You don't have access to any share yet. Ask an administrator.",
-      "unlimited": "unlimited",
-      "quotaExceeded": "quota exceeded",
-      "mountUnavailable": "temporarily unavailable",
-      "role": {
-        "READ_ONLY": "Read only",
-        "READ_WRITE": "Read/write"
-      }
-    },
-    "account": {
-      "title": "Account",
-      "subtitle": "Update your profile and password at any time.",
-      "name": "Name",
-      "email": "Email",
-      "newPassword": "New password",
-      "passwordKeepHint": "Leave empty to keep your current password",
-      "save": "Save",
-      "saved": "Account updated"
-    },
-    "files": {
-      "root": "Home",
-      "newFolder": "New folder",
-      "folderName": "Folder name",
-      "upload": "Upload",
-      "name": "Name",
-      "size": "Size",
-      "empty": "This folder is empty.",
-      "deleteTitle": "Delete",
-      "linkCopied": "Public link copied to clipboard"
-    },
-    "publicLink": {
-      "notFound": "This link does not exist or has expired.",
-      "password": "Password",
-      "download": "Download",
-      "hint": "This is a public link - anyone with this link can download the file."
-    }
-  },
-  "nasConnectText": {
-    "title": "Connection info for {name}",
-    "cardTitle": "Connection info",
-    "cardHint": "How to connect to the NAS with this account.",
-    "passwordShownOnceHint": "This is the only time the real password is shown here - copy it now if needed.",
-    "copy": "Copy",
-    "copied": "Copied to clipboard",
-    "intro": "Hi {name}, here is how you can connect to the NAS:",
-    "smbHeading": "Samba (Windows/macOS/Linux network drive)",
-    "smbAddress": "Address: {address}",
-    "smbUsername": "Username: {username}",
-    "smbPassword": "Password: {password}",
-    "ftpHost": "Host: {host}, Port: {port}",
-    "ftpUsername": "Username: {username}",
-    "ftpPassword": "Password: {password}",
-    "webHeading": "Web browser",
-    "webUrl": "URL: {url}",
-    "hostPlaceholder": "(ask your admin for the NAS address)",
-    "passwordPlaceholder": "(tell the user separately)"
   }
 }

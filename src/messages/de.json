@@ -500,19 +500,7 @@
     "MISSING_DEVICE": "Kein Gerät angegeben",
     "INVALID_PARTITION_RANGE": "Ungültiger Partitionsbereich",
     "INVALID_RAID_DEVICE": "Ungültiges RAID-Gerät",
-    "ERROR": "Ein Fehler ist aufgetreten",
-    "NAME_SERVER_PATH_REQUIRED": "Name, Server und Remote-Pfad sind erforderlich",
-    "NAS_USER_ID_REQUIRED": "Ein NAS-User ist erforderlich",
-    "NAS_GATEWAY_NOT_CONFIGURED": "Das NAS-Gateway ist auf diesem Server nicht konfiguriert",
-    "EMAIL_IN_USE": "Diese E-Mail wird bereits verwendet",
-    "PUBLIC_LINKS_NOT_ALLOWED": "Du darfst keine öffentlichen Links erstellen",
-    "SHARE_QUOTA_EXCEEDED": "Diese Freigabe hat ihr Quota überschritten und ist schreibgeschützt",
-    "LINK_NOT_FOUND": "Dieser Link existiert nicht oder ist abgelaufen",
-    "PASSWORD_REQUIRED": "Für diesen Link ist ein Passwort erforderlich",
-    "REMOTE_PATH_CHECK_FAILED": "Der Zielpfad auf dem Server konnte nicht angelegt werden oder ist nicht beschreibbar.",
-    "INVALID_NAS_PORT": "Ungültiger Port (1-65535).",
-    "FILE_OPERATION_FAILED": "Dateioperation fehlgeschlagen",
-    "UNKNOWN_OPERATION": "Unbekannte Operation"
+    "ERROR": "Ein Fehler ist aufgetreten"
   },
   "network": {
     "title": "Netzwerktopologie",
@@ -1326,8 +1314,7 @@
       "users": "Benutzer",
       "settings": "Settings",
       "debug": "Debug",
-      "storage": "Storage",
-      "nas": "NAS"
+      "storage": "Storage"
     },
     "expandNav": "Navigation ausklappen",
     "collapseNav": "Navigation einklappen",
@@ -1568,87 +1555,6 @@
       "advancedPollingDescription": "Global live-polling for all Proxmox/Docker servers, admin-only (toggle in the top navbar). Automatically turns off once no browser tab is open.",
       "advancedPollingIntervalLabel": "Advanced polling interval (seconds)",
       "advancedPollingIntervalDescription": "How often all servers are polled while advanced polling is active."
-    },
-    "nas": {
-      "title": "NAS",
-      "subtitle": "NAS-User und ihre Freigaben verwalten - zentral per Web, FTP, SFTP und Samba erreichbar, unabhängig davon, auf welchem Server die Dateien liegen.",
-      "usersHeading": "NAS-User",
-      "sharesHeading": "Freigaben",
-      "name": "Name",
-      "email": "E-Mail",
-      "server": "Server",
-      "usage": "Nutzung",
-      "mount": "Mount",
-      "publicLinks": "Öffentliche Links",
-      "allowed": "erlaubt",
-      "blocked": "gesperrt",
-      "mountActive": "aktiv",
-      "mountFailed": "fehlgeschlagen",
-      "mountPending": "ausstehend",
-      "quotaExceeded": "Quota überschritten",
-      "quotaUnlimited": "unbegrenzt",
-      "noStorageServers": "Noch kein Server hat Storage-Verwaltung aktiviert - aktiviere sie zuerst auf einem Server, um ihn als NAS-Ziel zu nutzen.",
-      "deleteUserTitle": "NAS-User löschen",
-      "deleteUserDescription": "Diesen NAS-User wirklich löschen? Der Zugriff auf alle Freigaben wird sofort entfernt.",
-      "deleteShareTitle": "Freigabe löschen",
-      "deleteShareDescription": "Diese Freigabe wirklich löschen? Die Dateien auf dem Zielserver werden dadurch nicht gelöscht, nur der NAS-Zugriff darauf.",
-      "delete": "Löschen",
-      "userDeleted": "NAS-User gelöscht",
-      "shareDeleted": "Freigabe gelöscht",
-      "quota": "Kontingent",
-      "connectText": "Verbindungsinfo",
-      "settingsHeading": "NAS-Zugangsadresse",
-      "settingsHint": "Host/IP, unter der FTP/FTPS/SFTP/Samba von außen erreichbar sind - wird für den Verbindungstext unten verwendet.",
-      "publicHost": "Öffentlicher Host oder IP",
-      "settingsSaved": "Einstellungen gespeichert",
-      "save": "Speichern"
-    },
-    "nasUserForm": {
-      "createUser": "Neuer NAS-User",
-      "createTitle": "NAS-User anlegen",
-      "editTitle": "NAS-User bearbeiten",
-      "name": "Name",
-      "email": "E-Mail",
-      "password": "Passwort",
-      "passwordKeepHint": "(leer lassen zum Beibehalten)",
-      "canCreatePublicLinks": "Darf öffentliche Freigabe-Links erstellen",
-      "save": "Speichern",
-      "created": "NAS-User angelegt",
-      "updated": "NAS-User aktualisiert",
-      "quotaGb": "Kontingent (GB)",
-      "quotaUnlimited": "unbegrenzt",
-      "quotaHint": "Gilt nur für Freigaben, bei denen dieser User das einzige Mitglied ist - geteilte Freigaben zählen nicht mit."
-    },
-    "nasShareForm": {
-      "createShare": "Neue Freigabe",
-      "createTitle": "Freigabe anlegen",
-      "name": "Name",
-      "server": "Zielserver",
-      "serverHint": "Nur Server mit aktivierter Storage-Verwaltung werden angezeigt.",
-      "remotePath": "Remote-Pfad",
-      "browse": "Ordner durchsuchen",
-      "browserTitle": "Ordner auswählen",
-      "browserNotFound": "Dieser Ordner existiert nicht auf dem Server.",
-      "browserEmpty": "Dieser Ordner enthält keine Unterordner.",
-      "browserCancel": "Abbrechen",
-      "browserSelectHere": "Diesen Ordner auswählen",
-      "quotaGb": "Quota (GB)",
-      "quotaUnlimited": "unbegrenzt",
-      "save": "Speichern",
-      "created": "Freigabe angelegt",
-      "editTitle": "Freigabe bearbeiten",
-      "updated": "Freigabe aktualisiert",
-      "sshfsHint": "Nutzt SSHFS - braucht auf dem Zielserver nur normalen SSH-Zugriff, den NetMaster für dessen Monitoring ohnehin schon nutzt."
-    },
-    "nasShareMembers": {
-      "title": "Mitglieder von \"{share}\"",
-      "noMembers": "Noch kein NAS-User hat Zugriff auf diese Freigabe.",
-      "addUserPlaceholder": "NAS-User auswählen",
-      "add": "Hinzufügen",
-      "role": {
-        "READ_ONLY": "Nur lesen",
-        "READ_WRITE": "Lesen/Schreiben"
-      }
     }
   },
   "status": {
@@ -1816,95 +1722,5 @@
       "shareRemoved": "Freigabe entfernt",
       "shareRemoveFailed": "Freigabe konnte nicht entfernt werden"
     }
-  },
-  "nas": {
-    "auth": {
-      "title": "NAS",
-      "tagline": "Zentraler Zugriff auf deine Dateien, unabhängig davon, auf welchem Server sie liegen.",
-      "email": "E-Mail",
-      "password": "Passwort",
-      "login": "Anmelden",
-      "confirmationCode": "Bestätigungscode",
-      "confirm": "Bestätigen",
-      "back": "Zurück",
-      "connectionFailed": "Verbindung fehlgeschlagen"
-    },
-    "forcePasswordChange": {
-      "title": "Neues Passwort festlegen",
-      "description": "Bitte lege ein neues Passwort fest, bevor du fortfährst.",
-      "newPassword": "Neues Passwort",
-      "confirmPassword": "Passwort bestätigen",
-      "passwordTooShort": "Passwort muss mindestens 8 Zeichen lang sein",
-      "passwordMismatch": "Passwörter stimmen nicht überein",
-      "setPassword": "Passwort setzen",
-      "connectionFailed": "Verbindung fehlgeschlagen"
-    },
-    "shell": {
-      "title": "NAS",
-      "logout": "Abmelden",
-      "nav": {
-        "dashboard": "Übersicht",
-        "account": "Konto"
-      }
-    },
-    "dashboard": {
-      "title": "Deine Freigaben",
-      "subtitle": "Dateien, auf die du Zugriff hast, unabhängig davon, auf welchem Server sie liegen.",
-      "noShares": "Du hast noch keinen Zugriff auf eine Freigabe. Wende dich an einen Administrator.",
-      "unlimited": "unbegrenzt",
-      "quotaExceeded": "Quota überschritten",
-      "mountUnavailable": "vorübergehend nicht verfügbar",
-      "role": {
-        "READ_ONLY": "Nur lesen",
-        "READ_WRITE": "Lesen/Schreiben"
-      }
-    },
-    "account": {
-      "title": "Konto",
-      "subtitle": "Aktualisiere dein Profil und Passwort jederzeit selbst.",
-      "name": "Name",
-      "email": "E-Mail",
-      "newPassword": "Neues Passwort",
-      "passwordKeepHint": "Leer lassen, um das aktuelle Passwort zu behalten",
-      "save": "Speichern",
-      "saved": "Konto aktualisiert"
-    },
-    "files": {
-      "root": "Start",
-      "newFolder": "Neuer Ordner",
-      "folderName": "Ordnername",
-      "upload": "Hochladen",
-      "name": "Name",
-      "size": "Größe",
-      "empty": "Dieser Ordner ist leer.",
-      "deleteTitle": "Löschen",
-      "linkCopied": "Öffentlicher Link in die Zwischenablage kopiert"
-    },
-    "publicLink": {
-      "notFound": "Dieser Link existiert nicht oder ist abgelaufen.",
-      "password": "Passwort",
-      "download": "Herunterladen",
-      "hint": "Dies ist ein öffentlicher Link - jeder mit diesem Link kann die Datei herunterladen."
-    }
-  },
-  "nasConnectText": {
-    "title": "Verbindungsinfo für {name}",
-    "cardTitle": "Verbindungsinfo",
-    "cardHint": "So verbindest du dich mit diesem Account zum NAS.",
-    "passwordShownOnceHint": "Das echte Passwort wird hier nur dieses eine Mal angezeigt - jetzt kopieren, falls benötigt.",
-    "copy": "Kopieren",
-    "copied": "In die Zwischenablage kopiert",
-    "intro": "Hallo {name}, so verbindest du dich mit dem NAS:",
-    "smbHeading": "Samba (Windows/macOS/Linux-Netzlaufwerk)",
-    "smbAddress": "Adresse: {address}",
-    "smbUsername": "Benutzername: {username}",
-    "smbPassword": "Passwort: {password}",
-    "ftpHost": "Host: {host}, Port: {port}",
-    "ftpUsername": "Benutzername: {username}",
-    "ftpPassword": "Passwort: {password}",
-    "webHeading": "Webbrowser",
-    "webUrl": "URL: {url}",
-    "hostPlaceholder": "(NAS-Adresse beim Admin erfragen)",
-    "passwordPlaceholder": "(wird separat mitgeteilt)"
   }
 }
