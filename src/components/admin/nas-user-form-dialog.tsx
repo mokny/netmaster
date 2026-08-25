@@ -17,6 +17,14 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
 import type { NasUserDTO } from "@/lib/types";
+import { NasConnectTextDialog } from "./nas-connect-text-dialog";
+
+function bytesToGb(value: string | null): string {
+  if (!value) return "";
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  return String(bytes / (1024 * 1024 * 1024));
+}
 
 export function NasUserFormDialog({
   nasUser,
@@ -37,7 +45,14 @@ export function NasUserFormDialog({
     name: nasUser?.name ?? "",
     password: "",
     canCreatePublicLinks: nasUser?.canCreatePublicLinks ?? true,
+    quotaGb: bytesToGb(nasUser?.quotaBytes ?? null),
   });
+  // Nach erfolgreichem Setzen eines Passworts kurz gezeigt, damit der Admin
+  // den echten Verbindungstext (inkl. Passwort) einmalig kopieren kann -
+  // danach ist das Klartext-Passwort nirgends mehr abrufbar.
+  const [revealPassword, setRevealPassword] = useState<{ email: string; name: string; password: string } | null>(
+    null
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +63,10 @@ export function NasUserFormDialog({
         {
           method: isEdit ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            ...form,
+            quotaBytes: form.quotaGb ? Number(form.quotaGb) * 1024 * 1024 * 1024 : null,
+          }),
         }
       );
       const data = await res.json();
@@ -58,6 +76,9 @@ export function NasUserFormDialog({
       }
       toast.success(isEdit ? t("updated") : t("created"));
       setOpen(false);
+      if (form.password) {
+        setRevealPassword({ email: form.email, name: form.name, password: form.password });
+      }
       onSaved();
     } finally {
       setLoading(false);
@@ -116,6 +137,17 @@ export function NasUserFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
             />
           </div>
+          <div className="space-y-2">
+            <Label>{t("quotaGb")}</Label>
+            <Input
+              type="number"
+              min={0}
+              placeholder={t("quotaUnlimited")}
+              value={form.quotaGb}
+              onChange={(e) => setForm((f) => ({ ...f, quotaGb: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">{t("quotaHint")}</p>
+          </div>
           <div className="flex items-center justify-between rounded-md border p-3">
             <Label className="font-normal">{t("canCreatePublicLinks")}</Label>
             <Switch
@@ -131,6 +163,16 @@ export function NasUserFormDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      {revealPassword && (
+        <NasConnectTextDialog
+          open={Boolean(revealPassword)}
+          onOpenChange={(v) => {
+            if (!v) setRevealPassword(null);
+          }}
+          nasUser={revealPassword}
+          password={revealPassword.password}
+        />
+      )}
     </Dialog>
   );
 }

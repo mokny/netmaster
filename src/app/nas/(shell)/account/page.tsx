@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { NasConnectionInfoCard } from "@/components/nas/nas-connection-info-card";
 
 export default function NasAccountPage() {
   const t = useTranslations("nas.account");
@@ -15,6 +16,9 @@ export default function NasAccountPage() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({ name: "", email: "" });
   const [password, setPassword] = useState("");
+  // Nach einer erfolgreichen Passwortänderung kurz gezeigt, damit der User
+  // seinen Verbindungstext einmalig mit dem echten Passwort kopieren kann.
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/nas/auth/me")
@@ -41,6 +45,7 @@ export default function NasAccountPage() {
         return;
       }
       toast.success(t("saved"));
+      if (password) setRevealedPassword(password);
       setPassword("");
     } finally {
       setLoading(false);
@@ -89,6 +94,13 @@ export default function NasAccountPage() {
           </Button>
         </form>
       </Card>
+
+      {profile.email && (
+        <NasConnectionInfoCard
+          nasUser={profile}
+          password={revealedPassword ?? undefined}
+        />
+      )}
     </div>
   );
 }

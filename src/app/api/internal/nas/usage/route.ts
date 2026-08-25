@@ -18,32 +18,60 @@ export async function POST(req: Request) {
   }
   const usedBytes = BigInt(usedBytesRaw);
 
-  const share = await prisma.nasShare.findUnique({ where: { id: shareId } });
+  const share = await prisma.nasShare.findUnique({
+    where: { id: shareId },
+    include: { members: true },
+  });
   if (!share) {
     return NextResponse.json({ error: "SHARE_NOT_FOUND" }, { status: 404 });
   }
 
-  const overQuota = share.quotaBytes != null && usedBytes > share.quotaBytes;
+  const overShareQuota = share.quotaBytes != null && usedBytes > share.quotaBytes;
   const wasLocked = share.readOnlyLocked;
+
+  // Private Freigabe (genau ein Mitglied): zusätzlich gegen die Quota des
+  // Users prüfen, siehe Schema-Kommentar an NasUser.quotaBytes. Nur Sperren,
+  // nie automatisch entsperren (gleiche No-Flapping-Regel wie bei der
+  // Share-Quota oben).
+  let overUserQuota = false;
+  const soleMember = share.members.length === 1 ? share.members[0] : null;
+  if (soleMember) {
+    const owner = await prisma.nasUser.findUnique({ where: { id: soleMember.nasUserId } });
+    if (owner?.quotaBytes != null) {
+      const otherPrivateShares = await prisma.nasShare.findMany({
+        where: { id: { not: shareId }, members: { every: { nasUserId: owner.id } }, NOT: { members: { none: {} } } },
+        include: { _count: { select: { members: true } } },
+      });
+      const otherPrivateUsage = otherPrivateShares
+        .filter((s) => s._count.members === 1)
+        .reduce((sum, s) => sum + s.usedBytes, BigInt(0));
+      overUserQuota = usedBytes + otherPrivateUsage > owner.quotaBytes;
+    }
+  }
+
+  const readOnlyLocked = overShareQuota || overUserQuota;
 
   await prisma.nasShare.update({
     where: { id: shareId },
     data: {
       usedBytes,
       lastUsageCheckAt: new Date(),
-      readOnlyLocked: overQuota,
+      readOnlyLocked,
     },
   });
 
-  if (overQuota && !wasLocked) {
+  if (readOnlyLocked && !wasLocked) {
+    const reason = overShareQuota
+      ? `Freigabe "${share.name}" hat das Quota überschritten (${usedBytes} > ${share.quotaBytes} Bytes).`
+      : `Freigabe "${share.name}" hat die persönliche Quota des Users überschritten.`;
     await prisma.nasAuditLog.create({
       data: {
         nasUserEmail: "",
         action: "QUOTA_EXCEEDED",
-        detail: `Freigabe "${share.name}" hat das Quota überschritten (${usedBytes} > ${share.quotaBytes} Bytes).`,
+        detail: reason,
       },
     });
   }
 
-  return NextResponse.json({ ok: true, readOnlyLocked: overQuota });
+  return NextResponse.json({ ok: true, readOnlyLocked });
 }

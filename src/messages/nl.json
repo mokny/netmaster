@@ -508,7 +508,9 @@
     "PUBLIC_LINKS_NOT_ALLOWED": "You are not allowed to create public links",
     "SHARE_QUOTA_EXCEEDED": "This share has exceeded its quota and is read-only",
     "LINK_NOT_FOUND": "This link does not exist or has expired",
-    "PASSWORD_REQUIRED": "A password is required for this link"
+    "PASSWORD_REQUIRED": "A password is required for this link",
+    "REMOTE_PATH_CHECK_FAILED": "Het doelpad op de server kon niet worden aangemaakt of is niet beschrijfbaar.",
+    "INVALID_NAS_PORT": "Ongeldige poort (1-65535)."
   },
   "network": {
     "title": "Netwerktopologie",
@@ -1590,7 +1592,14 @@
       "deleteShareDescription": "Really delete this share? This does not delete the files on the target server, only the NAS access to it.",
       "delete": "Delete",
       "userDeleted": "NAS user deleted",
-      "shareDeleted": "Share deleted"
+      "shareDeleted": "Share deleted",
+      "quota": "Quotum",
+      "connectText": "Verbindingsinfo",
+      "settingsHeading": "NAS-toegangsadres",
+      "settingsHint": "Host/IP waarop FTP/FTPS/SFTP/Samba van buitenaf bereikbaar zijn - wordt gebruikt voor de verbindingstekst hieronder.",
+      "publicHost": "Openbare host of IP",
+      "settingsSaved": "Instellingen opgeslagen",
+      "save": "Opslaan"
     },
     "nasUserForm": {
       "createUser": "New NAS user",
@@ -1603,7 +1612,10 @@
       "canCreatePublicLinks": "Allowed to create public share links",
       "save": "Save",
       "created": "NAS user created",
-      "updated": "NAS user updated"
+      "updated": "NAS user updated",
+      "quotaGb": "Quotum (GB)",
+      "quotaUnlimited": "onbeperkt",
+      "quotaHint": "Geldt alleen voor shares waarbij deze gebruiker het enige lid is - gedeelde shares tellen niet mee."
     },
     "nasShareForm": {
       "createShare": "New share",
@@ -1618,11 +1630,13 @@
       "browserEmpty": "This folder has no subfolders.",
       "browserCancel": "Cancel",
       "browserSelectHere": "Select this folder",
-      "mountTransport": "Mount transport",
       "quotaGb": "Quota (GB)",
       "quotaUnlimited": "unlimited",
       "save": "Save",
-      "created": "Share created"
+      "created": "Share created",
+      "editTitle": "Share bewerken",
+      "updated": "Share bijgewerkt",
+      "sshfsHint": "Gebruikt SSHFS - vereist alleen normale SSH-toegang op de doelserver, die NetMaster al gebruikt voor de monitoring ervan."
     },
     "nasShareMembers": {
       "title": "Members of \"{share}\"",
@@ -1870,5 +1884,25 @@
       "download": "Download",
       "hint": "This is a public link - anyone with this link can download the file."
     }
+  },
+  "nasConnectText": {
+    "title": "Verbindingsinfo voor {name}",
+    "cardTitle": "Verbindingsinfo",
+    "cardHint": "Zo maak je met dit account verbinding met de NAS.",
+    "passwordShownOnceHint": "Het echte wachtwoord wordt hier maar één keer getoond - kopieer het nu indien nodig.",
+    "copy": "Kopiëren",
+    "copied": "Naar klembord gekopieerd",
+    "intro": "Hoi {name}, zo maak je verbinding met de NAS:",
+    "smbHeading": "Samba (Windows/macOS/Linux-netwerkschijf)",
+    "smbAddress": "Adres: {address}",
+    "smbUsername": "Gebruikersnaam: {username}",
+    "smbPassword": "Wachtwoord: {password}",
+    "ftpHost": "Host: {host}, Poort: {port}",
+    "ftpUsername": "Gebruikersnaam: {username}",
+    "ftpPassword": "Wachtwoord: {password}",
+    "webHeading": "Webbrowser",
+    "webUrl": "URL: {url}",
+    "hostPlaceholder": "<vraag het NAS-adres aan je beheerder>",
+    "passwordPlaceholder": "<wordt apart doorgegeven>"
   }
 }

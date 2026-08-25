@@ -22,52 +22,69 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FolderSearch, Loader2, Plus } from "lucide-react";
-import type { ServerDTO } from "@/lib/types";
+import type { NasShareDTO, ServerDTO } from "@/lib/types";
 import { NasFolderBrowserDialog } from "./nas-folder-browser-dialog";
+
+function bytesToGb(value: string | null): string {
+  if (!value) return "";
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  return String(bytes / (1024 * 1024 * 1024));
+}
 
 export function NasShareFormDialog({
   servers,
+  share,
   onSaved,
+  trigger,
 }: {
   servers: Pick<ServerDTO, "id" | "name" | "hostname">[];
+  share?: NasShareDTO;
   onSaved: () => void;
+  trigger?: React.ReactElement;
 }) {
+  const isEdit = Boolean(share);
   const t = useTranslations("admin.nasShareForm");
   const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
   const [form, setForm] = useState({
-    name: "",
-    serverId: servers[0]?.id ?? "",
-    remotePath: "",
-    mountTransport: "SSHFS" as "SSHFS" | "NFS",
-    quotaGb: "",
+    name: share?.name ?? "",
+    serverId: share?.serverId ?? servers[0]?.id ?? "",
+    remotePath: share?.remotePath ?? "",
+    quotaGb: bytesToGb(share?.quotaBytes ?? null),
   });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/nas/shares", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          serverId: form.serverId,
-          remotePath: form.remotePath,
-          mountTransport: form.mountTransport,
-          quotaBytes: form.quotaGb ? Number(form.quotaGb) * 1024 * 1024 * 1024 : null,
-        }),
-      });
+      const res = await fetch(
+        isEdit ? `/api/admin/nas/shares/${share!.id}` : "/api/admin/nas/shares",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name,
+            serverId: form.serverId,
+            remotePath: form.remotePath,
+            mountTransport: "SSHFS",
+            quotaBytes: form.quotaGb ? Number(form.quotaGb) * 1024 * 1024 * 1024 : null,
+          }),
+        }
+      );
       const data = await res.json();
       if (!res.ok) {
-        toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
+        const message = tErrors(data.error ?? "INTERNAL_ERROR");
+        toast.error(data.detail ? `${message}: ${data.detail}` : message);
         return;
       }
-      toast.success(t("created"));
+      toast.success(isEdit ? t("updated") : t("created"));
       setOpen(false);
-      setForm({ name: "", serverId: servers[0]?.id ?? "", remotePath: "", mountTransport: "SSHFS", quotaGb: "" });
+      if (!isEdit) {
+        setForm({ name: "", serverId: servers[0]?.id ?? "", remotePath: "", quotaGb: "" });
+      }
       onSaved();
     } finally {
       setLoading(false);
@@ -78,15 +95,17 @@ export function NasShareFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm" disabled={servers.length === 0}>
-            <Plus className="size-4" />
-            {t("createShare")}
-          </Button>
+          trigger ?? (
+            <Button size="sm" disabled={servers.length === 0}>
+              <Plus className="size-4" />
+              {t("createShare")}
+            </Button>
+          )
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("createTitle")}</DialogTitle>
+          <DialogTitle>{isEdit ? t("editTitle") : t("createTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
@@ -102,6 +121,7 @@ export function NasShareFormDialog({
             <Select
               value={form.serverId}
               onValueChange={(v) => setForm((f) => ({ ...f, serverId: v ?? "" }))}
+              disabled={isEdit}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -121,36 +141,25 @@ export function NasShareFormDialog({
             <div className="flex gap-2">
               <Input
                 required
+                disabled={isEdit}
                 placeholder="/srv/nas/team-fotos"
                 value={form.remotePath}
                 onChange={(e) => setForm((f) => ({ ...f, remotePath: e.target.value }))}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={!form.serverId}
-                title={t("browse")}
-                onClick={() => setBrowserOpen(true)}
-              >
-                <FolderSearch className="size-4" />
-              </Button>
+              {!isEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!form.serverId}
+                  title={t("browse")}
+                  onClick={() => setBrowserOpen(true)}
+                >
+                  <FolderSearch className="size-4" />
+                </Button>
+              )}
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>{t("mountTransport")}</Label>
-            <Select
-              value={form.mountTransport}
-              onValueChange={(v) => setForm((f) => ({ ...f, mountTransport: v as "SSHFS" | "NFS" }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SSHFS">SSHFS</SelectItem>
-                <SelectItem value="NFS">NFS</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isEdit && <p className="text-xs text-muted-foreground">{t("sshfsHint")}</p>}
           </div>
           <div className="space-y-2">
             <Label>{t("quotaGb")}</Label>

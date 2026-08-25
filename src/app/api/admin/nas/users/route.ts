@@ -12,7 +12,28 @@ const SELECT = {
   mustChangePassword: true,
   totpEnabled: true,
   createdAt: true,
+  quotaBytes: true,
+  memberships: {
+    select: {
+      share: {
+        select: { usedBytes: true, _count: { select: { members: true } } },
+      },
+    },
+  },
 } as const;
+
+// Nutzung für die User-Quota = Summe usedBytes aller Freigaben, bei denen
+// dieser User das einzige Mitglied ist (siehe Schema-Kommentar an
+// NasUser.quotaBytes).
+function withPrivateUsedBytes<T extends { memberships: { share: { usedBytes: bigint; _count: { members: number } } }[]; quotaBytes: bigint | null }>(
+  user: T
+) {
+  const { memberships, quotaBytes, ...rest } = user;
+  const privateUsedBytes = memberships
+    .filter((m) => m.share._count.members === 1)
+    .reduce((sum, m) => sum + m.share.usedBytes, BigInt(0));
+  return { ...rest, quotaBytes: quotaBytes?.toString() ?? null, privateUsedBytes: privateUsedBytes.toString() };
+}
 
 export async function GET() {
   try {
@@ -21,7 +42,7 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
       select: SELECT,
     });
-    return NextResponse.json({ nasUsers });
+    return NextResponse.json({ nasUsers: nasUsers.map(withPrivateUsedBytes) });
   } catch (err) {
     return handleApiError(err);
   }
@@ -35,6 +56,10 @@ export async function POST(req: Request) {
     const name = String(body.name ?? "").trim();
     const password = String(body.password ?? "");
     const canCreatePublicLinks = body.canCreatePublicLinks !== false;
+    const quotaBytes =
+      typeof body.quotaBytes === "number" && body.quotaBytes > 0
+        ? BigInt(Math.floor(body.quotaBytes))
+        : null;
 
     if (!email || !name || password.length < 8) {
       return NextResponse.json(
@@ -53,6 +78,7 @@ export async function POST(req: Request) {
         email,
         name,
         canCreatePublicLinks,
+        quotaBytes,
         passwordHash: await hashNasPassword(password),
         mustChangePassword: true,
       },
@@ -60,7 +86,7 @@ export async function POST(req: Request) {
     });
     await pushNasPasswordToGateway(nasUser.email, password);
 
-    return NextResponse.json({ nasUser }, { status: 201 });
+    return NextResponse.json({ nasUser: withPrivateUsedBytes(nasUser) }, { status: 201 });
   } catch (err) {
     return handleApiError(err);
   }

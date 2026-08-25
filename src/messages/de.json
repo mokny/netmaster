@@ -508,7 +508,9 @@
     "PUBLIC_LINKS_NOT_ALLOWED": "Du darfst keine öffentlichen Links erstellen",
     "SHARE_QUOTA_EXCEEDED": "Diese Freigabe hat ihr Quota überschritten und ist schreibgeschützt",
     "LINK_NOT_FOUND": "Dieser Link existiert nicht oder ist abgelaufen",
-    "PASSWORD_REQUIRED": "Für diesen Link ist ein Passwort erforderlich"
+    "PASSWORD_REQUIRED": "Für diesen Link ist ein Passwort erforderlich",
+    "REMOTE_PATH_CHECK_FAILED": "Der Zielpfad auf dem Server konnte nicht angelegt werden oder ist nicht beschreibbar.",
+    "INVALID_NAS_PORT": "Ungültiger Port (1-65535)."
   },
   "network": {
     "title": "Netzwerktopologie",
@@ -1590,7 +1592,14 @@
       "deleteShareDescription": "Diese Freigabe wirklich löschen? Die Dateien auf dem Zielserver werden dadurch nicht gelöscht, nur der NAS-Zugriff darauf.",
       "delete": "Löschen",
       "userDeleted": "NAS-User gelöscht",
-      "shareDeleted": "Freigabe gelöscht"
+      "shareDeleted": "Freigabe gelöscht",
+      "quota": "Kontingent",
+      "connectText": "Verbindungsinfo",
+      "settingsHeading": "NAS-Zugangsadresse",
+      "settingsHint": "Host/IP, unter der FTP/FTPS/SFTP/Samba von außen erreichbar sind - wird für den Verbindungstext unten verwendet.",
+      "publicHost": "Öffentlicher Host oder IP",
+      "settingsSaved": "Einstellungen gespeichert",
+      "save": "Speichern"
     },
     "nasUserForm": {
       "createUser": "Neuer NAS-User",
@@ -1603,7 +1612,10 @@
       "canCreatePublicLinks": "Darf öffentliche Freigabe-Links erstellen",
       "save": "Speichern",
       "created": "NAS-User angelegt",
-      "updated": "NAS-User aktualisiert"
+      "updated": "NAS-User aktualisiert",
+      "quotaGb": "Kontingent (GB)",
+      "quotaUnlimited": "unbegrenzt",
+      "quotaHint": "Gilt nur für Freigaben, bei denen dieser User das einzige Mitglied ist - geteilte Freigaben zählen nicht mit."
     },
     "nasShareForm": {
       "createShare": "Neue Freigabe",
@@ -1618,11 +1630,13 @@
       "browserEmpty": "Dieser Ordner enthält keine Unterordner.",
       "browserCancel": "Abbrechen",
       "browserSelectHere": "Diesen Ordner auswählen",
-      "mountTransport": "Mount-Transport",
       "quotaGb": "Quota (GB)",
       "quotaUnlimited": "unbegrenzt",
       "save": "Speichern",
-      "created": "Freigabe angelegt"
+      "created": "Freigabe angelegt",
+      "editTitle": "Freigabe bearbeiten",
+      "updated": "Freigabe aktualisiert",
+      "sshfsHint": "Nutzt SSHFS - braucht auf dem Zielserver nur normalen SSH-Zugriff, den NetMaster für dessen Monitoring ohnehin schon nutzt."
     },
     "nasShareMembers": {
       "title": "Mitglieder von \"{share}\"",
@@ -1870,5 +1884,25 @@
       "download": "Herunterladen",
       "hint": "Dies ist ein öffentlicher Link - jeder mit diesem Link kann die Datei herunterladen."
     }
+  },
+  "nasConnectText": {
+    "title": "Verbindungsinfo für {name}",
+    "cardTitle": "Verbindungsinfo",
+    "cardHint": "So verbindest du dich mit diesem Account zum NAS.",
+    "passwordShownOnceHint": "Das echte Passwort wird hier nur dieses eine Mal angezeigt - jetzt kopieren, falls benötigt.",
+    "copy": "Kopieren",
+    "copied": "In die Zwischenablage kopiert",
+    "intro": "Hallo {name}, so verbindest du dich mit dem NAS:",
+    "smbHeading": "Samba (Windows/macOS/Linux-Netzlaufwerk)",
+    "smbAddress": "Adresse: {address}",
+    "smbUsername": "Benutzername: {username}",
+    "smbPassword": "Passwort: {password}",
+    "ftpHost": "Host: {host}, Port: {port}",
+    "ftpUsername": "Benutzername: {username}",
+    "ftpPassword": "Passwort: {password}",
+    "webHeading": "Webbrowser",
+    "webUrl": "URL: {url}",
+    "hostPlaceholder": "<NAS-Adresse beim Admin erfragen>",
+    "passwordPlaceholder": "<wird separat mitgeteilt>"
   }
 }

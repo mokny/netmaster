@@ -13,12 +13,16 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NasUserFormDialog } from "@/components/admin/nas-user-form-dialog";
 import { NasShareFormDialog } from "@/components/admin/nas-share-form-dialog";
 import { NasShareMembersDialog } from "@/components/admin/nas-share-members-dialog";
-import { Pencil, Trash2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { NasConnectTextDialog } from "@/components/admin/nas-connect-text-dialog";
+import { Pencil, Trash2, CheckCircle2, XCircle, AlertTriangle, MessageSquareText, Loader2 } from "lucide-react";
 import type { NasUserDTO, NasShareDTO, ServerDTO } from "@/lib/types";
 
 function formatBytes(value: string | null): string {
@@ -37,6 +41,9 @@ export default function NasAdminPage() {
   const [nasUsers, setNasUsers] = useState<NasUserDTO[] | null>(null);
   const [shares, setShares] = useState<NasShareDTO[] | null>(null);
   const [servers, setServers] = useState<ServerDTO[] | null>(null);
+  const [connectTextUser, setConnectTextUser] = useState<NasUserDTO | null>(null);
+  const [settingsForm, setSettingsForm] = useState({ publicHost: "" });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/admin/nas/users");
@@ -46,14 +53,43 @@ export default function NasAdminPage() {
     const res = await fetch("/api/admin/nas/shares");
     if (res.ok) setShares((await res.json()).shares);
   }, []);
+  const loadSettings = useCallback(async () => {
+    const res = await fetch("/api/admin/nas/settings");
+    if (res.ok) {
+      const data = await res.json();
+      setSettingsForm({ publicHost: data.settings.publicHost });
+    }
+  }, []);
 
   useEffect(() => {
     loadUsers();
     loadShares();
+    loadSettings();
     fetch("/api/servers")
       .then((res) => (res.ok ? res.json() : { servers: [] }))
       .then((data) => setServers(data.servers));
-  }, [loadUsers, loadShares]);
+  }, [loadUsers, loadShares, loadSettings]);
+
+  async function saveSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingSettings(true);
+    try {
+      const res = await fetch("/api/admin/nas/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settingsForm),
+      });
+      if (res.ok) {
+        toast.success(t("settingsSaved"));
+        loadSettings();
+      } else {
+        const data = await res.json();
+        toast.error(tErrors(data.error ?? "INTERNAL_ERROR"));
+      }
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   async function deleteUser(id: string) {
     if (
@@ -104,6 +140,27 @@ export default function NasAdminPage() {
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
+      <Card className="max-w-md space-y-3 p-4">
+        <div>
+          <h2 className="text-sm font-medium">{t("settingsHeading")}</h2>
+          <p className="text-xs text-muted-foreground">{t("settingsHint")}</p>
+        </div>
+        <form onSubmit={saveSettings} className="flex items-end gap-2">
+          <div className="flex-1 space-y-2">
+            <Label>{t("publicHost")}</Label>
+            <Input
+              placeholder="nas.example.com"
+              value={settingsForm.publicHost}
+              onChange={(e) => setSettingsForm({ publicHost: e.target.value })}
+            />
+          </div>
+          <Button type="submit" disabled={savingSettings}>
+            {savingSettings && <Loader2 className="size-4 animate-spin" />}
+            {t("save")}
+          </Button>
+        </form>
+      </Card>
+
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{t("usersHeading")}</h2>
@@ -118,8 +175,9 @@ export default function NasAdminPage() {
                 <TableRow>
                   <TableHead>{t("name")}</TableHead>
                   <TableHead>{t("email")}</TableHead>
+                  <TableHead>{t("quota")}</TableHead>
                   <TableHead>{t("publicLinks")}</TableHead>
-                  <TableHead className="w-24" />
+                  <TableHead className="w-32" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -127,6 +185,9 @@ export default function NasAdminPage() {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatBytes(u.privateUsedBytes)} / {formatBytes(u.quotaBytes) === "–" ? t("quotaUnlimited") : formatBytes(u.quotaBytes)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={u.canCreatePublicLinks ? "secondary" : "outline"}>
                         {u.canCreatePublicLinks ? t("allowed") : t("blocked")}
@@ -134,6 +195,15 @@ export default function NasAdminPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          title={t("connectText")}
+                          onClick={() => setConnectTextUser(u)}
+                        >
+                          <MessageSquareText className="size-3.5" />
+                        </Button>
                         <NasUserFormDialog
                           nasUser={u}
                           onSaved={loadUsers}
@@ -160,6 +230,16 @@ export default function NasAdminPage() {
           </div>
         )}
       </section>
+
+      {connectTextUser && (
+        <NasConnectTextDialog
+          open={Boolean(connectTextUser)}
+          onOpenChange={(v) => {
+            if (!v) setConnectTextUser(null);
+          }}
+          nasUser={connectTextUser}
+        />
+      )}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -224,6 +304,16 @@ export default function NasAdminPage() {
                           share={s}
                           nasUsers={nasUsers ?? []}
                           onSaved={loadShares}
+                        />
+                        <NasShareFormDialog
+                          servers={storageServers}
+                          share={s}
+                          onSaved={loadShares}
+                          trigger={
+                            <Button variant="ghost" size="icon" className="size-7">
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          }
                         />
                         <Button
                           variant="ghost"

@@ -870,6 +870,15 @@ model NasUser {
   // erzeugen darf (siehe NasShareLink).
   canCreatePublicLinks Boolean @default(true)
 
+  // Zusätzlich zu einer eventuellen Quota auf einzelnen NasShares: eine
+  // Gesamt-Quota über alle Freigaben, bei denen dieser User das einzige
+  // Mitglied ist ("private" Freigaben). Geteilte Freigaben mit mehreren
+  // Mitgliedern zählen NICHT hinein, da usedBytes dort nicht pro Mitglied
+  // aufgeschlüsselt werden kann (kein Datei-Eigentümer-Tracking, siehe
+  // samba.ts "force user = root"). Wird wie bei NasShare.quotaBytes app-
+  // seitig geprüft (siehe /api/internal/nas/usage).
+  quotaBytes BigInt?
+
   totpSecret         String?
   totpEnabled        Boolean   @default(false)
   totpFailedAttempts Int       @default(0)
@@ -979,4 +988,24 @@ model NasAuditLog {
   createdAt   DateTime        @default(now())
 
   @@index([nasUserId, createdAt])
+}
+
+// Singleton (analog zu ExploreSettings/VapidKeys), hält die von außen
+// erreichbare Adresse + Ports des NAS-Gateways, um daraus den kopierbaren
+// Verbindungstext (Samba/FTP/FTPS/SFTP/Web) zu bauen. Die Ports laufen als
+// eigene Env-Variablen im Gateway-Container (network_mode: host) und sind
+// der Haupt-App sonst nicht bekannt - der Admin trägt sie hier passend zu
+// seiner .env einmalig ein.
+model NasGatewaySettings {
+  id String @id @default(cuid())
+
+  publicHost String @default("")
+
+  ftpEnabled  Boolean @default(true)
+  ftpPort     Int     @default(21)
+  ftpsEnabled Boolean @default(false)
+  ftpsPort    Int     @default(990)
+  sftpPort    Int     @default(2222)
+
+  updatedAt DateTime @updatedAt
 }

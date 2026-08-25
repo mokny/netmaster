@@ -508,7 +508,9 @@
     "PUBLIC_LINKS_NOT_ALLOWED": "You are not allowed to create public links",
     "SHARE_QUOTA_EXCEEDED": "This share has exceeded its quota and is read-only",
     "LINK_NOT_FOUND": "This link does not exist or has expired",
-    "PASSWORD_REQUIRED": "A password is required for this link"
+    "PASSWORD_REQUIRED": "A password is required for this link",
+    "REMOTE_PATH_CHECK_FAILED": "The target path on the server could not be created or is not writable.",
+    "INVALID_NAS_PORT": "Invalid port (1-65535)."
   },
   "network": {
     "title": "Network Topology",
@@ -1516,7 +1518,14 @@
       "deleteShareDescription": "Really delete this share? This does not delete the files on the target server, only the NAS access to it.",
       "delete": "Delete",
       "userDeleted": "NAS user deleted",
-      "shareDeleted": "Share deleted"
+      "shareDeleted": "Share deleted",
+      "quota": "Quota",
+      "connectText": "Connection info",
+      "settingsHeading": "NAS access address",
+      "settingsHint": "Host/IP the FTP/FTPS/SFTP/Samba services are reachable at from outside - used to build the connection text below.",
+      "publicHost": "Public host or IP",
+      "settingsSaved": "Settings saved",
+      "save": "Save"
     },
     "nasUserForm": {
       "createUser": "New NAS user",
@@ -1529,7 +1538,10 @@
       "canCreatePublicLinks": "Allowed to create public share links",
       "save": "Save",
       "created": "NAS user created",
-      "updated": "NAS user updated"
+      "updated": "NAS user updated",
+      "quotaGb": "Quota (GB)",
+      "quotaUnlimited": "unlimited",
+      "quotaHint": "Only applies to shares where this user is the sole member - shared shares are not counted."
     },
     "nasShareForm": {
       "createShare": "New share",
@@ -1544,11 +1556,13 @@
       "browserEmpty": "This folder has no subfolders.",
       "browserCancel": "Cancel",
       "browserSelectHere": "Select this folder",
-      "mountTransport": "Mount transport",
       "quotaGb": "Quota (GB)",
       "quotaUnlimited": "unlimited",
       "save": "Save",
-      "created": "Share created"
+      "created": "Share created",
+      "editTitle": "Edit share",
+      "updated": "Share updated",
+      "sshfsHint": "Uses SSHFS - only needs normal SSH access on the target server, which NetMaster already uses for monitoring."
     },
     "nasShareMembers": {
       "title": "Members of \"{share}\"",
@@ -1870,5 +1884,25 @@
       "download": "Download",
       "hint": "This is a public link - anyone with this link can download the file."
     }
+  },
+  "nasConnectText": {
+    "title": "Connection info for {name}",
+    "cardTitle": "Connection info",
+    "cardHint": "How to connect to the NAS with this account.",
+    "passwordShownOnceHint": "This is the only time the real password is shown here - copy it now if needed.",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "intro": "Hi {name}, here is how you can connect to the NAS:",
+    "smbHeading": "Samba (Windows/macOS/Linux network drive)",
+    "smbAddress": "Address: {address}",
+    "smbUsername": "Username: {username}",
+    "smbPassword": "Password: {password}",
+    "ftpHost": "Host: {host}, Port: {port}",
+    "ftpUsername": "Username: {username}",
+    "ftpPassword": "Password: {password}",
+    "webHeading": "Web browser",
+    "webUrl": "URL: {url}",
+    "hostPlaceholder": "<ask your admin for the NAS address>",
+    "passwordPlaceholder": "<tell the user separately>"
   }
 }

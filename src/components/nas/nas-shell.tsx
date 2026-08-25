@@ -32,11 +32,11 @@ export function NasShell({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-6">
-          <Link href="/nas" className="flex items-center gap-2 font-semibold">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <Link href="/nas" className="flex shrink-0 items-center gap-2 font-semibold">
             <FolderLock className="size-5" />
-            {t("title")}
+            <span className="hidden sm:inline">{t("title")}</span>
           </Link>
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => (
@@ -47,21 +47,21 @@ export function NasShell({
                   className="gap-1.5"
                 >
                   <item.icon className="size-4" />
-                  {t(`nav.${item.labelKey}`)}
+                  <span className="hidden sm:inline">{t(`nav.${item.labelKey}`)}</span>
                 </Button>
               </Link>
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-sm text-muted-foreground sm:inline">{nasUser.name}</span>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <span className="hidden text-sm text-muted-foreground md:inline">{nasUser.name}</span>
           <LanguageSwitcher />
           <Button variant="ghost" size="icon" onClick={logout} aria-label={t("logout")}>
             <LogOut className="size-4" />
           </Button>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl p-4">{children}</main>
+      <main className="mx-auto max-w-5xl p-3 sm:p-4">{children}</main>
     </div>
   );
 }

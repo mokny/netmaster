@@ -237,6 +237,19 @@ export interface NasUserDTO {
   mustChangePassword: boolean;
   totpEnabled: boolean;
   createdAt: string;
+  quotaBytes: string | null;
+  // Summe usedBytes aller Freigaben, bei denen dieser User das einzige
+  // Mitglied ist - siehe Schema-Kommentar an NasUser.quotaBytes.
+  privateUsedBytes: string;
+}
+
+export interface NasGatewaySettingsDTO {
+  publicHost: string;
+  ftpEnabled: boolean;
+  ftpPort: number;
+  ftpsEnabled: boolean;
+  ftpsPort: number;
+  sftpPort: number;
 }
 
 export interface NasShareMemberDTO {
