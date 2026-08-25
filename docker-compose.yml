@@ -29,7 +29,11 @@ services:
       # "BadJwtToken" abgelehnt, siehe web-push/src/vapid-helper.js.
       VAPID_SUBJECT: ${VAPID_SUBJECT}
     volumes:
-      - netmaster-data:/app/data
+      # NETMASTER_DATA_DIR unset -> "netmaster-data" matched gegen den unten
+      # deklarierten Volume-Namen und bleibt ein normales Docker-Volume.
+      # NETMASTER_DATA_DIR gesetzt (z.B. Pfad auf einer anderen Platte) ->
+      # Bind-Mount auf diesen Host-Pfad. Siehe `netmaster relocate-data`.
+      - ${NETMASTER_DATA_DIR:-netmaster-data}:/app/data
     restart: unless-stopped
 
   caddy:

@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Updater version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-UPDATER_VERSION="1.5"
+UPDATER_VERSION="1.6"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -57,6 +57,32 @@ ui_yesno() {
   fi
 }
 
+# ui_input <prompt> <default>  -> echoes result
+ui_input() {
+  local prompt="$1" default="$2" result
+  if [ "$HAS_WHIPTAIL" -eq 1 ]; then
+    result=$(whiptail --title "NetMaster" --inputbox "$prompt" 10 70 "$default" 3>&1 1>&2 2>&3 < /dev/tty) || result="$default"
+  else
+    read -r -p "$prompt [$default]: " result </dev/tty || true
+  fi
+  echo "${result:-$default}"
+}
+
+# set_env_var <name> <value>  -> add or replace it in $INSTALL_DIR/.env
+set_env_var() {
+  local name="$1" value="$2"
+  if grep -q "^${name}=" "$INSTALL_DIR/.env" 2>/dev/null; then
+    sed -i "s|^${name}=.*|${name}=\"${value}\"|" "$INSTALL_DIR/.env"
+  else
+    printf '%s="%s"\n' "$name" "$value" >> "$INSTALL_DIR/.env"
+  fi
+}
+
+# current data dir, following the same default as docker-compose.yml
+current_data_dir() {
+  grep -m1 '^NETMASTER_DATA_DIR=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d'"' -f2
+}
+
 current_url() {
   if [ -f "$INSTALL_DIR/Caddyfile" ]; then
     local domain
@@ -103,6 +129,79 @@ resolve_release_ref() {
   [ -n "${tag:-}" ] && echo "$tag" || echo "main"
 }
 
+# One-time migration for installations from before NETMASTER_DATA_DIR
+# existed: their database still lives in the anonymous "netmaster-data"
+# Docker volume. Moves it onto a host directory so docker-compose.yml's
+# ${NETMASTER_DATA_DIR:-netmaster-data} bind mount takes over on next start.
+migrate_data_volume_if_needed() {
+  if grep -q '^NETMASTER_DATA_DIR=' "$INSTALL_DIR/.env" 2>/dev/null; then
+    return 0
+  fi
+
+  local project old_volume
+  project=$(basename "$INSTALL_DIR")
+  old_volume=$(docker volume ls -q \
+    --filter "label=com.docker.compose.project=${project}" \
+    --filter "label=com.docker.compose.volume=netmaster-data")
+  [ -n "$old_volume" ] || return 0
+
+  local target="$INSTALL_DIR/data"
+  log "One-time migration: moving the database out of the Docker volume '$old_volume' to $target..."
+  mkdir -p "$target"
+
+  compose stop netmaster || true
+  docker run --rm \
+    -v "${old_volume}:/from:ro" \
+    -v "${target}:/to" \
+    alpine sh -c "cp -a /from/. /to/"
+
+  set_env_var "NETMASTER_DATA_DIR" "$target"
+
+  if ui_yesno "Migration complete. Delete the now-unused Docker volume '$old_volume'?\n\nNo keeps it as a safety backup - remove it later yourself with:\ndocker volume rm $old_volume"; then
+    docker volume rm "$old_volume" || warn "Could not remove old volume."
+  else
+    log "Old volume '$old_volume' kept."
+  fi
+}
+
+cmd_relocate_data() {
+  local new_path="${1:-}"
+  local current_path
+  current_path=$(current_data_dir)
+  current_path="${current_path:-$INSTALL_DIR/data}"
+
+  if [ -z "$new_path" ]; then
+    new_path=$(ui_input "New data directory (database + backups)" "$current_path")
+  fi
+  [ -n "$new_path" ] || die "No path given."
+
+  if [ "$new_path" = "$current_path" ]; then
+    log "Already using $new_path, nothing to do."
+    return 0
+  fi
+
+  mkdir -p "$new_path" || die "Could not create $new_path."
+  [ -w "$new_path" ] || die "$new_path is not writable."
+
+  log "Stopping containers..."
+  compose stop netmaster
+
+  if [ -d "$current_path" ]; then
+    log "Copying data from $current_path to $new_path..."
+    cp -a "$current_path"/. "$new_path"/ || die "Copy failed, aborting - nothing was changed."
+    local backup_name="${current_path}.bak-$(date +%Y%m%d-%H%M%S)"
+    mv "$current_path" "$backup_name"
+    log "Old data kept at $backup_name as a safety copy - delete it yourself once you've confirmed everything works."
+  fi
+
+  set_env_var "NETMASTER_DATA_DIR" "$new_path"
+
+  log "Starting containers with the new data directory..."
+  compose up -d
+
+  log "Done. Data now lives at $new_path."
+}
+
 cmd_update() {
   local nightly=0
   for arg in "$@"; do
@@ -133,6 +232,8 @@ cmd_update() {
   git fetch --depth 1 origin "$ref"
   git checkout --detach FETCH_HEAD
   git reset --hard FETCH_HEAD
+
+  migrate_data_volume_if_needed
 
   log "Rebuilding and restarting containers..."
   # --remove-orphans: stops/removes containers for services that existed in
@@ -206,12 +307,20 @@ cmd_uninstall() {
     return 0
   fi
 
-  local delete_data=0 delete_certs=0
+  local delete_data=0 delete_certs=0 delete_relocated=0
   if ui_yesno "Also permanently delete the database (all servers, users, settings)?"; then
     delete_data=1
   fi
   if [ -f "$INSTALL_DIR/Caddyfile" ] && ui_yesno "Also delete the Caddy TLS certificates?"; then
     delete_certs=1
+  fi
+
+  local relocated_dir
+  relocated_dir=$(current_data_dir)
+  if [ -n "$relocated_dir" ] && [ -d "$relocated_dir" ]; then
+    if ui_yesno "The data directory was relocated to:\n$relocated_dir\n\nAlso permanently delete this directory?"; then
+      delete_relocated=1
+    fi
   fi
 
   log "Stopping and removing containers..."
@@ -230,6 +339,11 @@ cmd_uninstall() {
   if [ "$delete_certs" -eq 1 ]; then
     log "Deleting Caddy volumes (certificates)..."
     docker volume ls -q --filter "label=com.docker.compose.project=${project}" | grep -i caddy | xargs -r docker volume rm
+  fi
+
+  if [ "$delete_relocated" -eq 1 ]; then
+    log "Deleting relocated data directory $relocated_dir..."
+    rm -rf "$relocated_dir"
   fi
 
   log "Removing Docker images..."
@@ -256,6 +370,7 @@ Commands:
   start                Start containers
   restart              Restart containers
   update [--nightly]   Update to the latest release (with --nightly: latest main commit)
+  relocate-data [path] Move the database to another disk (e.g. to reduce SD card wear)
   cleanup              Remove dangling Docker images/build cache and old backups
   prune-all            Remove all unused Docker resources system-wide (docker system prune -a)
   reset-login <email>  Reset a user's login (new password, removes passkeys/2FA)
@@ -270,6 +385,7 @@ case "${1:-}" in
   start)       cmd_start ;;
   restart)     cmd_restart ;;
   update)      shift; cmd_update "$@" ;;
+  relocate-data) shift; cmd_relocate_data "$@" ;;
   cleanup)     cmd_cleanup ;;
   prune-all)   cmd_prune_all ;;
   reset-login) shift; cmd_reset_login "$@" ;;

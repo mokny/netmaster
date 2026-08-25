@@ -18,7 +18,7 @@ set -euo pipefail
 
 # Installer version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-INSTALLER_VERSION="1.4"
+INSTALLER_VERSION="1.5"
 
 REPO_URL="https://github.com/mokny/netmaster.git"
 REPO_SLUG="mokny/netmaster"
@@ -277,6 +277,8 @@ fi
 ADMIN_NAME=$(ui_input "Admin display name" "Admin")
 HOST_PORT=$(ui_input "Port NetMaster should be reachable on" "3000")
 
+DATA_DIR=$(ui_input "Data directory (database + backups). Point this at another disk to reduce write wear on this one (e.g. an SD card) - leave the default if unsure" "$INSTALL_DIR/data")
+
 DOMAIN=""
 if ui_yesno "Set up a reverse proxy with automatic HTTPS (Caddy + Let's Encrypt)?\n\nRequirement: a domain that already points to this server via DNS (A/AAAA record)."; then
   DOMAIN=$(ui_input "Domain (e.g. netmaster.example.com)" "")
@@ -297,7 +299,10 @@ SEED_ADMIN_EMAIL="${ADMIN_EMAIL}"
 SEED_ADMIN_PASSWORD="${ADMIN_PASSWORD}"
 SEED_ADMIN_NAME="${ADMIN_NAME}"
 HOST_PORT="${HOST_PORT}"
+NETMASTER_DATA_DIR="${DATA_DIR}"
 EOF
+
+mkdir -p "$DATA_DIR"
 
 if [ -n "$DOMAIN" ]; then
   log "Setting up Caddy reverse proxy for $DOMAIN..."
@@ -409,6 +414,7 @@ Management:
   netmaster restart      Restart the containers
   netmaster update       Update to the latest release
   netmaster update --nightly   Update to the latest main commit
+  netmaster relocate-data <path>   Move the database to another disk
   netmaster prune-all    Remove all unused Docker resources system-wide
   netmaster uninstall    Remove NetMaster"
 
