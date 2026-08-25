@@ -31,9 +31,14 @@ async function isMounted(mountPoint: string): Promise<boolean> {
   }
 }
 
+// fuse3 (heutiger Standard, siehe gateway/Dockerfile) installiert nur
+// "fusermount3", nicht mehr das alte "fusermount" - beide probieren, bevor
+// auf das langsamere Lazy-umount zurückgefallen wird.
 async function unmount(mountPoint: string): Promise<void> {
-  await execFileAsync("fusermount", ["-uz", mountPoint]).catch(() =>
-    execFileAsync("umount", ["-l", mountPoint]).catch(() => {})
+  await execFileAsync("fusermount3", ["-uz", mountPoint]).catch(() =>
+    execFileAsync("fusermount", ["-uz", mountPoint]).catch(() =>
+      execFileAsync("umount", ["-l", mountPoint]).catch(() => {})
+    )
   );
 }
 

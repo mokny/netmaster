@@ -16,11 +16,14 @@ COPY src ./src
 RUN npm run build
 
 FROM base AS runner
-# sshfs/fuse fürs Mounten der Freigaben, samba fürs zentrale SMB, sshpass
-# für Passwort-basierte SSHFS-Verbindungen, openssh-client liefert
-# ssh-keygen für den SFTP-Host-Key, nfs-common für den optionalen NFS-Transport.
+# sshfs fürs Mounten der Freigaben (zieht fuse3 automatisch als Abhängigkeit
+# - das ältere "fuse"-Paket NICHT explizit mitinstallieren, das bricht auf
+# aktuellem Debian/bookworm mit "fuse3 : Breaks: fuse" / "sshfs : Breaks:
+# fuse (< 3)"), samba fürs zentrale SMB, sshpass für Passwort-basierte
+# SSHFS-Verbindungen, openssh-client liefert ssh-keygen für den
+# SFTP-Host-Key, nfs-common für den optionalen NFS-Transport.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sshfs fuse samba samba-common-bin sshpass openssh-client nfs-common \
+    sshfs samba samba-common-bin sshpass openssh-client nfs-common \
     && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
