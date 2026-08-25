@@ -4,9 +4,9 @@
 
 set -euo pipefail
 
-# Updater-Version: wird per Husky pre-commit Hook (scripts/bump-script-versions.js)
-# automatisch erhöht, sobald sich diese Datei in einem Commit ändert.
-UPDATER_VERSION="1.1"
+# Updater version: automatically bumped by the Husky pre-commit hook
+# (scripts/bump-script-versions.js) whenever this file changes in a commit.
+UPDATER_VERSION="1.2"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -29,7 +29,7 @@ ASCII
   printf 'Updater v%s\033[0m\n\n' "$UPDATER_VERSION"
 }
 
-[ -d "$INSTALL_DIR" ] || die "Keine NetMaster-Installation unter $INSTALL_DIR gefunden."
+[ -d "$INSTALL_DIR" ] || die "No NetMaster installation found at $INSTALL_DIR."
 
 if [ "$(id -u)" -ne 0 ]; then
   exec sudo -E bash "$0" "$@"
@@ -52,7 +52,7 @@ ui_yesno() {
     whiptail --title "NetMaster" --yesno "$prompt" 10 70
   else
     local ans
-    read -r -p "$prompt [j/N]: " ans </dev/tty || true
+    read -r -p "$prompt [y/N]: " ans </dev/tty || true
     case "$ans" in j|J|y|Y|yes|Yes) return 0 ;; *) return 1 ;; esac
   fi
 }
@@ -66,15 +66,15 @@ ensure_env_secret() {
   local key="$1" existing
   existing=$(grep -m1 "^${key}=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
   if [ -z "${existing:-}" ]; then
-    log "Ergänze fehlenden Wert für ${key} in .env..."
+    log "Filling in missing value for ${key} in .env..."
     sed -i "/^${key}=/d" "$INSTALL_DIR/.env"
     printf '%s="%s"\n' "$key" "$(openssl rand -hex 32)" >> "$INSTALL_DIR/.env"
   fi
 }
 
-# Auto-generiert NAS-relevante Secrets, sofern der User nichts eingetragen
-# hat - läuft bei jedem Update, damit bestehende Installationen (deren .env
-# vor Einführung des NAS-Gateways erzeugt wurde) automatisch nachziehen.
+# Auto-generates NAS-related secrets if the user hasn't set any - runs on
+# every update, so existing installs (whose .env was created before the
+# NAS gateway was introduced) automatically pick them up.
 ensure_nas_env_defaults() {
   ensure_env_secret NAS_INTERNAL_SECRET
 }
@@ -104,17 +104,17 @@ cmd_logs() {
 }
 
 cmd_restart() {
-  log "Starte Container neu..."
+  log "Restarting containers..."
   compose restart
 }
 
 cmd_stop() {
-  log "Stoppe Container..."
+  log "Stopping containers..."
   compose stop
 }
 
 cmd_start() {
-  log "Starte Container..."
+  log "Starting containers..."
   compose up -d
 }
 
@@ -134,18 +134,18 @@ cmd_update() {
   local ref
   if [ "$nightly" -eq 1 ]; then
     ref="main"
-    log "Aktualisiere auf den neuesten main-Commit (nightly)..."
+    log "Updating to the latest main commit (nightly)..."
   else
     ref=$(resolve_release_ref)
-    log "Aktualisiere auf Release $ref..."
+    log "Updating to release $ref..."
   fi
 
   mkdir -p "$INSTALL_DIR/backups"
   local backup_file
   backup_file="$INSTALL_DIR/backups/netmaster-$(date +%Y%m%d-%H%M%S).db"
   if compose ps --status running --services 2>/dev/null | grep -q '^netmaster$'; then
-    log "Sichere Datenbank nach $backup_file..."
-    compose cp netmaster:/app/data/netmaster.db "$backup_file" || warn "Backup fehlgeschlagen, fahre trotzdem fort."
+    log "Backing up database to $backup_file..."
+    compose cp netmaster:/app/data/netmaster.db "$backup_file" || warn "Backup failed, continuing anyway."
   fi
 
   # fetch just the target ref (works regardless of the shallow-clone boundary
@@ -158,7 +158,7 @@ cmd_update() {
 
   ensure_nas_env_defaults
 
-  log "Baue und starte Container neu..."
+  log "Rebuilding and restarting containers..."
   compose up -d --build
 
   # keep the installed CLI in sync with whatever shipped in this ref
@@ -166,19 +166,19 @@ cmd_update() {
 
   cmd_cleanup
 
-  log "Update abgeschlossen (Backup: $backup_file)."
+  log "Update complete (backup: $backup_file)."
 }
 
 cmd_cleanup() {
-  log "Räume nicht mehr benötigte Dateien auf..."
+  log "Cleaning up files that are no longer needed..."
 
   local project
   project=$(basename "$INSTALL_DIR")
 
-  log "Entferne verwaiste Docker-Images..."
+  log "Removing dangling Docker images..."
   docker image prune -f --filter "label=com.docker.compose.project=${project}" >/dev/null || true
 
-  log "Entferne Docker-Build-Cache..."
+  log "Removing Docker build cache..."
   docker builder prune -f >/dev/null || true
 
   local backup_dir="$INSTALL_DIR/backups" keep=3
@@ -186,101 +186,101 @@ cmd_cleanup() {
     local old_backups
     old_backups=$(find "$backup_dir" -maxdepth 1 -type f -name 'netmaster-*.db' | sort -r | tail -n +"$((keep + 1))")
     if [ -n "$old_backups" ]; then
-      log "Entferne alte Backups (behalte die letzten ${keep})..."
+      log "Removing old backups (keeping the last ${keep})..."
       echo "$old_backups" | xargs -r rm -f
     fi
   fi
 
-  log "Cleanup abgeschlossen."
+  log "Cleanup complete."
 }
 
 cmd_prune_all() {
-  warn "Dies führt 'docker system prune -a' auf dem gesamten Host aus."
-  warn "Betrifft ALLE Docker-Images/Container/Netzwerke/Build-Cache auf diesem System,"
-  warn "nicht nur NetMaster - auch anderer Docker-Workload auf diesem Host ist betroffen."
-  warn "Volumes werden NICHT gelöscht."
-  if ! ui_yesno "Wirklich systemweit alle ungenutzten Docker-Ressourcen entfernen?"; then
-    log "Abgebrochen."
+  warn "This runs 'docker system prune -a' on the entire host."
+  warn "Affects ALL Docker images/containers/networks/build cache on this system,"
+  warn "not just NetMaster - other Docker workloads on this host are affected too."
+  warn "Volumes are NOT deleted."
+  if ! ui_yesno "Really remove all unused Docker resources system-wide?"; then
+    log "Aborted."
     return 0
   fi
   docker system prune -a -f
-  log "System-weites Cleanup abgeschlossen."
+  log "System-wide cleanup complete."
 }
 
 cmd_reset_login() {
   local email="${1:-}"
   if [ -z "$email" ]; then
-    die "Verwendung: netmaster reset-login <email>"
+    die "Usage: netmaster reset-login <email>"
   fi
 
   if ! compose ps --status running --services 2>/dev/null | grep -q '^netmaster$'; then
-    die "NetMaster-Container läuft nicht. Starte ihn zuerst mit 'netmaster restart'."
+    die "NetMaster container is not running. Start it first with 'netmaster restart'."
   fi
 
-  log "Setze Login für $email zurück (neues Passwort, Passkeys/2FA werden entfernt)..."
+  log "Resetting login for $email (new password, passkeys/2FA will be removed)..."
   compose exec -T netmaster npm run --silent reset-login -- "$email"
 }
 
 cmd_uninstall() {
-  if ! ui_yesno "NetMaster wirklich deinstallieren? Container werden gestoppt und entfernt."; then
-    log "Abgebrochen."
+  if ! ui_yesno "Really uninstall NetMaster? Containers will be stopped and removed."; then
+    log "Aborted."
     return 0
   fi
 
   local delete_data=0 delete_certs=0
-  if ui_yesno "Auch die Datenbank (alle Server, Nutzer, Einstellungen) unwiderruflich löschen?"; then
+  if ui_yesno "Also permanently delete the database (all servers, users, settings)?"; then
     delete_data=1
   fi
-  if [ -f "$INSTALL_DIR/Caddyfile" ] && ui_yesno "Auch die Caddy-TLS-Zertifikate löschen?"; then
+  if [ -f "$INSTALL_DIR/Caddyfile" ] && ui_yesno "Also delete the Caddy TLS certificates?"; then
     delete_certs=1
   fi
 
-  log "Stoppe und entferne Container..."
+  log "Stopping and removing containers..."
   compose down
 
   local project
   project=$(basename "$INSTALL_DIR")
 
   if [ "$delete_data" -eq 1 ]; then
-    log "Lösche Datenbank-Volume..."
+    log "Deleting database volume..."
     docker volume ls -q --filter "label=com.docker.compose.project=${project}" | grep -i data | xargs -r docker volume rm
   else
-    log "Datenbank-Volume bleibt erhalten."
+    log "Database volume is kept."
   fi
 
   if [ "$delete_certs" -eq 1 ]; then
-    log "Lösche Caddy-Volumes (Zertifikate)..."
+    log "Deleting Caddy volumes (certificates)..."
     docker volume ls -q --filter "label=com.docker.compose.project=${project}" | grep -i caddy | xargs -r docker volume rm
   fi
 
-  log "Entferne Docker-Images..."
+  log "Removing Docker images..."
   docker compose -f "$INSTALL_DIR/docker-compose.yml" config --images 2>/dev/null \
     | xargs -r docker image rm 2>/dev/null || true
 
-  log "Entferne $INSTALL_DIR..."
+  log "Removing $INSTALL_DIR..."
   rm -rf "$INSTALL_DIR"
 
-  log "Entferne netmaster-Befehl..."
+  log "Removing netmaster command..."
   rm -f "$BIN_PATH"
 
-  log "NetMaster wurde deinstalliert."
+  log "NetMaster has been uninstalled."
 }
 
 usage() {
   cat <<EOF
-Verwendung: netmaster <befehl> [optionen]
+Usage: netmaster <command> [options]
 
-Befehle:
-  status               Container-Status und URL anzeigen
-  logs                 Live-Logs ansehen (Strg+C zum Beenden)
-  stop                 Container stoppen
-  start                Container starten
-  restart              Container neu starten
-  update [--nightly]   Auf neuestes Release aktualisieren (mit --nightly: neuester main-Commit)
-  cleanup              Verwaiste Docker-Images/Build-Cache und alte Backups entfernen
-  prune-all            Systemweit alle ungenutzten Docker-Ressourcen entfernen (docker system prune -a)
-  reset-login <email>  Login eines Users zurücksetzen (neues Passwort, Passkeys/2FA entfernt)
-  uninstall            NetMaster interaktiv entfernen
+Commands:
+  status               Show container status and URL
+  logs                 View live logs (Ctrl+C to exit)
+  stop                 Stop containers
+  start                Start containers
+  restart              Restart containers
+  update [--nightly]   Update to the latest release (with --nightly: latest main commit)
+  cleanup              Remove dangling Docker images/build cache and old backups
+  prune-all            Remove all unused Docker resources system-wide (docker system prune -a)
+  reset-login <email>  Reset a user's login (new password, removes passkeys/2FA)
+  uninstall            Interactively remove NetMaster
 EOF
 }
 

@@ -1,10 +1,10 @@
-// Setzt den Login eines Users vollständig zurück: neues Zufallspasswort,
-// entfernt alle Passkeys + TOTP-Secret/Backup-Codes, widerruft alle Sessions.
-// Für den Fall "Passwort vergessen" ODER "Passkey/Authenticator verloren" –
-// beide führen zum selben sauberen Ausgangszustand.
+// Fully resets a user's login: new random password, removes all passkeys +
+// TOTP secret/backup codes, revokes all sessions. Covers both "forgot
+// password" AND "lost passkey/authenticator" - both lead to the same clean
+// starting state.
 //
-// Aufruf (über die netmaster-CLI): netmaster reset-login <email>
-// Direkt im Container: npx tsx scripts/reset-login.ts <email>
+// Invocation (via the netmaster CLI): netmaster reset-login <email>
+// Directly inside the container: npx tsx scripts/reset-login.ts <email>
 import "dotenv/config";
 import { randomBytes } from "crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -17,8 +17,8 @@ const adapter = new PrismaBetterSqlite3({
 const prisma = new PrismaClient({ adapter });
 
 function generateTempPassword(): string {
-  // 20 lesbare Zeichen (ohne verwechselbare Symbole), ausreichend Entropie
-  // für ein Einmal-Passwort, das sofort nach Login ersetzt werden muss.
+  // 20 readable characters (no easily confused symbols), enough entropy for
+  // a one-time password that must be replaced immediately after login.
   const alphabet = "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ";
   const bytes = randomBytes(20);
   let out = "";
@@ -29,13 +29,13 @@ function generateTempPassword(): string {
 async function main() {
   const email = (process.argv[2] ?? "").trim().toLowerCase();
   if (!email) {
-    console.error("Verwendung: reset-login <email>");
+    console.error("Usage: reset-login <email>");
     process.exit(1);
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    console.error(`Kein User mit E-Mail "${email}" gefunden.`);
+    console.error(`No user found with email "${email}".`);
     process.exit(1);
   }
 
@@ -70,9 +70,9 @@ async function main() {
     }),
   ]);
 
-  console.log(`Login für ${email} zurückgesetzt.`);
-  console.log(`Temporäres Passwort: ${tempPassword}`);
-  console.log("Der User muss beim nächsten Login sofort ein neues Passwort setzen.");
+  console.log(`Login for ${email} has been reset.`);
+  console.log(`Temporary password: ${tempPassword}`);
+  console.log("The user must set a new password immediately on next login.");
 }
 
 main()

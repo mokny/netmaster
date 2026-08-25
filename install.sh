@@ -16,9 +16,9 @@
 
 set -euo pipefail
 
-# Installer-Version: wird per Husky pre-commit Hook (scripts/bump-script-versions.js)
-# automatisch erhöht, sobald sich diese Datei in einem Commit ändert.
-INSTALLER_VERSION="1.1"
+# Installer version: automatically bumped by the Husky pre-commit hook
+# (scripts/bump-script-versions.js) whenever this file changes in a commit.
+INSTALLER_VERSION="1.2"
 
 REPO_URL="https://github.com/mokny/netmaster.git"
 REPO_SLUG="mokny/netmaster"
@@ -60,7 +60,7 @@ ASCII
 # re-exec as root
 # ---------------------------------------------------------------------------
 if [ "$(id -u)" -ne 0 ]; then
-  log "Root wird benötigt (Docker-Installation, /opt, /usr/local/bin) – erneuter Aufruf per sudo..."
+  log "Root is required (Docker installation, /opt, /usr/local/bin) - re-invoking via sudo..."
   if [ -f "$0" ]; then
     # invoked as a real file (e.g. `bash install.sh`) - re-exec it directly
     exec sudo -E bash "$0" "$@"
@@ -83,8 +83,8 @@ REAL_USER="${SUDO_USER:-}"
 # existing installation? -> hand off to `netmaster update`
 # ---------------------------------------------------------------------------
 if [ -f "$INSTALL_DIR/.env" ] && [ -x "$BIN_PATH" ]; then
-  log "NetMaster ist bereits unter $INSTALL_DIR installiert."
-  log "Führe stattdessen ein Update durch..."
+  log "NetMaster is already installed under $INSTALL_DIR."
+  log "Running an update instead..."
   exec "$BIN_PATH" update
 fi
 
@@ -98,7 +98,7 @@ elif command -v yum >/dev/null 2>&1; then PKG_MANAGER="yum"
 elif command -v pacman >/dev/null 2>&1; then PKG_MANAGER="pacman"
 elif command -v zypper >/dev/null 2>&1; then PKG_MANAGER="zypper"
 fi
-[ -n "$PKG_MANAGER" ] || die "Kein unterstützter Paketmanager gefunden (apt/dnf/yum/pacman/zypper)."
+[ -n "$PKG_MANAGER" ] || die "No supported package manager found (apt/dnf/yum/pacman/zypper)."
 
 pkg_install() {
   case "$PKG_MANAGER" in
@@ -127,7 +127,7 @@ pkg_clean_cache() {
   esac
 }
 
-log "Paketmanager erkannt: $PKG_MANAGER"
+log "Package manager detected: $PKG_MANAGER"
 pkg_update_index
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ pkg_update_index
 # ---------------------------------------------------------------------------
 for tool in curl git openssl; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    log "Installiere $tool..."
+    log "Installing $tool..."
     pkg_install "$tool"
   fi
 done
@@ -144,20 +144,20 @@ done
 # docker
 # ---------------------------------------------------------------------------
 if ! command -v docker >/dev/null 2>&1; then
-  log "Docker nicht gefunden, installiere via get.docker.com..."
+  log "Docker not found, installing via get.docker.com..."
   curl -fsSL https://get.docker.com | sh
 else
-  log "Docker bereits installiert."
+  log "Docker already installed."
 fi
 
 systemctl enable --now docker >/dev/null 2>&1 || true
 
 if ! docker compose version >/dev/null 2>&1; then
-  die "Docker ist installiert, aber das 'docker compose'-Plugin fehlt. Bitte manuell installieren (docker-compose-plugin)."
+  die "Docker is installed, but the 'docker compose' plugin is missing. Please install it manually (docker-compose-plugin)."
 fi
 
 if [ -n "$REAL_USER" ] && ! id -nG "$REAL_USER" | grep -qw docker; then
-  log "Füge $REAL_USER zur docker-Gruppe hinzu (wirkt erst nach Neu-Login)..."
+  log "Adding $REAL_USER to the docker group (takes effect after re-login)..."
   usermod -aG docker "$REAL_USER" || true
 fi
 
@@ -166,11 +166,11 @@ fi
 # ---------------------------------------------------------------------------
 HAS_WHIPTAIL=0
 if [ "$NO_WHIPTAIL" -eq 1 ]; then
-  log "--no-whiptail gesetzt, verwende einfache Texteingaben."
+  log "--no-whiptail set, using plain text prompts."
 elif command -v whiptail >/dev/null 2>&1; then
   HAS_WHIPTAIL=1
 else
-  log "Installiere whiptail für den interaktiven Setup-Dialog..."
+  log "Installing whiptail for the interactive setup dialog..."
   case "$PKG_MANAGER" in
     apt)    pkg_install whiptail && HAS_WHIPTAIL=1 ;;
     dnf|yum) pkg_install newt && HAS_WHIPTAIL=1 ;;
@@ -181,9 +181,9 @@ else
 fi
 
 if [ "$HAS_WHIPTAIL" -eq 1 ]; then
-  log "Interaktiver Setup-Dialog: whiptail"
+  log "Interactive setup dialog: whiptail"
 else
-  warn "whiptail nicht verfügbar, verwende einfache Texteingaben."
+  warn "whiptail not available, using plain text prompts."
 fi
 
 ui_info() {
@@ -225,7 +225,7 @@ ui_yesno() {
     whiptail --title "NetMaster Setup" --yesno "$prompt" 10 70 < /dev/tty
   else
     local ans
-    read -r -p "$prompt [j/N]: " ans </dev/tty || true
+    read -r -p "$prompt [y/N]: " ans </dev/tty || true
     case "$ans" in j|J|y|Y|yes|Yes) return 0 ;; *) return 1 ;; esac
   fi
 }
@@ -246,52 +246,52 @@ resolve_release_ref() {
 
 REF=$(resolve_release_ref)
 if [ "$REF" = "main" ]; then
-  log "Kein GitHub-Release gefunden, installiere neuesten main-Stand (nightly)."
+  log "No GitHub release found, installing the latest main commit (nightly)."
 else
-  log "Installiere Release $REF."
+  log "Installing release $REF."
 fi
 
 # ---------------------------------------------------------------------------
 # clone
 # ---------------------------------------------------------------------------
-log "Klone NetMaster nach $INSTALL_DIR..."
+log "Cloning NetMaster into $INSTALL_DIR..."
 git clone --branch "$REF" --depth 1 "$REPO_URL" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
 # ---------------------------------------------------------------------------
 # setup dialog
 # ---------------------------------------------------------------------------
-ui_info "Willkommen bei NetMaster!\n\nIm nächsten Schritt richten wir den ersten Admin-Account und ein paar Grundeinstellungen ein."
+ui_info "Welcome to NetMaster!\n\nNext, we'll set up the first admin account and a few basic settings."
 
-ui_info "Hinweis zu Explore (Netzwerk-Scan):\n\nNetMaster kann das lokale Netzwerk nach Geräten durchsuchen (ARP-/Ping-Sweep + Port-Scan). Dafür läuft der Container mit network_mode: host und den Capabilities NET_ADMIN/NET_RAW - er teilt sich also direkt das Netzwerk-Interface des Hosts, statt isoliert im Docker-Bridge-Netz zu laufen. Es gibt dadurch kein Docker-Portmapping mehr; die App ist immer direkt auf dem Host-Netzwerk erreichbar. Wird unten eine Domain für Caddy eingerichtet, wird der App-eigene Port zusätzlich per Host-Firewall von außen gesperrt, damit Caddy der einzige öffentliche Zugang bleibt (nur wenn eine unterstützte Firewall - ufw oder firewalld - aktiv ist)."
+ui_info "Note on Explore (network scan):\n\nNetMaster can scan the local network for devices (ARP/ping sweep + port scan). To do this, the container runs with network_mode: host and the NET_ADMIN/NET_RAW capabilities - it shares the host's network interface directly, instead of running isolated on the Docker bridge network. This means there's no more Docker port mapping; the app is always reachable directly on the host network. If a domain for Caddy is set up below, the app's own port is additionally blocked from the outside via the host firewall, so Caddy remains the only public entry point (only if a supported firewall - ufw or firewalld - is active)."
 
-ADMIN_EMAIL=$(ui_input "Admin-E-Mail-Adresse" "admin@netmaster.local")
+ADMIN_EMAIL=$(ui_input "Admin email address" "admin@netmaster.local")
 GENERATED_PASSWORD=$(openssl rand -base64 18 | tr -d '=+/' | cut -c1-16)
-ADMIN_PASSWORD=$(ui_password "Admin-Passwort (leer lassen für ein zufällig generiertes Passwort)")
+ADMIN_PASSWORD=$(ui_password "Admin password (leave empty for a randomly generated one)")
 if [ -z "$ADMIN_PASSWORD" ]; then
   ADMIN_PASSWORD="$GENERATED_PASSWORD"
   PASSWORD_WAS_GENERATED=1
 else
   PASSWORD_WAS_GENERATED=0
 fi
-ADMIN_NAME=$(ui_input "Admin-Anzeigename" "Admin")
-HOST_PORT=$(ui_input "Port, auf dem NetMaster erreichbar sein soll" "3000")
+ADMIN_NAME=$(ui_input "Admin display name" "Admin")
+HOST_PORT=$(ui_input "Port NetMaster should be reachable on" "3000")
 
 DOMAIN=""
-if ui_yesno "Soll ein Reverse-Proxy mit automatischem HTTPS (Caddy + Let's Encrypt) eingerichtet werden?\n\nVoraussetzung: eine Domain, die bereits per DNS (A/AAAA-Record) auf diesen Server zeigt."; then
-  DOMAIN=$(ui_input "Domain (z.B. netmaster.example.com)" "")
+if ui_yesno "Set up a reverse proxy with automatic HTTPS (Caddy + Let's Encrypt)?\n\nRequirement: a domain that already points to this server via DNS (A/AAAA record)."; then
+  DOMAIN=$(ui_input "Domain (e.g. netmaster.example.com)" "")
 fi
 
 # ---------------------------------------------------------------------------
 # .env
 # ---------------------------------------------------------------------------
-log "Erzeuge .env mit generierten Secrets..."
+log "Generating .env with generated secrets..."
 MASTER_SECRET=$(openssl rand -hex 32)
 AUTH_SECRET=$(openssl rand -hex 32)
-# Secret zur gegenseitigen Authentifizierung zwischen Hauptcontainer und dem
-# optionalen NAS-Gateway (siehe docker-compose.yml, Profil "nas"). Wird immer
-# generiert, auch wenn der Gateway (noch) nicht gestartet wird - dann bleibt
-# er ungenutzt, aber .env muss nicht nachträglich manuell ergänzt werden.
+# Secret used for mutual authentication between the main container and the
+# optional NAS gateway (see docker-compose.yml, profile "nas"). Always
+# generated, even if the gateway is not (yet) started - it just stays
+# unused, but .env doesn't need to be edited manually afterwards.
 NAS_INTERNAL_SECRET=$(openssl rand -hex 32)
 
 cat > "$INSTALL_DIR/.env" <<EOF
@@ -306,7 +306,7 @@ NAS_INTERNAL_SECRET="${NAS_INTERNAL_SECRET}"
 EOF
 
 if [ -n "$DOMAIN" ]; then
-  log "Richte Caddy-Reverse-Proxy für $DOMAIN ein..."
+  log "Setting up Caddy reverse proxy for $DOMAIN..."
   cat > "$INSTALL_DIR/Caddyfile" <<EOF
 {
 	email ${ADMIN_EMAIL}
@@ -316,11 +316,12 @@ ${DOMAIN} {
 	reverse_proxy localhost:${HOST_PORT}
 }
 EOF
-  # NetMaster läuft mit network_mode: host (siehe unten) und hat damit kein
-  # Docker-Portmapping mehr, über das sich der App-Port auf localhost
-  # beschränken ließe (kein HOST_BIND wie zuvor im Bridge-Netz). Caddy soll
-  # der einzige öffentliche Entrypoint sein - der App-Port wird daher weiter
-  # unten per Host-Firewall explizit von außen gesperrt.
+  # NetMaster runs with network_mode: host (see above) and therefore no
+  # longer has a Docker port mapping that would let us restrict the app
+  # port to localhost (no HOST_BIND like before on the bridge network).
+  # Caddy should be the only public entry point - the app port is
+  # therefore explicitly blocked from the outside via the host firewall
+  # further below.
   printf 'COMPOSE_PROFILES=proxy\n' >> "$INSTALL_DIR/.env"
   printf 'COOKIE_SECURE=true\n' >> "$INSTALL_DIR/.env"
 fi
@@ -333,20 +334,20 @@ chmod 600 "$INSTALL_DIR/.env"
 open_ports() {
   local ports=("$@")
   if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-    if ui_yesno "Eine aktive ufw-Firewall wurde erkannt.\n\nPort(e) ${ports[*]} jetzt freigeben, damit NetMaster erreichbar ist?"; then
+    if ui_yesno "An active ufw firewall was detected.\n\nOpen port(s) ${ports[*]} now so NetMaster is reachable?"; then
       for p in "${ports[@]}"; do ufw allow "$p"/tcp || true; done
     fi
   elif command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
-    if ui_yesno "Eine aktive firewalld-Firewall wurde erkannt.\n\nPort(e) ${ports[*]} jetzt freigeben, damit NetMaster erreichbar ist?"; then
+    if ui_yesno "An active firewalld firewall was detected.\n\nOpen port(s) ${ports[*]} now so NetMaster is reachable?"; then
       for p in "${ports[@]}"; do firewall-cmd --permanent --add-port="${p}/tcp" || true; done
       firewall-cmd --reload || true
     fi
   fi
 }
 
-# Sperrt einen Port von außen (nur relevant, wenn Caddy der einzige
-# öffentliche Entrypoint sein soll) - unter network_mode: host gibt es kein
-# Docker-NAT mehr, das den App-Port sonst nach außen abschirmen würde.
+# Blocks a port from the outside (only relevant if Caddy is meant to be the
+# only public entry point) - under network_mode: host there's no more
+# Docker NAT to otherwise shield the app port from the outside.
 deny_port_externally() {
   local port="$1"
   if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
@@ -367,22 +368,22 @@ fi
 # ---------------------------------------------------------------------------
 # start
 # ---------------------------------------------------------------------------
-log "Baue und starte die Container (das kann beim ersten Mal einige Minuten dauern)..."
+log "Building and starting the containers (this can take a few minutes the first time)..."
 docker compose -f "$INSTALL_DIR/docker-compose.yml" up -d --build
 
 # ---------------------------------------------------------------------------
 # install the `netmaster` CLI
 # ---------------------------------------------------------------------------
-log "Installiere netmaster-Befehl nach $BIN_PATH..."
+log "Installing the netmaster command to $BIN_PATH..."
 install -m 755 "$INSTALL_DIR/scripts/netmaster-cli.sh" "$BIN_PATH"
 
 # ---------------------------------------------------------------------------
 # cleanup: drop build cache / images / host package cache left behind by
 # the install so the disk doesn't fill up over time
 # ---------------------------------------------------------------------------
-"$BIN_PATH" cleanup || warn "Cleanup fehlgeschlagen, fahre trotzdem fort."
+"$BIN_PATH" cleanup || warn "Cleanup failed, continuing anyway."
 
-log "Bereinige Paketmanager-Cache..."
+log "Cleaning up package manager cache..."
 pkg_clean_cache || true
 
 # ---------------------------------------------------------------------------
@@ -394,34 +395,34 @@ else
   URL="http://$(curl -fsSL ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "<server-ip>"):${HOST_PORT}"
 fi
 
-SUMMARY="NetMaster läuft jetzt!
+SUMMARY="NetMaster is now running!
 
 URL:      ${URL}
 Login:    ${ADMIN_EMAIL}"
 
 if [ "$PASSWORD_WAS_GENERATED" -eq 1 ]; then
   SUMMARY="${SUMMARY}
-Passwort: ${ADMIN_PASSWORD}  (zufällig generiert, jetzt notieren!)"
+Password: ${ADMIN_PASSWORD}  (randomly generated, write it down now!)"
 fi
 
 SUMMARY="${SUMMARY}
 
-Verwaltung:
-  netmaster status      Status anzeigen
-  netmaster logs        Live-Logs ansehen
-  netmaster stop        Container stoppen
-  netmaster start        Container starten
-  netmaster restart      Container neu starten
-  netmaster update       auf neuestes Release aktualisieren
-  netmaster update --nightly   auf neuesten main-Commit aktualisieren
-  netmaster prune-all    systemweit alle ungenutzten Docker-Ressourcen entfernen
-  netmaster uninstall    NetMaster entfernen"
+Management:
+  netmaster status      Show status
+  netmaster logs        View live logs
+  netmaster stop        Stop the containers
+  netmaster start        Start the containers
+  netmaster restart      Restart the containers
+  netmaster update       Update to the latest release
+  netmaster update --nightly   Update to the latest main commit
+  netmaster prune-all    Remove all unused Docker resources system-wide
+  netmaster uninstall    Remove NetMaster"
 
 if [ -z "$DOMAIN" ]; then
   SUMMARY="${SUMMARY}
 
-Hinweis: kein HTTPS aktiv. Exponiere Port ${HOST_PORT} nicht ungeschützt
-ins Internet - nutze bei Bedarf einen eigenen Reverse-Proxy mit TLS."
+Note: HTTPS is not active. Don't expose port ${HOST_PORT} unprotected to
+the internet - use your own reverse proxy with TLS if needed."
 fi
 
 ui_info "$SUMMARY"
