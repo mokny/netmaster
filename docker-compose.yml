@@ -12,6 +12,7 @@ services:
       - NET_RAW
     environment:
       NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
       # HOST_PORT wird hier zum tatsächlichen Listen-Port der App, da
       # unter network_mode: host kein Docker-Portmapping mehr existiert.
       PORT: ${HOST_PORT:-3000}

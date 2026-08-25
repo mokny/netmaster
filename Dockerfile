@@ -1,5 +1,8 @@
 FROM node:22-bookworm-slim AS base
 WORKDIR /app
+# Applies to every stage (build and runtime) since they all derive from base -
+# opts out of Next.js sending anonymous usage data.
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build tools are only needed to compile native modules (better-sqlite3, ssh2)
 # during npm install; they don't belong in the runtime image.
