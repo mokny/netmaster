@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Updater version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-UPDATER_VERSION="1.2"
+UPDATER_VERSION="1.3"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -64,7 +64,7 @@ ui_yesno() {
 # on `netmaster update` without requiring a manual .env edit.
 ensure_env_secret() {
   local key="$1" existing
-  existing=$(grep -m1 "^${key}=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+  existing=$(grep -m1 "^${key}=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"') || true
   if [ -z "${existing:-}" ]; then
     log "Filling in missing value for ${key} in .env..."
     sed -i "/^${key}=/d" "$INSTALL_DIR/.env"
@@ -86,7 +86,7 @@ current_url() {
     echo "https://${domain}"
   else
     local port
-    port=$(grep -m1 '^HOST_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d'"' -f2)
+    port=$(grep -m1 '^HOST_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d'"' -f2) || true
     echo "http://<server-ip>:${port:-3000}"
   fi
 }
