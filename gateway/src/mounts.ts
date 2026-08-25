@@ -87,14 +87,20 @@ async function mountSshfs(share: GatewayShare, mountPoint: string): Promise<stri
     "StrictHostKeyChecking=no",
     "-o",
     "UserKnownHostsFile=/dev/null",
-    // Beschränkt sich auf die initiale Verbindung - reconnect (unten) regelt
-    // spätere Aussetzer separat. Ohne festes Timeout kann der SSH-Handshake
-    // bei einem instabilen/überlasteten Zielserver sehr lange hängen, statt
-    // zügig fehlzuschlagen.
+    // Ohne festes Timeout kann der SSH-Handshake bei einem instabilen/
+    // überlasteten Zielserver sehr lange hängen, statt zügig fehlzuschlagen.
     "-o",
     "ConnectTimeout=10",
-    "-o",
-    "reconnect",
+    // Bewusst KEIN "-o reconnect": das führt bei Passwort-Auth zu einem
+    // Mount, der nach dem kleinsten Verbindungsaussetzer dauerhaft "gemountet,
+    // aber tot" hängen bleibt (jeder Zugriff liefert EIO) - der interne
+    // Reconnect-Versuch von sshfs hat keinen Zugriff mehr auf das Passwort,
+    // das nur beim initialen Start per sshpass hereinkam, und scheitert daher
+    // lautlos (live so beobachtet, reproduzierbar sogar bei druckfrisch
+    // angelegten Freigaben). Die eigene syncMounts()-Überwachung (readdir-
+    // Health-Check, siehe isMounted()) erkennt einen toten Mount ohnehin und
+    // baut ihn komplett neu auf statt auf sshfs' brüchigen Reconnect zu
+    // vertrauen.
     "-o",
     "ServerAliveInterval=15",
     "-o",
