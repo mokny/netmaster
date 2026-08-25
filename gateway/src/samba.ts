@@ -52,26 +52,43 @@ export async function setSambaPassword(email: string, password: string): Promise
   await execFileAsync("smbpasswd", ["-e", username]).catch(() => {});
 }
 
-// Sprechender Freigabename statt der rohen Freigaben-ID, aber weiterhin
-// eindeutig (Suffix aus der ID) - zwei Freigaben mit demselben "name" dürfen
-// sich in smb.conf nicht denselben Sektionsnamen teilen.
-function sambaShareNameFor(share: GatewayShare): string {
-  const base = share.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 32);
-  return `${base || "share"}_${share.id.slice(-6)}`;
+function sanitizeShareName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 32) || "share"
+  );
 }
 
-function renderShareStanza(share: GatewayShare): string {
+// Sprechender Freigabename statt der rohen Freigaben-ID. Der ID-Suffix wird
+// nur angehängt, wenn mehrere Freigaben denselben sanitisierten Namen
+// hätten - smb.conf darf keine zwei Sektionen mit demselben Namen haben,
+// aber im Normalfall (eindeutige Namen) soll die Freigabe einfach genauso
+// heißen wie im Admin-Bereich.
+function assignSambaShareNames(shares: GatewayShare[]): Map<string, string> {
+  const counts = new Map<string, number>();
+  for (const share of shares) {
+    const base = sanitizeShareName(share.name);
+    counts.set(base, (counts.get(base) ?? 0) + 1);
+  }
+  const names = new Map<string, string>();
+  for (const share of shares) {
+    const base = sanitizeShareName(share.name);
+    names.set(share.id, (counts.get(base) ?? 0) > 1 ? `${base}_${share.id.slice(-6)}` : base);
+  }
+  return names;
+}
+
+function renderShareStanza(share: GatewayShare, sambaShareName: string): string {
   const validUsers = share.members.map((m) => sambaUsernameFor(m.email));
   const writeUsers = share.members
     .filter((m) => m.role === "READ_WRITE")
     .map((m) => sambaUsernameFor(m.email));
 
   return [
-    `[${sambaShareNameFor(share)}]`,
+    `[${sambaShareName}]`,
     `    path = ${mountPointFor(share.id)}`,
     `    comment = ${share.name.replace(/[[\]]/g, "")}`,
     "    browseable = yes",
@@ -132,9 +149,10 @@ export async function syncSambaConfig(): Promise<boolean> {
     )
     .trimEnd();
 
+  const sambaShareNames = assignSambaShareNames(shares);
   const managedBlock = [
     SMB_CONF_MARKER_START,
-    ...shares.map(renderShareStanza),
+    ...shares.map((share) => renderShareStanza(share, sambaShareNames.get(share.id)!)),
     SMB_CONF_MARKER_END,
     "",
   ].join("\n\n");
