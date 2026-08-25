@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { Server, utils } from "ssh2";
+// ssh2 ist CommonJS - unter Node ESM (siehe gateway/package.json "type":
+// "module") funktionieren dessen benannte Exports nicht zuverlässig, daher
+// über den Default-Export destrukturieren statt `import { Server, utils }`.
+import ssh2 from "ssh2";
 import type { Session, SFTPWrapper, Attributes } from "ssh2";
+const { Server, utils } = ssh2;
 import { config } from "./config.js";
 import { authenticateNasUser } from "./main-api-client.js";
 import { mountPointFor } from "./mounts.js";
