@@ -22,6 +22,20 @@ interface MountEntry {
 // sauber abzuhängen, bevor neu gemountet wird.
 const activeMounts = new Map<string, MountEntry>();
 
+// Anzahl aufeinanderfolgender fehlgeschlagener Health-Checks je Freigabe -
+// siehe Kommentar an HEALTH_CHECK_FAILURE_THRESHOLD.
+const consecutiveHealthFailures = new Map<string, number>();
+
+// Ein einzelner fehlgeschlagener readdir()-Health-Check reicht NICHT, um
+// einen Mount als tot zu betrachten: während eines großen Uploads ist die
+// einzige SSH-Verbindung des Mounts mit dem Datentransfer beschäftigt, ein
+// paralleler Health-Check-Request kann dann problemlos ins Timeout laufen,
+// obwohl der Mount völlig gesund ist. Ein sofortiges Abhängen in diesem
+// Moment würde den laufenden Transfer selbst zerstören (live so beobachtet:
+// Upload einer 200-MB-Datei brach reproduzierbar ab). Erst mehrere
+// aufeinanderfolgende Fehlschläge (~2 Minuten) gelten als echt tot.
+const HEALTH_CHECK_FAILURE_THRESHOLD = 4;
+
 export function mountPointFor(shareId: string): string {
   return path.join(config.mountRoot, shareId);
 }
@@ -47,7 +61,7 @@ async function isMounted(mountPoint: string): Promise<boolean> {
   try {
     await Promise.race([
       fs.readdir(mountPoint),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("readdir timeout")), 5_000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("readdir timeout")), 10_000)),
     ]);
     return true;
   } catch {
@@ -235,12 +249,28 @@ export async function syncMounts(): Promise<void> {
     const existing = activeMounts.get(share.id);
     if (existing && !sameConfig(existing.share, share)) {
       await teardownMount(share.id);
+      consecutiveHealthFailures.delete(share.id);
     }
     const stillActive = activeMounts.has(share.id);
-    if (!stillActive || !(await isMounted(mountPointFor(share.id)))) {
-      if (stillActive) await teardownMount(share.id);
+    if (!stillActive) {
+      consecutiveHealthFailures.delete(share.id);
       await ensureMount(share);
+      continue;
     }
+
+    if (await isMounted(mountPointFor(share.id))) {
+      consecutiveHealthFailures.delete(share.id);
+      continue;
+    }
+
+    const failures = (consecutiveHealthFailures.get(share.id) ?? 0) + 1;
+    if (failures < HEALTH_CHECK_FAILURE_THRESHOLD) {
+      consecutiveHealthFailures.set(share.id, failures);
+      continue;
+    }
+    consecutiveHealthFailures.delete(share.id);
+    await teardownMount(share.id);
+    await ensureMount(share);
   }
 }
 
