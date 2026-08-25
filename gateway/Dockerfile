@@ -1,4 +1,10 @@
-FROM node:22-bookworm-slim AS base
+# trixie (Debian 13) statt bookworm: bookworm's deutlich ältere openssh-client
+# (~9.2) hat sich mit dem sehr neuen sshd mancher Zielserver (strict KEX +
+# ML-KEM, ab OpenSSH 9.6/9.9) nicht vertragen - Symptom war "channel N: bad
+# ext data" / "read: Connection reset by peer" bei jedem SSHFS-Mount-Versuch,
+# obwohl derselbe SSH-Login vom Zielserver selbst aus (moderner Client)
+# einwandfrei funktionierte.
+FROM node:22-trixie-slim AS base
 WORKDIR /app
 
 FROM base AS build-tools
@@ -18,8 +24,8 @@ RUN npm run build
 FROM base AS runner
 # sshfs fürs Mounten der Freigaben (zieht fuse3 automatisch als Abhängigkeit
 # - das ältere "fuse"-Paket NICHT explizit mitinstallieren, das bricht auf
-# aktuellem Debian/bookworm mit "fuse3 : Breaks: fuse" / "sshfs : Breaks:
-# fuse (< 3)"), samba fürs zentrale SMB, sshpass für Passwort-basierte
+# aktuellem Debian mit "fuse3 : Breaks: fuse" / "sshfs : Breaks: fuse (< 3)"),
+# samba fürs zentrale SMB, sshpass für Passwort-basierte
 # SSHFS-Verbindungen, openssh-client liefert ssh-keygen für den
 # SFTP-Host-Key, nfs-common für den optionalen NFS-Transport.
 RUN apt-get update && apt-get install -y --no-install-recommends \
