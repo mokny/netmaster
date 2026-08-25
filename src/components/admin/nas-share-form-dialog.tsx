@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus } from "lucide-react";
+import { FolderSearch, Loader2, Plus } from "lucide-react";
 import type { ServerDTO } from "@/lib/types";
+import { NasFolderBrowserDialog } from "./nas-folder-browser-dialog";
 
 export function NasShareFormDialog({
   servers,
@@ -35,6 +36,7 @@ export function NasShareFormDialog({
   const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
     serverId: servers[0]?.id ?? "",
@@ -116,12 +118,24 @@ export function NasShareFormDialog({
           </div>
           <div className="space-y-2">
             <Label>{t("remotePath")}</Label>
-            <Input
-              required
-              placeholder="/srv/nas/team-fotos"
-              value={form.remotePath}
-              onChange={(e) => setForm((f) => ({ ...f, remotePath: e.target.value }))}
-            />
+            <div className="flex gap-2">
+              <Input
+                required
+                placeholder="/srv/nas/team-fotos"
+                value={form.remotePath}
+                onChange={(e) => setForm((f) => ({ ...f, remotePath: e.target.value }))}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={!form.serverId}
+                title={t("browse")}
+                onClick={() => setBrowserOpen(true)}
+              >
+                <FolderSearch className="size-4" />
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>{t("mountTransport")}</Label>
@@ -156,6 +170,16 @@ export function NasShareFormDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <NasFolderBrowserDialog
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        serverId={form.serverId}
+        initialPath={form.remotePath}
+        onSelect={(path) => {
+          setForm((f) => ({ ...f, remotePath: path }));
+          setBrowserOpen(false);
+        }}
+      />
     </Dialog>
   );
 }
