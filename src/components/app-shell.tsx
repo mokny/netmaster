@@ -28,6 +28,7 @@ import {
   ListChecks,
   Wrench,
   HardDrive,
+  FolderLock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +68,7 @@ const NAV_ITEMS = [
   { href: "/tools", labelKey: "tools", icon: Wrench, minRole: "EDITOR" },
   { href: "/storage", labelKey: "storage", icon: HardDrive, minRole: "EDITOR" },
   { href: "/router", labelKey: "router", icon: Router, minRole: "ADMIN" },
+  { href: "/admin/nas", labelKey: "nas", icon: FolderLock, minRole: "ADMIN" },
   { href: "/admin/users", labelKey: "users", icon: Users, minRole: "ADMIN" },
   { href: "/admin/settings", labelKey: "settings", icon: Settings, minRole: "ADMIN" },
   { href: "/admin/debug", labelKey: "debug", icon: Bug, minRole: "ADMIN" },
