@@ -510,7 +510,9 @@
     "LINK_NOT_FOUND": "This link does not exist or has expired",
     "PASSWORD_REQUIRED": "A password is required for this link",
     "REMOTE_PATH_CHECK_FAILED": "Het doelpad op de server kon niet worden aangemaakt of is niet beschrijfbaar.",
-    "INVALID_NAS_PORT": "Ongeldige poort (1-65535)."
+    "INVALID_NAS_PORT": "Ongeldige poort (1-65535).",
+    "FILE_OPERATION_FAILED": "Bestandsbewerking mislukt",
+    "UNKNOWN_OPERATION": "Onbekende bewerking"
   },
   "network": {
     "title": "Netwerktopologie",

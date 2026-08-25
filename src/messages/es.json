@@ -510,7 +510,9 @@
     "LINK_NOT_FOUND": "This link does not exist or has expired",
     "PASSWORD_REQUIRED": "A password is required for this link",
     "REMOTE_PATH_CHECK_FAILED": "No se pudo crear la ruta de destino en el servidor o no se puede escribir en ella.",
-    "INVALID_NAS_PORT": "Puerto no válido (1-65535)."
+    "INVALID_NAS_PORT": "Puerto no válido (1-65535).",
+    "FILE_OPERATION_FAILED": "Error en la operación de archivo",
+    "UNKNOWN_OPERATION": "Operación desconocida"
   },
   "network": {
     "title": "Topología de red",

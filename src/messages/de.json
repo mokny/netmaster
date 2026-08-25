@@ -510,7 +510,9 @@
     "LINK_NOT_FOUND": "Dieser Link existiert nicht oder ist abgelaufen",
     "PASSWORD_REQUIRED": "Für diesen Link ist ein Passwort erforderlich",
     "REMOTE_PATH_CHECK_FAILED": "Der Zielpfad auf dem Server konnte nicht angelegt werden oder ist nicht beschreibbar.",
-    "INVALID_NAS_PORT": "Ungültiger Port (1-65535)."
+    "INVALID_NAS_PORT": "Ungültiger Port (1-65535).",
+    "FILE_OPERATION_FAILED": "Dateioperation fehlgeschlagen",
+    "UNKNOWN_OPERATION": "Unbekannte Operation"
   },
   "network": {
     "title": "Netzwerktopologie",

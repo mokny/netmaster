@@ -26,9 +26,25 @@ export function mountPointFor(shareId: string): string {
   return path.join(config.mountRoot, shareId);
 }
 
+// "mountpoint -q" nur beweist, dass dort ein eigenständiges Dateisystem
+// gemountet ist - nicht, dass der FUSE-Backend-Prozess dahinter noch lebt.
+// Bricht die SSH-Verbindung eines laufenden sshfs weg, versucht dessen
+// "-o reconnect" intern selbst neu zu verbinden - hat dabei bei Passwort-Auth
+// aber keinen Zugriff mehr auf das Passwort (das kam nur beim initialen
+// Start per sshpass rein), der interne Reconnect schlägt also fehl und der
+// Mountpoint bleibt dauerhaft in einem "gemountet, aber tot"-Zustand hängen
+// (jeder Zugriff liefert EIO/ENOTCONN). Ein Stat mit Timeout deckt das auf.
 async function isMounted(mountPoint: string): Promise<boolean> {
   try {
     await execFileAsync("mountpoint", ["-q", mountPoint]);
+  } catch {
+    return false;
+  }
+  try {
+    await Promise.race([
+      fs.stat(mountPoint),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("stat timeout")), 5_000)),
+    ]);
     return true;
   } catch {
     return false;
