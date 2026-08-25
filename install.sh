@@ -16,6 +16,10 @@
 
 set -euo pipefail
 
+# Installer-Version: wird per Husky pre-commit Hook (scripts/bump-script-versions.js)
+# automatisch erhöht, sobald sich diese Datei in einem Commit ändert.
+INSTALLER_VERSION="1.1"
+
 REPO_URL="https://github.com/mokny/netmaster.git"
 REPO_SLUG="mokny/netmaster"
 SCRIPT_URL="https://raw.githubusercontent.com/mokny/netmaster/main/install.sh"
@@ -40,6 +44,18 @@ warn() { printf '\033[1;33m!!\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31mXX\033[0m %s\n' "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
+print_banner() {
+  printf '\033[1;34m'
+  cat <<'ASCII'
+    _   __     __  __  ___           __
+   / | / /__  / /_/  |/  /___ ______/ /____  _____
+  /  |/ / _ \/ __/ /|_/ / __ `/ ___/ __/ _ \/ ___/
+ / /|  /  __/ /_/ /  / / /_/ (__  ) /_/  __/ /
+/_/ |_/\___/\__/_/  /_/\__,_/____/\__/\___/_/
+ASCII
+  printf 'Installer v%s\033[0m\n\n' "$INSTALLER_VERSION"
+}
+
 # ---------------------------------------------------------------------------
 # re-exec as root
 # ---------------------------------------------------------------------------
@@ -57,6 +73,8 @@ if [ "$(id -u)" -ne 0 ]; then
     exec sudo -E bash "$TMP_SCRIPT" "$@"
   fi
 fi
+
+print_banner
 
 # preserve the invoking (non-root) user, if any, so we can add them to the docker group
 REAL_USER="${SUDO_USER:-}"

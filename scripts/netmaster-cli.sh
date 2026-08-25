@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Updater-Version: wird per Husky pre-commit Hook (scripts/bump-script-versions.js)
+# automatisch erhöht, sobald sich diese Datei in einem Commit ändert.
+UPDATER_VERSION="1.1"
+
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
 BIN_PATH="/usr/local/bin/netmaster"
@@ -13,11 +17,25 @@ warn() { printf '\033[1;33m!!\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31mXX\033[0m %s\n' "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
+print_banner() {
+  printf '\033[1;34m'
+  cat <<'ASCII'
+    _   __     __  __  ___           __
+   / | / /__  / /_/  |/  /___ ______/ /____  _____
+  /  |/ / _ \/ __/ /|_/ / __ `/ ___/ __/ _ \/ ___/
+ / /|  /  __/ /_/ /  / / /_/ (__  ) /_/  __/ /
+/_/ |_/\___/\__/_/  /_/\__,_/____/\__/\___/_/
+ASCII
+  printf 'Updater v%s\033[0m\n\n' "$UPDATER_VERSION"
+}
+
 [ -d "$INSTALL_DIR" ] || die "Keine NetMaster-Installation unter $INSTALL_DIR gefunden."
 
 if [ "$(id -u)" -ne 0 ]; then
   exec sudo -E bash "$0" "$@"
 fi
+
+print_banner
 
 cd "$INSTALL_DIR"
 
