@@ -76,17 +76,27 @@ async function reloadSmbd(): Promise<void> {
   });
 }
 
+// Escaped alle Regex-Sonderzeichen in einem String, der als literaler Text
+// in einen RegExp-Pattern eingebettet wird.
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Regeneriert den von NetMaster verwalteten Block in smb.conf und legt für
 // jedes Mitglied jeder Freigabe (falls noch nicht vorhanden) einen lokalen
 // nologin-Unix-Account an - das Samba-Passwort selbst wird nicht hier,
 // sondern per Push (setSambaPassword) gesetzt, sobald es sich ändert.
-export async function syncSambaConfig(): Promise<void> {
+// Gibt zurück, ob der Durchlauf erfolgreich war (siehe startSambaSync -
+// nach einem Fehlschlag, z.B. weil die Haupt-App beim Gateway-Start noch
+// nicht bereit war, soll zügig erneut versucht werden statt bis zu
+// intervalMs zu warten).
+export async function syncSambaConfig(): Promise<boolean> {
   let shares: GatewayShare[];
   try {
     shares = await fetchShares();
   } catch (err) {
     console.error("Samba-Sync: Konnte Freigaben nicht laden:", err);
-    return;
+    return false;
   }
 
   for (const share of shares) {
@@ -98,8 +108,16 @@ export async function syncSambaConfig(): Promise<void> {
   }
 
   const existing = await fs.readFile(SMB_CONF_PATH, "utf8").catch(() => "");
+  // WICHTIG: die Marker enthalten literale Klammern ("(auto-generated)"),
+  // die als ungeschützte Regex-Metazeichen NIE gematcht hätten - der alte
+  // Block wurde dadurch nie entfernt, sondern bei jedem Durchlauf (alle 5
+  // Minuten und bei jedem Neustart) ein weiterer, duplizierter Block
+  // angehängt.
   const withoutManagedBlock = existing
-    .replace(new RegExp(`${SMB_CONF_MARKER_START}[\\s\\S]*?${SMB_CONF_MARKER_END}\\n?`), "")
+    .replace(
+      new RegExp(`${escapeRegExp(SMB_CONF_MARKER_START)}[\\s\\S]*?${escapeRegExp(SMB_CONF_MARKER_END)}\\n?`, "g"),
+      ""
+    )
     .trimEnd();
 
   const managedBlock = [
@@ -111,9 +129,20 @@ export async function syncSambaConfig(): Promise<void> {
 
   await fs.writeFile(SMB_CONF_PATH, `${withoutManagedBlock}\n\n${managedBlock}`);
   await reloadSmbd();
+  return true;
 }
 
+// Läuft nach einem Fehlschlag (z.B. Haupt-App beim Gateway-Start noch nicht
+// erreichbar) zeitnah erneut, statt bis zum nächsten regulären Intervall zu
+// warten - ohne das könnte eine frisch angelegte Freigabe bis zu
+// intervalMs (Standard 5 Minuten) lang nicht in Samba auftauchen.
 export function startSambaSync(intervalMs: number): void {
-  syncSambaConfig();
-  setInterval(syncSambaConfig, intervalMs);
+  const retryDelayMs = Math.min(intervalMs, 15_000);
+
+  async function tick(): Promise<void> {
+    const ok = await syncSambaConfig();
+    setTimeout(tick, ok ? intervalMs : retryDelayMs);
+  }
+
+  tick();
 }
