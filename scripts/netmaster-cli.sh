@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Updater version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-UPDATER_VERSION="1.4"
+UPDATER_VERSION="1.5"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -135,7 +135,10 @@ cmd_update() {
   git reset --hard FETCH_HEAD
 
   log "Rebuilding and restarting containers..."
-  compose up -d --build
+  # --remove-orphans: stops/removes containers for services that existed in
+  # a previous docker-compose.yml but were removed since (e.g. a retired
+  # add-on service) - without it they'd keep running as untracked orphans.
+  compose up -d --build --remove-orphans
 
   # keep the installed CLI in sync with whatever shipped in this ref
   install -m 755 "$INSTALL_DIR/scripts/netmaster-cli.sh" "$BIN_PATH"
