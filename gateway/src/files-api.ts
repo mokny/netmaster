@@ -3,7 +3,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config.js";
-import { mountPointFor } from "./mounts.js";
+import { mountPointFor, reportMountIoError, isDeadMountError } from "./mounts.js";
 import { setSambaPassword } from "./samba.js";
 
 // Resolved Pfad innerhalb des Mountpoints - wirft, falls der angeforderte
@@ -109,6 +109,7 @@ async function handleFilesRequest(
 
     sendJson(res, 400, { error: "UNKNOWN_OPERATION" });
   } catch (err) {
+    if (isDeadMountError(err)) reportMountIoError(shareId);
     const message = err instanceof Error ? err.message : String(err);
     const status = message === "INVALID_PATH" ? 400 : 500;
     sendJson(res, status, { error: "FILE_OPERATION_FAILED", detail: message });

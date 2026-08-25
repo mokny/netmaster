@@ -22,51 +22,67 @@ interface MountEntry {
 // sauber abzuhängen, bevor neu gemountet wird.
 const activeMounts = new Map<string, MountEntry>();
 
-// Anzahl aufeinanderfolgender fehlgeschlagener Health-Checks je Freigabe -
-// siehe Kommentar an HEALTH_CHECK_FAILURE_THRESHOLD.
-const consecutiveHealthFailures = new Map<string, number>();
-
-// Ein einzelner fehlgeschlagener readdir()-Health-Check reicht NICHT, um
-// einen Mount als tot zu betrachten: während eines großen Uploads ist die
-// einzige SSH-Verbindung des Mounts mit dem Datentransfer beschäftigt, ein
-// paralleler Health-Check-Request kann dann problemlos ins Timeout laufen,
-// obwohl der Mount völlig gesund ist. Ein sofortiges Abhängen in diesem
-// Moment würde den laufenden Transfer selbst zerstören (live so beobachtet:
-// Upload einer 200-MB-Datei brach reproduzierbar ab). Erst mehrere
-// aufeinanderfolgende Fehlschläge (~2 Minuten) gelten als echt tot.
-const HEALTH_CHECK_FAILURE_THRESHOLD = 4;
-
 export function mountPointFor(shareId: string): string {
   return path.join(config.mountRoot, shareId);
 }
 
-// "mountpoint -q" nur beweist, dass dort ein eigenständiges Dateisystem
-// gemountet ist - nicht, dass der FUSE-Backend-Prozess dahinter noch lebt.
-// Bricht die SSH-Verbindung eines laufenden sshfs weg, versucht dessen
-// "-o reconnect" intern selbst neu zu verbinden - hat dabei bei Passwort-Auth
-// aber keinen Zugriff mehr auf das Passwort (das kam nur beim initialen
-// Start per sshpass rein), der interne Reconnect schlägt also fehl und der
-// Mountpoint bleibt dauerhaft in einem "gemountet, aber tot"-Zustand hängen
-// (jeder Zugriff liefert EIO/ENOTCONN). Ein bloßes stat() auf den Mountpoint
-// selbst reicht dafür NICHT als Test - das liefert oft noch gecachte/billige
-// Attribute zurück, obwohl scandir/mkdir im Verzeichnis längst EIO werfen
-// (genau das war live so zu beobachten). readdir() erzwingt einen echten
-// Roundtrip zum FUSE-Backend und deckt den toten Zustand zuverlässig auf.
+// Nur ein billiger Check (reine /proc/mounts-Abfrage, kein Zugriff auf den
+// FUSE-Datenpfad selbst) - bewusst KEIN readdir()/stat() mehr hier. Ein
+// solcher aktiver Health-Check konkurriert um dieselbe (einzige) SSH-
+// Verbindung wie ein laufender Upload/Download und kann bei einem großen
+// oder lang laufenden Transfer leicht ins Timeout laufen, obwohl der Mount
+// völlig gesund ist - live reproduziert: sowohl ein 200-MB-Upload als auch
+// ein Ordner mit mehreren Dateien brachen dadurch mitten im Transfer ab,
+// weil der "gesunde aber gerade beschäftigte" Mount fälschlich abgehängt
+// wurde. Einen wirklich toten Mount ("gemountet, aber tot" - siehe
+// mountSshfs()-Kommentar zu "-o reconnect") erkennen wir stattdessen
+// reaktiv: sobald eine echte Operation (Web-Upload, Quota-Check) auf EIO/
+// ENOTCONN läuft, meldet sie das über reportMountIoError() unten.
 async function isMounted(mountPoint: string): Promise<boolean> {
   try {
     await execFileAsync("mountpoint", ["-q", mountPoint]);
-  } catch {
-    return false;
-  }
-  try {
-    await Promise.race([
-      fs.readdir(mountPoint),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("readdir timeout")), 10_000)),
-    ]);
     return true;
   } catch {
     return false;
   }
+}
+
+// Zeitpunkt (ms) der letzten reaktiven Reparatur je Freigabe - verhindert,
+// dass z.B. mehrere gleichzeitige fehlgeschlagene Uploads für dieselbe
+// Freigabe mehrfach parallel neu mounten.
+const lastRepairAt = new Map<string, number>();
+const REPAIR_DEBOUNCE_MS = 15_000;
+
+// Von files-api.ts/quota.ts aufgerufen, sobald eine echte Dateioperation auf
+// dieser Freigabe mit einem für einen toten FUSE-Mount typischen Fehler
+// (EIO, ENOTCONN, ESTALE) fehlschlägt. Hängt den Mount ab und sofort wieder
+// neu ein, statt auf den nächsten regulären syncMounts()-Durchlauf zu warten.
+export function reportMountIoError(shareId: string): void {
+  const last = lastRepairAt.get(shareId) ?? 0;
+  if (Date.now() - last < REPAIR_DEBOUNCE_MS) return;
+  lastRepairAt.set(shareId, Date.now());
+
+  const entry = activeMounts.get(shareId);
+  if (!entry) return;
+  console.error(`I/O-Fehler auf Freigabe ${shareId} gemeldet - hänge Mount neu ein.`);
+  teardownMount(shareId)
+    .then(() => ensureMount(entry.share))
+    .catch((err) => console.error(`Reaktiver Remount für Freigabe ${shareId} fehlgeschlagen:`, err));
+}
+
+// EIO/ENOTCONN/ESTALE sind die typischen Symptome eines "gemountet, aber
+// tot" hängenden FUSE-Mounts (siehe reportMountIoError) - andere Fehler
+// (z.B. ENOENT für einen schlicht nicht vorhandenen Pfad, EACCES für ein
+// echtes Rechteproblem) deuten nicht darauf hin und sollen keinen Remount
+// auslösen. Node's fs/promises setzt bei sowas ".code" auf den Errno-String;
+// execFile-Fehler (z.B. quota.ts' "du") haben stattdessen nur den
+// Exitcode in ".code" und die eigentliche Meldung in stderr/message, daher
+// zusätzlich ein Text-Fallback.
+export function isDeadMountError(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException)?.code;
+  if (code === "EIO" || code === "ENOTCONN" || code === "ESTALE") return true;
+  const text = String((err as { stderr?: string; message?: string })?.stderr ?? (err as Error)?.message ?? "");
+  return /input\/output error|transport endpoint is not connected|stale file handle/i.test(text);
 }
 
 // fuse3 (heutiger Standard, siehe gateway/Dockerfile) installiert nur
@@ -111,10 +127,9 @@ async function mountSshfs(share: GatewayShare, mountPoint: string): Promise<stri
     // Reconnect-Versuch von sshfs hat keinen Zugriff mehr auf das Passwort,
     // das nur beim initialen Start per sshpass hereinkam, und scheitert daher
     // lautlos (live so beobachtet, reproduzierbar sogar bei druckfrisch
-    // angelegten Freigaben). Die eigene syncMounts()-Überwachung (readdir-
-    // Health-Check, siehe isMounted()) erkennt einen toten Mount ohnehin und
-    // baut ihn komplett neu auf statt auf sshfs' brüchigen Reconnect zu
-    // vertrauen.
+    // angelegten Freigaben). Ein toter Mount wird stattdessen reaktiv über
+    // reportMountIoError() erkannt und komplett neu aufgebaut, statt auf
+    // sshfs' brüchigen Reconnect zu vertrauen.
     "-o",
     "ServerAliveInterval=15",
     "-o",
@@ -226,9 +241,10 @@ async function teardownMount(shareId: string): Promise<void> {
 }
 
 // Ein Sync-Durchlauf: gleicht den Soll-Zustand (aktuelle Freigaben laut
-// Haupt-App) mit dem Ist-Zustand (aktuell aktive Mounts) ab - mountet neue/
-// geänderte Freigaben, hängt entfernte/geänderte ab, prüft bestehende Mounts
-// auf Erreichbarkeit (reconnect bei Hänger, siehe isMounted).
+// Haupt-App) mit dem Ist-Zustand (aktuell aktive Mounts) ab - mountet neue
+// Freigaben und hängt entfernte/geänderte ab. Ein "gemountet, aber tot"
+// hängender Mount wird hier bewusst NICHT erkannt (siehe isMounted()-
+// Kommentar) - das übernimmt reportMountIoError() reaktiv.
 export async function syncMounts(): Promise<void> {
   let shares: GatewayShare[];
   try {
@@ -249,28 +265,12 @@ export async function syncMounts(): Promise<void> {
     const existing = activeMounts.get(share.id);
     if (existing && !sameConfig(existing.share, share)) {
       await teardownMount(share.id);
-      consecutiveHealthFailures.delete(share.id);
     }
     const stillActive = activeMounts.has(share.id);
-    if (!stillActive) {
-      consecutiveHealthFailures.delete(share.id);
+    if (!stillActive || !(await isMounted(mountPointFor(share.id)))) {
+      if (stillActive) await teardownMount(share.id);
       await ensureMount(share);
-      continue;
     }
-
-    if (await isMounted(mountPointFor(share.id))) {
-      consecutiveHealthFailures.delete(share.id);
-      continue;
-    }
-
-    const failures = (consecutiveHealthFailures.get(share.id) ?? 0) + 1;
-    if (failures < HEALTH_CHECK_FAILURE_THRESHOLD) {
-      consecutiveHealthFailures.set(share.id, failures);
-      continue;
-    }
-    consecutiveHealthFailures.delete(share.id);
-    await teardownMount(share.id);
-    await ensureMount(share);
   }
 }
 
