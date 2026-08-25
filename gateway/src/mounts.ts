@@ -7,6 +7,10 @@ import { fetchShares, reportMountStatus, type GatewayShare } from "./main-api-cl
 
 const execFileAsync = promisify(execFile);
 
+// Harte Obergrenze für einen einzelnen Mount-Versuch, siehe Kommentar in
+// mountSshfs() und startMountManager().
+const MOUNT_ATTEMPT_TIMEOUT_MS = 20_000;
+
 interface MountEntry {
   share: GatewayShare;
   mountPoint: string;
@@ -63,6 +67,12 @@ async function mountSshfs(share: GatewayShare, mountPoint: string): Promise<stri
     "StrictHostKeyChecking=no",
     "-o",
     "UserKnownHostsFile=/dev/null",
+    // Beschränkt sich auf die initiale Verbindung - reconnect (unten) regelt
+    // spätere Aussetzer separat. Ohne festes Timeout kann der SSH-Handshake
+    // bei einem instabilen/überlasteten Zielserver sehr lange hängen, statt
+    // zügig fehlzuschlagen.
+    "-o",
+    "ConnectTimeout=10",
     "-o",
     "reconnect",
     "-o",
@@ -91,12 +101,35 @@ async function mountSshfs(share: GatewayShare, mountPoint: string): Promise<stri
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
+    let settled = false;
+    // `-o reconnect` lässt sshfs bei einem hängenden/instabilen Ziel intern
+    // immer wieder selbst neu verbinden, statt sich zu beenden - ohne
+    // Hard-Timeout würde dieses Promise dann nie auflösen. Das würde den
+    // gesamten syncMounts()-Durchlauf blockieren, wodurch der nächste
+    // setInterval-Tick eine zweite, überlappende Mount-Runde für dieselbe
+    // Freigabe startet - jeder weitere hängende Versuch verschärft das immer
+    // mehr, bis der Zielserver unter der SSH-Verbindungslast selbst instabil
+    // wird (siehe startMountManager()-Kommentar).
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGKILL");
+      reject(new Error(`Mount-Versuch nach ${MOUNT_ATTEMPT_TIMEOUT_MS / 1000}s abgebrochen (Zielserver antwortet nicht)`));
+    }, MOUNT_ATTEMPT_TIMEOUT_MS);
     child.stderr.on("data", (d) => (stderr += d.toString()));
     child.on("exit", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code === 0) resolve();
       else reject(new Error(stderr.trim() || `${command} beendete sich mit Code ${code}`));
     });
-    child.on("error", reject);
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 
   return keyFilePath;
@@ -131,6 +164,10 @@ async function ensureMount(share: GatewayShare): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Mount für Freigabe ${share.id} fehlgeschlagen:`, message);
+    // Best-effort: ein per Timeout gekillter oder abgebrochener Versuch kann
+    // einen kaputten FUSE-Mount ("Transport endpoint is not connected") am
+    // Mountpoint zurücklassen, der den nächsten Versuch blockieren würde.
+    await unmount(mountPoint);
     await reportMountStatus(share.id, false, message.slice(0, 500)).catch(() => {});
   }
 }
@@ -176,7 +213,24 @@ export async function syncMounts(): Promise<void> {
   }
 }
 
+// setInterval feuert unabhängig davon, ob der vorherige Durchlauf schon
+// fertig ist - ohne dieses Lock würde ein hängender/langsamer Durchlauf
+// (z.B. viele Freigaben, oder ein Zielserver, der erst nach dem
+// ConnectTimeout aufgibt) einen zweiten, überlappenden syncMounts()-Aufruf
+// auslösen, der für dieselben Freigaben erneut Mount-Prozesse startet.
+let syncInProgress = false;
+
+async function syncMountsGuarded(): Promise<void> {
+  if (syncInProgress) return;
+  syncInProgress = true;
+  try {
+    await syncMounts();
+  } finally {
+    syncInProgress = false;
+  }
+}
+
 export function startMountManager(): void {
-  syncMounts();
-  setInterval(syncMounts, config.mountPollIntervalMs);
+  syncMountsGuarded();
+  setInterval(syncMountsGuarded, config.mountPollIntervalMs);
 }
