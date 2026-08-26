@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { handleApiError, ApiError } from "@/lib/api-helpers";
 import { writeAuditLog } from "@/lib/audit";
 import { loadStorageServer } from "@/lib/storage/route-helpers";
-import { listSambaUsers, createOrUpdateSambaUser, removeSambaUser } from "@/lib/storage/samba";
+import {
+  listSambaUsers,
+  createOrUpdateSambaUser,
+  removeSambaUser,
+  syncFilebrowserSshdUsers,
+} from "@/lib/storage/samba";
 import { openFirewallPorts } from "@/lib/storage/firewall-integration";
 
 export async function GET(
@@ -60,6 +66,18 @@ export async function DELETE(
     if (!username) throw new ApiError(400, "MISSING_REQUIRED_FIELDS");
 
     await removeSambaUser(server, username, removeSystemUser);
+
+    // Web-Dateimanager-Freigabe (falls gesetzt) fällt mit dem Samba-User weg -
+    // sonst bliebe ein verwaister sshd Match-User-Eintrag (ForceCommand
+    // internal-sftp) für einen nicht mehr existierenden/nicht mehr als
+    // Samba-User genutzten Account bestehen.
+    await prisma.sambaWebUser.deleteMany({ where: { serverId: id, username } });
+    const enabledUsers = await prisma.sambaWebUser.findMany({
+      where: { serverId: id, webUiEnabled: true },
+      select: { username: true },
+    });
+    await syncFilebrowserSshdUsers(server, enabledUsers.map((u) => u.username));
+
     await writeAuditLog(session, "storage.samba.userRemove", { serverId: id, detail: username });
     return NextResponse.json({ ok: true });
   } catch (err) {

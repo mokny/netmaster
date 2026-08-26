@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { handleApiError, ApiError } from "@/lib/api-helpers";
 import { writeAuditLog } from "@/lib/audit";
 import { loadStorageServer } from "@/lib/storage/route-helpers";
+import { syncFilebrowserSshdUsers } from "@/lib/storage/samba";
 
 export async function GET(
   _req: Request,
@@ -39,6 +40,16 @@ export async function PUT(
       create: { serverId: server.id, username, webUiEnabled, thumbnailsEnabled },
       update: { webUiEnabled, thumbnailsEnabled },
     });
+
+    // sshd braucht für jeden webUiEnabled-User ein erzwungenes internal-sftp
+    // (siehe syncFilebrowserSshdUsers) - immer die komplette, aktuelle Liste
+    // neu schreiben statt einzeln zu patchen, damit DB und sshd-Konfiguration
+    // nie auseinanderlaufen.
+    const enabledUsers = await prisma.sambaWebUser.findMany({
+      where: { serverId: server.id, webUiEnabled: true },
+      select: { username: true },
+    });
+    await syncFilebrowserSshdUsers(server, enabledUsers.map((u) => u.username));
 
     await writeAuditLog(session, "storage.samba.webUserSet", {
       serverId: id,

@@ -150,6 +150,59 @@ ${restartSmb()}
   await runRootScript(server, script);
 }
 
+// --- Web-Dateimanager: SFTP-Subsystem für Samba-User ---------------------------
+
+const SSHD_DROPIN = "/etc/ssh/sshd_config.d/90-netmaster-filebrowser.conf";
+const SSHD_MAIN = "/etc/ssh/sshd_config";
+const SSHD_INCLUDE_LINE = "Include /etc/ssh/sshd_config.d/*.conf";
+
+// OpenSSH führt sowohl das "sftp"-Subsystem als auch normale exec-Kommandos
+// über die Login-Shell des Users aus (`<shell> -c <kommando>`), NICHT
+// shell-unabhängig - trotz gegenteiliger Annahme beim ursprünglichen Design.
+// /usr/sbin/nologin (siehe createOrUpdateSambaUser) unterstützt kein `-c`,
+// gibt stattdessen nur seine Sperrmeldung aus - die landet im selben
+// Datenstrom wie das SFTP-Binärprotokoll und zerstört es ("Packet length ...
+// exceeds max length"). Der einzige Weg, SFTP für einen nologin-User
+// trotzdem nutzbar zu machen, OHNE ihm eine echte (interaktive) Shell zu
+// geben: sshd zwingt für genau diese User "internal-sftp" - das läuft
+// eingebaut im sshd-Prozess selbst, ganz ohne Shell-Aufruf.
+//
+// Der Match-User-Block wird IMMER exakt aus den Usernamen mit
+// SambaWebUser.webUiEnabled=true neu geschrieben (siehe Aufrufer in den
+// web-users/users-API-Routen) - kein inkrementelles Hinzufügen/Entfernen,
+// um Drift zwischen DB und sshd-Konfiguration auszuschließen.
+export async function syncFilebrowserSshdUsers(
+  server: ServerModel,
+  usernames: string[]
+): Promise<void> {
+  const valid = usernames.map((u) => assertName(u, "username"));
+  const content =
+    valid.length > 0
+      ? `# Von NetMaster verwaltet (Web-Dateimanager) - nicht manuell bearbeiten\nMatch User ${valid.join(",")}\n    ForceCommand internal-sftp\n`
+      : "";
+  const writeOrRemove =
+    content.length > 0
+      ? `cat > ${SSHD_DROPIN} <<'NETMASTER_SSHD_EOF'\n${content}NETMASTER_SSHD_EOF`
+      : `rm -f ${SSHD_DROPIN}`;
+  const script = `
+set -e
+if ! grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\\.d/\\*\\.conf' ${SSHD_MAIN} 2>/dev/null; then
+  sed -i "1i ${SSHD_INCLUDE_LINE}" ${SSHD_MAIN}
+fi
+mkdir -p /etc/ssh/sshd_config.d
+cp ${SSHD_DROPIN} ${SSHD_DROPIN}.bak 2>/dev/null || rm -f ${SSHD_DROPIN}.bak
+${writeOrRemove}
+if ! sshd -t; then
+  echo "sshd-Konfiguration ungültig, breche ab und stelle vorherigen Stand wieder her" >&2
+  if [ -f ${SSHD_DROPIN}.bak ]; then mv ${SSHD_DROPIN}.bak ${SSHD_DROPIN}; else rm -f ${SSHD_DROPIN}; fi
+  exit 1
+fi
+rm -f ${SSHD_DROPIN}.bak
+systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service ssh reload 2>/dev/null || true
+`.trim();
+  await runRootScript(server, script);
+}
+
 // --- Freigaben ------------------------------------------------------------------
 
 export interface SambaShare {
