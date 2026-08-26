@@ -1,3 +1,55 @@
+## v1.5.0 - 2026-08-26
+
+- Add VPN/WireGuard management feature to README
+- Fix whiptail dialogs hanging when installed via curl | bash
+- Add --no-whiptail flag to skip TUI in install.sh
+- Add WireGuard config import option alongside create
+- Surface remote error detail in WireGuard create/import toast
+- Fix root-script sudo password leak and wg-quick temp file naming
+- Fix WireGuard interface list silently returning empty on error
+- Surface remote error detail across all WireGuard action toasts
+- Include journalctl output when WireGuard unit fails to start
+- Auto-install resolvconf before starting WireGuard interfaces with DNS set
+- Replace automatic Proxmox/Docker polling with manual refresh and advanced polling toggle
+- Add router and repeater devices to network topology graph
+- Add connected-devices history chart for repeaters
+- Draw client connections in network topology graph
+- Link known servers to routers instead of duplicate client nodes
+- Filter self and duplicate router/repeater client entries
+- Spread client nodes into rings to avoid overlap
+- Add auto-mount-on-boot option to disk mount dialog
+- Surface real storage command errors instead of generic internal error
+- Fall back to sudo for chmod/chown in file manager
+- Add centralized NAS system with separate NAS users, shares, and gateway
+- Auto-generate NAS_INTERNAL_SECRET in install/update scripts
+- Exclude gateway/ from root tsconfig to fix Next.js build
+- Disable Next.js telemetry collection
+- Add version banner and auto-bump for installer/updater scripts
+- Translate installer, updater CLI, and reset-login script to English
+- Add folder browser for NAS share remote path selection
+- Fix updater exiting silently when NAS secret is missing from .env
+- Add NAS connect-info text, per-user quota, SSHFS-only share wizard
+- Fix NAS connect-text crash and ICU parse errors
+- Always start the NAS gateway container
+- Fix gateway Docker build failing on fuse/fuse3 conflict
+- Fix gateway crash-looping on ssh2's CommonJS/ESM import
+- Fix runaway concurrent SSHFS mount attempts
+- Move gateway image to Debian trixie for a modern openssh-client
+- Fix password-auth SSHFS mounts never actually authenticating
+- Detect and recover dead SSHFS mounts, add missing error translations
+- Strengthen dead-mount detection from stat() to readdir()
+- Remove sshfs's own "-o reconnect" - it wedges password-auth mounts
+- Fix Samba config never removing its old managed block, slow recovery
+- Use a readable Samba share name, drop stock printer shares
+- Only suffix Samba share names when they'd actually collide
+- Debounce dead-mount detection to stop killing in-progress transfers
+- Replace proactive mount health-check with reactive recovery
+- Remove the centralized NAS system
+- Remove orphaned containers on update
+- Add relocatable data directory to reduce SD card writes
+- Enforce correct ownership/permissions on the data directory
+
+
 ## v1.4.0 - 2026-08-22
 
 - Add input history dropdown to tools page fields
