@@ -65,10 +65,10 @@ export function listDir(sftp: SFTPWrapper, dirPath: string): Promise<FileNode[]>
 }
 
 export function stat(sftp: SFTPWrapper, filePath: string) {
-  return new Promise<{ isDirectory: boolean; size: number; mode: number }>((resolve, reject) => {
+  return new Promise<{ isDirectory: boolean; size: number; mode: number; mtimeMs: number }>((resolve, reject) => {
     sftp.stat(filePath, (err, stats) => {
       if (err) return reject(new SftpOpError(err.message, "NOT_FOUND"));
-      resolve({ isDirectory: stats.isDirectory(), size: stats.size, mode: stats.mode });
+      resolve({ isDirectory: stats.isDirectory(), size: stats.size, mode: stats.mode, mtimeMs: stats.mtime * 1000 });
     });
   });
 }
@@ -173,7 +173,7 @@ export async function removeRecursive(sftp: SFTPWrapper, targetPath: string): Pr
   await rmdirEmpty(sftp, targetPath);
 }
 
-function readFileBuffer(sftp: SFTPWrapper, filePath: string): Promise<Buffer> {
+export function readFileBuffer(sftp: SFTPWrapper, filePath: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const stream = sftp.createReadStream(filePath);
@@ -183,12 +183,19 @@ function readFileBuffer(sftp: SFTPWrapper, filePath: string): Promise<Buffer> {
   });
 }
 
-function writeFileBuffer(sftp: SFTPWrapper, filePath: string, data: Buffer): Promise<void> {
+export function writeFileBuffer(sftp: SFTPWrapper, filePath: string, data: Buffer): Promise<void> {
   return new Promise((resolve, reject) => {
     const stream = sftp.createWriteStream(filePath);
     stream.on("error", (err: Error) => reject(new SftpOpError(err.message, "OTHER")));
     stream.end(data, () => resolve());
   });
+}
+
+// Rohes Schreib-Stream-Handle (analog zu createRemoteReadStream) für Callsites,
+// die selbst pipen wollen statt eines fertigen Buffers - vermeidet die in
+// files/upload/route.ts früher duplizierte writeStream()-Hilfsfunktion.
+export function createRemoteWriteStream(sftp: SFTPWrapper, filePath: string) {
+  return sftp.createWriteStream(filePath);
 }
 
 function looksBinary(buf: Buffer): boolean {

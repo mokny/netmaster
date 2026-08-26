@@ -340,6 +340,7 @@ model Server {
   notificationPreferences NotificationPreference[]
   dockerContainerStates DockerContainerState[]
   pollLogs      PollLog[]
+  sambaWebUsers SambaWebUser[]
 }
 
 // Persistierter Laufzustand je Docker-Container (unabhängig von den nur 24h
@@ -832,4 +833,24 @@ model RouterSample {
   connectedDevices Int?
 
   @@index([routerDeviceId, timestamp])
+}
+
+// Schaltet für einen einzelnen Samba-User (reiner Unix/Samba-Account, siehe
+// samba.ts - hat keinen User-Datensatz in dieser DB) den mobilen
+// Web-Dateimanager unter /filebrowser frei. Speichert bewusst KEIN Passwort -
+// der Login dort verifiziert live per SSH gegen den Zielserver (siehe
+// lib/filebrowser/session.ts). webUiEnabled wird bei jedem Request der
+// Filebrowser-API erneut geprüft, damit ein nachträgliches Deaktivieren auch
+// eine bereits laufende Session sofort sperrt.
+model SambaWebUser {
+  id                String   @id @default(cuid())
+  serverId          String
+  server            Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  username          String
+  webUiEnabled      Boolean  @default(false)
+  thumbnailsEnabled Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([serverId, username])
 }

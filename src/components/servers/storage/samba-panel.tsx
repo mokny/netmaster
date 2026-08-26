@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useSession } from "@/hooks/use-session";
@@ -25,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Trash2, Pencil, Plus, KeyRound } from "lucide-react";
+import { Loader2, Trash2, Pencil, Plus, KeyRound, Copy, Check } from "lucide-react";
 import { SambaShareDialog, type SambaShare } from "@/components/servers/storage/samba-share-dialog";
 import { generateSecurePassword, PasswordField } from "@/components/servers/storage/samba-password";
 
@@ -50,6 +51,7 @@ export function SambaPanel({ serverId }: { serverId: string }) {
   const [users, setUsers] = useState<string[] | null>(null);
   const [shares, setShares] = useState<SambaShare[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [webUsers, setWebUsers] = useState<Record<string, { webUiEnabled: boolean; thumbnailsEnabled: boolean }>>({});
 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState(() => generateSecurePassword());
@@ -90,11 +92,43 @@ export function SambaPanel({ serverId }: { serverId: string }) {
     }
   }, [serverId]);
 
+  const loadWebUsers = useCallback(async () => {
+    try {
+      const data = await api(`/api/servers/${serverId}/storage/samba/web-users`);
+      const map: Record<string, { webUiEnabled: boolean; thumbnailsEnabled: boolean }> = {};
+      for (const wu of data.webUsers ?? []) {
+        map[wu.username] = { webUiEnabled: wu.webUiEnabled, thumbnailsEnabled: wu.thumbnailsEnabled };
+      }
+      setWebUsers(map);
+    } catch {
+      // Nicht kritisch für den Rest des Panels - Web-Zugriff-Sektion bleibt einfach leer.
+    }
+  }, [serverId]);
+
   useEffect(() => {
     loadInstalled();
     loadUsers();
     loadShares();
-  }, [loadInstalled, loadUsers, loadShares]);
+    loadWebUsers();
+  }, [loadInstalled, loadUsers, loadShares, loadWebUsers]);
+
+  async function setWebAccess(
+    username: string,
+    patch: Partial<{ webUiEnabled: boolean; thumbnailsEnabled: boolean }>
+  ) {
+    const current = webUsers[username] ?? { webUiEnabled: false, thumbnailsEnabled: false };
+    const next = { ...current, ...patch };
+    setWebUsers((prev) => ({ ...prev, [username]: next }));
+    try {
+      await api(`/api/servers/${serverId}/storage/samba/web-users`, {
+        method: "PUT",
+        body: JSON.stringify({ username, ...next }),
+      });
+    } catch (err) {
+      setWebUsers((prev) => ({ ...prev, [username]: current }));
+      fail(err, "Änderung konnte nicht gespeichert werden");
+    }
+  }
 
   async function installNow() {
     setBusy(true);
@@ -264,6 +298,46 @@ export function SambaPanel({ serverId }: { serverId: string }) {
           </Card>
 
           <Card>
+            <CardHeader>
+              <CardTitle>Web-Dateizugriff</CardTitle>
+              <CardDescription>
+                Schaltet für einzelne Samba-Nutzer den mobilen Web-Dateimanager frei (eigener Login,
+                unabhängig vom NetMaster-Adminbereich).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(users ?? []).length === 0 && <p className="text-xs text-muted-foreground">{t("noUsers")}</p>}
+              {(users ?? []).map((u) => {
+                const access = webUsers[u] ?? { webUiEnabled: false, thumbnailsEnabled: false };
+                return (
+                  <div key={u} className="flex flex-col gap-2 border-t pt-3 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-mono text-xs">{u}</span>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="flex items-center gap-2 text-xs">
+                        <Switch
+                          checked={access.webUiEnabled}
+                          onCheckedChange={(c) => setWebAccess(u, { webUiEnabled: !!c })}
+                          disabled={!canEdit}
+                        />
+                        Web-Dateizugriff aktivieren
+                      </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <Switch
+                          checked={access.thumbnailsEnabled}
+                          onCheckedChange={(c) => setWebAccess(u, { thumbnailsEnabled: !!c })}
+                          disabled={!canEdit || !access.webUiEnabled}
+                        />
+                        Vorschaubilder
+                      </label>
+                      {access.webUiEnabled && <CopyLinkButton serverId={serverId} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardTitle>{t("sharesTitle")}</CardTitle>
@@ -342,6 +416,28 @@ export function SambaPanel({ serverId }: { serverId: string }) {
         </>
       )}
     </div>
+  );
+}
+
+function CopyLinkButton({ serverId }: { serverId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const url = `${window.location.origin}/filebrowser/${serverId}/login`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Link konnte nicht kopiert werden");
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={copy} className="gap-1.5">
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      Link kopieren
+    </Button>
   );
 }
 

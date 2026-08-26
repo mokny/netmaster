@@ -308,6 +308,87 @@ export function openSftpSession(server: ServerModel): Promise<SftpSession> {
   });
 }
 
+// Prüft rein die SSH-Authentifizierung (kein Shell-/Exec-Kanal), indem nur
+// auf das "ready"-Event gewartet wird - login-lose Accounts
+// (/usr/sbin/nologin, siehe samba.ts) würden bei einem Shell-/Exec-Versuch
+// sofort scheitern/terminieren, Auth allein funktioniert aber unabhängig
+// von der Login-Shell. Genutzt vom Web-Dateimanager-Login (verifiziert live
+// gegen den Zielserver, ohne das Passwort selbst zu speichern).
+export function verifyPasswordAuth(creds: RawSshCredentials): Promise<boolean> {
+  return new Promise((resolve) => {
+    const conn = new Client();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      conn.end();
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), 10_000);
+    conn
+      .on("ready", () => {
+        clearTimeout(timer);
+        finish(true);
+      })
+      .on("error", () => {
+        clearTimeout(timer);
+        finish(false);
+      });
+    try {
+      conn.connect(buildConnectConfigFromCredentials(creds));
+      attachKeyboardInteractiveFromCredentials(conn, creds);
+    } catch {
+      clearTimeout(timer);
+      finish(false);
+    }
+  });
+}
+
+// Öffnet eine SFTP-Session als ein SPEZIFISCHER Unix-User (nicht der in
+// ServerModel hinterlegte Admin-SSH-User) - Host/Port kommen vom Server,
+// Username/Passwort vom Aufrufer. Genutzt vom Web-Dateimanager, damit
+// Dateioperationen mit den echten OS-Rechten des Samba-Users laufen statt
+// mit Admin-/root-Rechten.
+export function openSftpSessionAs(
+  server: ServerModel,
+  username: string,
+  password: string
+): Promise<SftpSession> {
+  const creds: RawSshCredentials = {
+    host: server.hostname,
+    port: server.sshPort,
+    username,
+    authType: "PASSWORD",
+    secret: password,
+  };
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let settled = false;
+
+    conn
+      .on("ready", () => {
+        conn.sftp((err, sftp) => {
+          if (err) {
+            settled = true;
+            conn.end();
+            reject(err);
+            return;
+          }
+          settled = true;
+          resolve({ conn, sftp });
+        });
+      })
+      .on("error", (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      })
+      .connect(buildConnectConfigFromCredentials(creds));
+    attachKeyboardInteractiveFromCredentials(conn, creds);
+  });
+}
+
 // Kompakte ps-Ausgabe, ein Prozess pro Zeile.
 export const PROCESS_LIST_COMMAND = "ps -eo pid,user,pcpu,pmem,comm --no-headers";
 

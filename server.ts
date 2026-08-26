@@ -22,6 +22,7 @@ import { resolveDockerFileBackend, resolveProxmoxFileBackend } from "./src/lib/e
 import { prisma } from "./src/lib/prisma";
 import { publish } from "./src/lib/monitor/events";
 import { getCachedPollingSettings, refreshPollingSettingsCache } from "./src/lib/monitor/polling-settings";
+import { sweepAllServersTrash } from "./src/lib/filebrowser/trash-sweep";
 
 const roleRank: Record<SessionPayload["role"], number> = {
   VIEWER: 0,
@@ -258,6 +259,20 @@ app.prepare().then(() => {
   });
 
   startMonitorScheduler();
+
+  // Papierkorb-Sweep des Web-Dateimanagers: entfernt Elemente, die länger als
+  // 7 Tage im .trash-Verzeichnis einer Freigabe liegen, endgültig. Läuft
+  // einmal beim Start und danach stündlich, best-effort (siehe
+  // sweepAllServersTrash - ein kaputter Server bricht den Sweep für die
+  // anderen nicht ab).
+  void sweepAllServersTrash().catch((err) => {
+    console.error("Filebrowser-Papierkorb-Sweep beim Start fehlgeschlagen:", err);
+  });
+  setInterval(() => {
+    void sweepAllServersTrash().catch((err) => {
+      console.error("Filebrowser-Papierkorb-Sweep fehlgeschlagen:", err);
+    });
+  }, 60 * 60 * 1000);
 
   httpServer.listen(port, () => {
     console.log(`> NetMaster läuft auf http://localhost:${port}`);

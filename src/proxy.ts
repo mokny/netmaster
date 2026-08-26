@@ -29,6 +29,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Der Samba-Web-Dateimanager (/filebrowser) hat eine komplett eigene
+  // Session (netmaster_fb_session, siehe lib/filebrowser/session.ts) und darf
+  // NICHT die Admin-Session (netmaster_session) voraussetzen - jede Route dort
+  // prüft ihre eigene Session selbst.
+  if (pathname === "/filebrowser" || pathname.startsWith("/filebrowser/") || pathname.startsWith("/api/filebrowser/")) {
+    return NextResponse.next();
+  }
+
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
 
