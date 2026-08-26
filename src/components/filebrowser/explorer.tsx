@@ -234,6 +234,42 @@ export function FilebrowserExplorer({ serverId }: { serverId: string }) {
     loadDir(currentPath);
   }, [ready, currentPath, loadDir]);
 
+  // #9: Live-Update der PWA-Installations-Identität (Name spiegelt die
+  // aktuell geöffnete Freigabe wider) - reine DOM-Manipulation, kein
+  // React-State, läuft bei jedem Wechsel des obersten currentPath-Segments
+  // (= Freigabenname, oder keins auf Freigaben-Wurzel "/"). document.title
+  // deckt Tab-Titel UND iOS Safaris "Zum Home-Bildschirm"-Vorschlag ab, das
+  // apple-mobile-web-app-title-Meta ist auf modernen iOS-Versionen die
+  // maßgeblichere Quelle dafür - beide werden gesetzt. Der <link
+  // rel="manifest">-Tag wird umgebogen statt dupliziert: Chrome liest das
+  // Manifest zum Zeitpunkt des Installations-Prompts erneut von dort, ohne
+  // Reload nötig. Findet/aktualisiert bestehende Tags in place (die vom
+  // server-seitigen generateMetadata in layout.tsx bereits gerendert wurden),
+  // statt Duplikate anzulegen.
+  useEffect(() => {
+    if (!ready) return;
+    const share = currentPath === "/" ? "" : (currentPath.split("/").filter(Boolean)[0] ?? "");
+    const label = share ? `${share} NAS` : "NAS";
+    document.title = label;
+
+    const manifestHref = `/api/filebrowser/${serverId}/manifest${share ? `?share=${encodeURIComponent(share)}` : ""}`;
+    let link = document.head.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "manifest";
+      document.head.appendChild(link);
+    }
+    link.href = manifestHref;
+
+    let meta = document.head.querySelector('meta[name="apple-mobile-web-app-title"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "apple-mobile-web-app-title";
+      document.head.appendChild(meta);
+    }
+    meta.content = label;
+  }, [ready, currentPath, serverId]);
+
   const filteredSorted = useMemo(() => {
     let list = (entries ?? []).filter((e) => e.name.toLowerCase().includes(search.toLowerCase()));
     if (!showHidden) list = list.filter((e) => !e.name.startsWith("."));
@@ -628,6 +664,14 @@ export function FilebrowserExplorer({ serverId }: { serverId: string }) {
         void moveEntriesTo(items, targetPath);
       }
     },
+    // #3: Geste wurde abgebrochen (pointercancel) - Ghost/Highlight-State
+    // aufräumen, aber keinen Drop versuchen (die letzte bekannte Position ist
+    // bei einem Abbruch nicht zuverlässig genug für eine Verschiebe-Aktion).
+    onTouchDragCancel() {
+      setTouchDragGhost(null);
+      setTouchDropTargetPath(null);
+      touchDragPaths.current = null;
+    },
   };
 
   // Native HTML5-Drop-Ziele im Header (Breadcrumbs) - Verschieben per Drag&Drop
@@ -863,6 +907,7 @@ export function FilebrowserExplorer({ serverId }: { serverId: string }) {
                 serverId={serverId}
                 isRoot={currentPath === "/"}
                 isAnyMultiSelected={selected.size > 1}
+                hasSelection={selected.size > 0}
                 selectedPaths={Array.from(selected)}
                 dnd={dnd}
               />
@@ -882,6 +927,7 @@ export function FilebrowserExplorer({ serverId }: { serverId: string }) {
                 serverId={serverId}
                 isRoot={currentPath === "/"}
                 isAnyMultiSelected={selected.size > 1}
+                hasSelection={selected.size > 0}
                 selectedPaths={Array.from(selected)}
                 dnd={dnd}
               />
@@ -895,7 +941,7 @@ export function FilebrowserExplorer({ serverId }: { serverId: string }) {
           <p className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground">
             {uploading && <Loader2 className="size-3 animate-spin" />} Uploads
           </p>
-          <div className="max-h-48 space-y-1.5 overflow-y-auto">
+          <div className="max-h-64 space-y-1.5 overflow-y-auto">
             {uploads.map((u) => (
               <div key={u.id} className="px-1">
                 <p className="truncate text-xs">{u.name}</p>

@@ -72,7 +72,20 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
+  // api/filebrowser/[serverId]/upload ausgeschlossen: Next.js puffert bei
+  // JEDEM Request, der proxy() durchläuft, automatisch eine Kopie des Bodys
+  // im Speicher, begrenzt durch `experimental.proxyClientMaxBodySize`
+  // (Default 10MB - das war die Ursache für "Request body exceeded 10MB" bei
+  // großen Uploads, siehe node_modules/next/dist/docs/.../proxyClientMaxBodySize.md).
+  // Diese Route braucht ohnehin keine der proxy()-Prüfungen (die Funktion
+  // gibt für /api/filebrowser/* oben bereits sofort NextResponse.next()
+  // zurück, ohne den Body je zu lesen) - proxy() für sie komplett zu
+  // überspringen umgeht daher auch das automatische Body-Puffern, ohne ein
+  // globales Limit anheben zu müssen (der einzige dokumentierte
+  // Konfigurationsweg wäre sonst ein einziger, app-weiter Byte-Wert - kein
+  // Per-Route-Override). Das entspricht echtem End-zu-Ende-Streaming (#7):
+  // der Upload-Request-Body wird an keiner Stelle mehr vollständig gepuffert.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/ws).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/ws|api/filebrowser/[^/]+/upload).*)",
   ],
 };

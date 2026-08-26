@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { fbThumbnailUrl } from "./api-client";
+import { fbThumbnailUrl, fbDownloadUrl, fbZipUrl } from "./api-client";
 import { formatBytes, formatDate } from "./format";
 import type { FbEntry } from "./types";
 
@@ -150,19 +150,24 @@ function useItemGestures({
   isRoot,
   isSelected,
   isAnyMultiSelected,
+  hasSelection,
   selectedPaths,
-  onToggleSelect,
   actions,
   dnd,
+  serverId,
 }: {
   entry: FbEntry;
   isRoot: boolean;
   isSelected: boolean;
   isAnyMultiSelected: boolean;
+  // Ob überhaupt irgendetwas ausgewählt ist (nicht nur mehrere Elemente) -
+  // sperrt den Doppelklick auf eine normale Zeile (#1), damit man nicht aus
+  // Versehen ein Element öffnet, während man gerade eine Auswahl bearbeitet.
+  hasSelection: boolean;
   selectedPaths: string[];
-  onToggleSelect: (checked: boolean) => void;
   actions: ItemActions;
   dnd: DndController;
+  serverId: string;
 }) {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,10 +193,27 @@ function useItemGestures({
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (e.pointerType !== "touch" || isParentEntry(entry)) return;
+    if (e.pointerType !== "touch") return;
+    // Presse IMMER tracken (auch für die ".."-Zeile), sonst greift die
+    // Tap-Erkennung in onPointerUp weiter unten nicht (#2 - Bugfix: vorher
+    // wurde für ".." hier komplett übersprungen, wodurch pressStart.current
+    // nie gesetzt wurde und der Tap ins Leere lief).
     pressStart.current = { x: e.clientX, y: e.clientY };
     pendingLongPress.current = false;
     dragging.current = false;
+    // Pointer Capture: garantiert, dass move/up/cancel für diese Geste immer
+    // an DIESEM Element landen, unabhängig davon, was gerade unter dem
+    // Finger liegt (#3) - nicht jedes Element unterstützt das, daher
+    // try/catch.
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore - Pointer Capture nicht unterstützt, Geste läuft trotzdem
+      // (nur ohne die zusätzliche Garantie) weiter.
+    }
+    // Für die ".."-Zeile: kein Long-Press-Kontextmenü, kein Drag - nur der
+    // Tap zum Navigieren soll funktionieren, siehe onPointerUp.
+    if (isParentEntry(entry)) return;
     longPressTimer.current = setTimeout(() => {
       pendingLongPress.current = true;
     }, LONG_PRESS_MS);
@@ -236,16 +258,38 @@ function useItemGestures({
       return;
     }
     if (e.pointerType === "mouse" || e.pointerType === "pen") {
+      // ".." navigiert sofort, unabhängig vom Auswahlstatus. Ein normaler
+      // Klick auf die Zeile selbst tut ansonsten NICHTS mehr (#1) - nur die
+      // Checkbox (eigenes stopPropagation) schaltet die Auswahl um.
       if (isParentEntry(entry)) {
         actions.onOpen(entry);
-        return;
       }
-      onToggleSelect(!isSelected);
     }
   }
 
+  function onPointerCancel(e: React.PointerEvent) {
+    if (e.pointerType !== "touch") return;
+    // Geste wurde vom System unterbrochen (z.B. iOS greift kurz für eine
+    // System-Geste ein, oder die Liste scrollt/re-rendert mitten im Drag) -
+    // Aufräumen MUSS in jedem Fall passieren, sonst bleibt z.B. das
+    // Touch-Drag-Ghost-Element für immer sichtbar (#3).
+    if (dragging.current) {
+      dnd.onTouchDragCancel();
+    }
+    clearLongPress();
+    pressStart.current = null;
+    dragging.current = false;
+  }
+
   function onDoubleClick() {
-    if (isParentEntry(entry)) return;
+    if (isParentEntry(entry)) {
+      actions.onOpen(entry);
+      return;
+    }
+    // Solange irgendetwas ausgewählt ist, soll ein Doppelklick nichts tun
+    // (#1) - verhindert, dass man mitten in einer Mehrfachauswahl aus
+    // Versehen ein Element öffnet.
+    if (hasSelection) return;
     actions.onOpen(entry);
   }
 
@@ -260,6 +304,36 @@ function useItemGestures({
     // Firefox verlangt mindestens einen "text/plain"-Eintrag, sonst wird
     // dragstart teils gar nicht ausgelöst.
     e.dataTransfer.setData("text/plain", paths.join("\n"));
+
+    // #5: eigenes, kleines Drag-Image statt des automatischen Browser-
+    // Snapshots der Zeile (der laut Bugreport fälschlich umliegenden Inhalt
+    // mit einfängt) - ein kurzlebiges, unsichtbar platziertes Badge-Element,
+    // im selben Stil wie das Touch-Drag-Ghost (siehe explorer.tsx).
+    const label = paths.length > 1 ? `${paths.length} Elemente` : entry.name;
+    const badge = document.createElement("div");
+    badge.textContent = label;
+    badge.className =
+      "pointer-events-none fixed -top-96 -left-96 rounded-lg bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-lg ring-1 ring-primary";
+    document.body.appendChild(badge);
+    e.dataTransfer.setDragImage(badge, 10, 10);
+    // Der Browser erfasst das Drag-Image synchron während dragstart -
+    // danach sicher wieder entfernbar.
+    setTimeout(() => badge.remove(), 0);
+
+    // #6: Drag-out aus dem Browser aufs Betriebssystem (Datei-Explorer/
+    // Desktop) - nur bei genau einem gezogenen Element (Mehrfachauswahl wird
+    // absichtlich übersprungen, analog zum Admin-Dateimanager, siehe
+    // file-panel.tsx). Datei -> Direkt-Download-Route, Ordner -> ZIP-Route.
+    if (paths.length === 1) {
+      const origin = window.location.origin;
+      if (entry.isDirectory) {
+        const url = `${origin}${fbZipUrl(serverId, [entry.path])}`;
+        e.dataTransfer.setData("DownloadURL", `application/octet-stream:${entry.name}.zip:${url}`);
+      } else {
+        const url = `${origin}${fbDownloadUrl(serverId, entry.path)}`;
+        e.dataTransfer.setData("DownloadURL", `application/octet-stream:${entry.name}:${url}`);
+      }
+    }
   }
 
   const isDropTarget = entry.isDirectory && (isParentEntry(entry) || entry.writable);
@@ -302,6 +376,7 @@ function useItemGestures({
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onPointerCancel,
       onDoubleClick,
       draggable: !isParentEntry(entry) && !isRoot,
       onDragStart,
@@ -322,6 +397,63 @@ export interface DndController {
   onTouchDragStart: (paths: string[], x: number, y: number) => void;
   onTouchDragMove: (x: number, y: number) => void;
   onTouchDragEnd: (x: number, y: number) => void;
+  // Geste wurde abgebrochen (pointercancel) statt regulär beendet - räumt
+  // Ghost/Highlight-State auf, versucht aber KEINEN Drop (Position bei
+  // Abbruch unzuverlässig/irrelevant), siehe #3.
+  onTouchDragCancel: () => void;
+}
+
+// #4: Kontextmenü-Positionierung per rechtem Klick / Long-Press. Vorher: ein
+// per `className="hidden"` (display:none) ausgeblendeter DropdownMenuTrigger
+// kombiniert mit einem synthetischen `anchor`-Objekt an DropdownMenuContent.
+// Ein display:none-Element hat KEINE Layout-Geometrie, und Base UIs eigene
+// ContextMenu-Implementierung (siehe node_modules/@base-ui/react/context-menu)
+// verwendet für genau diesen Anwendungsfall (Menü an Cursor-Koordinaten ohne
+// sichtbaren Trigger) einen ECHTEN, aber unsichtbar via `opacity:0` +
+// `pointer-events:none` platzierten Trigger, dessen Position per Inline-Style
+// aktualisiert wird - plus `positionMethod="fixed"`, damit die Positionierung
+// konsistent zu den (Viewport-relativen) `clientX`/`clientY`-Koordinaten des
+// Klicks berechnet wird (der Default `positionMethod="absolute"` bezieht sich
+// nicht in jedem Layout zuverlässig auf denselben Referenzpunkt). Diese
+// Kombination ist der von Base UI selbst verwendete, getestete Ansatz -
+// nachgebaut hier, weil wir die Öffnung/Positionierung manuell aus dem
+// bestehenden Long-Press-/Rechtsklick-Gesture-Code heraus steuern (kein
+// <ContextMenu.Root>-Wrapper, siehe useItemGestures oben).
+function RowContextMenu({
+  ctxMenu,
+  setCtxMenu,
+  entry,
+  actions,
+  isRoot,
+}: {
+  ctxMenu: { x: number; y: number } | null;
+  setCtxMenu: (v: { x: number; y: number } | null) => void;
+  entry: FbEntry;
+  actions: ItemActions;
+  isRoot: boolean;
+}) {
+  return (
+    <DropdownMenu open={!!ctxMenu} onOpenChange={(open) => !open && setCtxMenu(null)}>
+      <DropdownMenuTrigger
+        render={
+          <span
+            style={{
+              position: "fixed",
+              left: ctxMenu?.x ?? -9999,
+              top: ctxMenu?.y ?? -9999,
+              width: 0,
+              height: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+        }
+      />
+      <DropdownMenuContent align="start" side="bottom" positionMethod="fixed">
+        <ItemMenuContent entry={entry} actions={actions} isRoot={isRoot} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function ItemListRow({
@@ -333,6 +465,7 @@ export function ItemListRow({
   serverId,
   isRoot = false,
   isAnyMultiSelected,
+  hasSelection,
   selectedPaths,
   dnd,
 }: {
@@ -344,6 +477,7 @@ export function ItemListRow({
   serverId: string;
   isRoot?: boolean;
   isAnyMultiSelected: boolean;
+  hasSelection: boolean;
   selectedPaths: string[];
   dnd: DndController;
 }) {
@@ -354,10 +488,11 @@ export function ItemListRow({
     isRoot,
     isSelected: selected,
     isAnyMultiSelected,
+    hasSelection,
     selectedPaths,
-    onToggleSelect,
     actions,
     dnd,
+    serverId,
   });
 
   return (
@@ -418,32 +553,7 @@ export function ItemListRow({
           <ItemMenu entry={entry} actions={actions} isRoot={isRoot} />
         </span>
       )}
-      {ctxMenu && !parent && (
-        <DropdownMenu open onOpenChange={(open) => !open && setCtxMenu(null)}>
-          <DropdownMenuTrigger render={<span className="hidden" />} />
-          <DropdownMenuContent
-            align="start"
-            side="bottom"
-            anchor={{
-              getBoundingClientRect: () => ({
-                x: ctxMenu.x,
-                y: ctxMenu.y,
-                top: ctxMenu.y,
-                left: ctxMenu.x,
-                right: ctxMenu.x,
-                bottom: ctxMenu.y,
-                width: 0,
-                height: 0,
-                toJSON() {
-                  return this;
-                },
-              }),
-            }}
-          >
-            <ItemMenuContent entry={entry} actions={actions} isRoot={isRoot} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {!parent && <RowContextMenu ctxMenu={ctxMenu} setCtxMenu={setCtxMenu} entry={entry} actions={actions} isRoot={isRoot} />}
     </div>
   );
 }
@@ -457,6 +567,7 @@ export function ItemGridTile({
   serverId,
   isRoot = false,
   isAnyMultiSelected,
+  hasSelection,
   selectedPaths,
   dnd,
 }: {
@@ -468,6 +579,7 @@ export function ItemGridTile({
   serverId: string;
   isRoot?: boolean;
   isAnyMultiSelected: boolean;
+  hasSelection: boolean;
   selectedPaths: string[];
   dnd: DndController;
 }) {
@@ -478,10 +590,11 @@ export function ItemGridTile({
     isRoot,
     isSelected: selected,
     isAnyMultiSelected,
+    hasSelection,
     selectedPaths,
-    onToggleSelect,
     actions,
     dnd,
+    serverId,
   });
 
   return (
@@ -527,32 +640,7 @@ export function ItemGridTile({
         <FileIcon extension={entry.extension} />
       )}
       <p className="w-full truncate text-center text-xs">{parent ? ".." : entry.name}</p>
-      {ctxMenu && !parent && (
-        <DropdownMenu open onOpenChange={(open) => !open && setCtxMenu(null)}>
-          <DropdownMenuTrigger render={<span className="hidden" />} />
-          <DropdownMenuContent
-            align="start"
-            side="bottom"
-            anchor={{
-              getBoundingClientRect: () => ({
-                x: ctxMenu.x,
-                y: ctxMenu.y,
-                top: ctxMenu.y,
-                left: ctxMenu.x,
-                right: ctxMenu.x,
-                bottom: ctxMenu.y,
-                width: 0,
-                height: 0,
-                toJSON() {
-                  return this;
-                },
-              }),
-            }}
-          >
-            <ItemMenuContent entry={entry} actions={actions} isRoot={isRoot} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {!parent && <RowContextMenu ctxMenu={ctxMenu} setCtxMenu={setCtxMenu} entry={entry} actions={actions} isRoot={isRoot} />}
     </div>
   );
 }

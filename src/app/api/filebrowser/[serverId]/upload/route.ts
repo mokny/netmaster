@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { openSftpSessionAs } from "@/lib/ssh";
@@ -7,18 +8,26 @@ import { resolveVirtualPath, requireWritable, FbAccessError } from "@/lib/filebr
 import { resolveDestination, type ConflictMode } from "@/lib/filebrowser/conflict";
 import type { SFTPWrapper } from "ssh2";
 
-function writeBuffer(sftp: SFTPWrapper, filePath: string, data: Buffer): Promise<void> {
+function pipeToRemote(sftp: SFTPWrapper, filePath: string, source: Readable): Promise<void> {
   return new Promise((resolve, reject) => {
-    const stream = createRemoteWriteStream(sftp, filePath);
-    stream.on("error", reject);
-    stream.end(data, () => resolve());
+    const dest = createRemoteWriteStream(sftp, filePath);
+    dest.on("error", reject);
+    dest.on("close", resolve);
+    source.on("error", reject);
+    source.pipe(dest);
   });
 }
 
-// Drag&Drop-/Auswahl-Upload (einzelne Dateien oder ganze Ordner, `relPaths[]`
-// trägt für jede Datei den relativen Pfad inkl. Unterordner). `conflict`
-// gilt einheitlich für den ganzen Batch (entspricht der "Für alle
-// anwenden"-Checkbox im Konflikt-Dialog des Clients).
+// Einzeldatei-Upload, END-ZU-END GESTREAMT (siehe AGENTS-Vorgabe #7): der
+// Request-Body IST direkt die Datei (kein multipart/formData mehr - das
+// puffert den kompletten Body serverseitig, egal was man danach damit macht,
+// und lässt zudem den `req.formData()`-Aufruf gegen das
+// `proxyClientMaxBodySize`-Limit laufen). `targetPath`/`relPath`/`conflict`
+// kommen stattdessen als Query-Parameter (ein Upload = ein Request, siehe
+// fbUploadFile in api-client.ts). Der Web-`ReadableStream` aus `req.body`
+// wird direkt in einen Node-Stream konvertiert und in die SFTP-Schreib-
+// Verbindung gepiped, ohne je einen vollständigen Buffer im Speicher zu
+// halten (wichtig auf RAM-knappen Raspberry Pis).
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ serverId: string }> }
@@ -27,36 +36,35 @@ export async function POST(
     const { serverId } = await params;
     const ctx = await requireFbContext(serverId);
 
-    const form = await req.formData();
-    const targetPath = form.get("targetPath");
-    if (typeof targetPath !== "string") throw new FbAccessError(400, "INVALID_PATH");
-    const conflict: ConflictMode = form.get("conflict") === "overwrite" || form.get("conflict") === "rename"
-      ? (form.get("conflict") as ConflictMode)
-      : undefined;
+    const url = new URL(req.url);
+    const targetPath = url.searchParams.get("targetPath");
+    const relPath = url.searchParams.get("relPath");
+    const conflictParam = url.searchParams.get("conflict");
+    if (typeof targetPath !== "string" || !targetPath) throw new FbAccessError(400, "INVALID_PATH");
+    if (typeof relPath !== "string" || !relPath) throw new FbAccessError(400, "NO_VALID_FILES_SUBMITTED");
+    const conflict: ConflictMode =
+      conflictParam === "overwrite" || conflictParam === "rename" ? conflictParam : undefined;
 
     const resolvedTarget = resolveVirtualPath(ctx.shares, targetPath);
     requireWritable(resolvedTarget);
 
-    const files = form.getAll("files").filter((f): f is File => f instanceof File);
-    const relPaths = form.getAll("relPaths").map((v) => String(v));
-    if (files.length === 0 || files.length !== relPaths.length) {
+    const cleanRelPath = relPath.replace(/^\/+/, "");
+    const destPath = path.posix.join(resolvedTarget.absPath, cleanRelPath);
+    const destDir = path.posix.dirname(destPath);
+
+    if (!req.body) {
       throw new FbAccessError(400, "NO_VALID_FILES_SUBMITTED");
     }
 
     const { conn, sftp } = await openSftpSessionAs(ctx.server, ctx.username, ctx.password);
-    const uploaded: string[] = [];
     try {
-      for (let i = 0; i < files.length; i++) {
-        const relPath = relPaths[i].replace(/^\/+/, "");
-        const destPath = path.posix.join(resolvedTarget.absPath, relPath);
-        const destDir = path.posix.dirname(destPath);
-        await mkdirRecursive(sftp, destDir);
-        const finalDest = await resolveDestination(sftp, destPath, conflict);
-        const buf = Buffer.from(await files[i].arrayBuffer());
-        await writeBuffer(sftp, finalDest, buf);
-        uploaded.push(finalDest);
-      }
-      return NextResponse.json({ ok: true, uploaded: uploaded.length });
+      await mkdirRecursive(sftp, destDir);
+      const finalDest = await resolveDestination(sftp, destPath, conflict);
+
+      const nodeReadable = Readable.fromWeb(req.body as import("node:stream/web").ReadableStream<Uint8Array>);
+      await pipeToRemote(sftp, finalDest, nodeReadable);
+
+      return NextResponse.json({ ok: true, uploaded: 1 });
     } finally {
       conn.end();
     }

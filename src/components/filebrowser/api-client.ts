@@ -79,31 +79,13 @@ export async function fbDelete(serverId: string, paths: string[]) {
   });
 }
 
-export async function fbUpload(
-  serverId: string,
-  targetPath: string,
-  files: { file: File; relPath: string }[],
-  conflict?: ConflictMode
-) {
-  const form = new FormData();
-  form.set("targetPath", targetPath);
-  if (conflict) form.set("conflict", conflict);
-  for (const { file, relPath } of files) {
-    form.append("files", file);
-    form.append("relPaths", relPath);
-  }
-  const res = await fetch(`${fbBase(serverId)}/upload`, { method: "POST", body: form });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new FbApiError(res.status, data.error ?? "ERROR", data.detail);
-  return data as { ok: true; uploaded: number };
-}
-
-// Lädt genau EINE Datei hoch (die bestehende Route akzeptiert weiterhin
-// einen Batch, wird hierfür einfach mit einem 1-Element-Batch aufgerufen -
-// vermeidet eine serverseitige zweite Route). Über XMLHttpRequest statt
-// fetch(), weil nur xhr.upload.onprogress echten Fortschritt je Datei
-// liefert (fetch hat dafür keine API) - Grundlage für das
-// Upload-Fortschritts-Panel.
+// Lädt genau EINE Datei hoch, END-ZU-END GESTREAMT (siehe upload/route.ts):
+// die Datei geht als roher Request-Body raus (kein FormData mehr, das würde
+// den Body clientseitig unnötig neu einpacken und serverseitig wieder
+// vollständig puffern), targetPath/relPath/conflict wandern in die
+// Query-String. Weiterhin über XMLHttpRequest statt fetch(), weil nur
+// xhr.upload.onprogress echten Fortschritt je Datei liefert (fetch hat dafür
+// keine API) - funktioniert unverändert mit einem rohen Body.
 export function fbUploadFile(
   serverId: string,
   targetPath: string,
@@ -113,14 +95,12 @@ export function fbUploadFile(
   onProgress: (fraction: number) => void
 ): Promise<{ ok: true; uploaded: number }> {
   return new Promise((resolve, reject) => {
-    const form = new FormData();
-    form.set("targetPath", targetPath);
-    if (conflict) form.set("conflict", conflict);
-    form.append("files", file);
-    form.append("relPaths", relPath);
+    const q = new URLSearchParams({ targetPath, relPath });
+    if (conflict) q.set("conflict", conflict);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${fbBase(serverId)}/upload`);
+    xhr.open("POST", `${fbBase(serverId)}/upload?${q.toString()}`);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };
@@ -139,7 +119,7 @@ export function fbUploadFile(
       }
     };
     xhr.onerror = () => reject(new FbApiError(0, "NETWORK_ERROR"));
-    xhr.send(form);
+    xhr.send(file);
   });
 }
 
