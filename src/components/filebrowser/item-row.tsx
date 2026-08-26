@@ -473,7 +473,12 @@ function RowContextMenu({
           />
         }
       />
-      <DropdownMenuContent align="start" side="bottom" positionMethod="fixed">
+      {/* w-auto überschreibt die Basis-Klasse w-(--anchor-width) aus
+          dropdown-menu.tsx: die würde die Breite vom (bei uns 0px breiten,
+          unsichtbaren) Trigger ableiten - sichtbar als kurz aufblitzender
+          schmaler Balken beim Öffnen. Ein Kontextmenü soll sich an seinem
+          eigenen Inhalt orientieren, nicht an einem synthetischen Anker. */}
+      <DropdownMenuContent align="start" side="bottom" positionMethod="fixed" className="w-auto">
         <ItemMenuContent entry={entry} actions={actions} isRoot={isRoot} />
       </DropdownMenuContent>
     </DropdownMenu>
