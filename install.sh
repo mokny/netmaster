@@ -18,7 +18,7 @@ set -euo pipefail
 
 # Installer version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-INSTALLER_VERSION="1.5"
+INSTALLER_VERSION="1.6"
 
 REPO_URL="https://github.com/mokny/netmaster.git"
 REPO_SLUG="mokny/netmaster"
@@ -302,7 +302,12 @@ HOST_PORT="${HOST_PORT}"
 NETMASTER_DATA_DIR="${DATA_DIR}"
 EOF
 
+# The container runs as root (no USER in the Dockerfile), so the bind-mounted
+# data directory must be owned by root with the right mode - whether it's
+# freshly created here or already existed (e.g. a pre-mounted external disk).
 mkdir -p "$DATA_DIR"
+chown root:root "$DATA_DIR"
+chmod 755 "$DATA_DIR"
 
 if [ -n "$DOMAIN" ]; then
   log "Setting up Caddy reverse proxy for $DOMAIN..."

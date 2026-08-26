@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Updater version: automatically bumped by the Husky pre-commit hook
 # (scripts/bump-script-versions.js) whenever this file changes in a commit.
-UPDATER_VERSION="1.6"
+UPDATER_VERSION="1.7"
 
 REPO_SLUG="mokny/netmaster"
 INSTALL_DIR="/opt/netmaster"
@@ -83,6 +83,17 @@ current_data_dir() {
   grep -m1 '^NETMASTER_DATA_DIR=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d'"' -f2
 }
 
+# ensure_data_dir <path> -> create it if missing, and (re)apply the
+# ownership/mode the container (which runs as root, no USER in the
+# Dockerfile) needs to read/write it - whether it was just created or
+# already existed.
+ensure_data_dir() {
+  local dir="$1"
+  mkdir -p "$dir" || die "Could not create $dir."
+  chown root:root "$dir" || die "Could not set ownership on $dir."
+  chmod 755 "$dir" || die "Could not set permissions on $dir."
+}
+
 current_url() {
   if [ -f "$INSTALL_DIR/Caddyfile" ]; then
     local domain
@@ -147,7 +158,7 @@ migrate_data_volume_if_needed() {
 
   local target="$INSTALL_DIR/data"
   log "One-time migration: moving the database out of the Docker volume '$old_volume' to $target..."
-  mkdir -p "$target"
+  ensure_data_dir "$target"
 
   compose stop netmaster || true
   docker run --rm \
@@ -180,7 +191,7 @@ cmd_relocate_data() {
     return 0
   fi
 
-  mkdir -p "$new_path" || die "Could not create $new_path."
+  ensure_data_dir "$new_path"
   [ -w "$new_path" ] || die "$new_path is not writable."
 
   log "Stopping containers..."
