@@ -341,6 +341,7 @@ model Server {
   dockerContainerStates DockerContainerState[]
   pollLogs      PollLog[]
   sambaWebUsers SambaWebUser[]
+  fbSessions    FbSession[]
 }
 
 // Persistierter Laufzustand je Docker-Container (unabhängig von den nur 24h
@@ -853,4 +854,29 @@ model SambaWebUser {
   updatedAt         DateTime @updatedAt
 
   @@unique([serverId, username])
+}
+
+// Session des Web-Dateimanagers (/filebrowser) - bewusst in der DB statt nur
+// im Prozessspeicher (frühere Version), damit ein Login einen NetMaster-
+// Neustart übersteht und der User seine aktiven Geräte selbst einsehen/
+// abmelden kann (siehe /api/filebrowser/[serverId]/sessions). Das Passwort
+// wird dafür AES-256-GCM-verschlüsselt (lib/crypto.ts) persistiert - eine
+// vom User nach Aufklärung über die Implikation bewusst akzeptierte
+// Kompromiss (kein Passwort-Hash-Login möglich, da es live per SSH gegen
+// den Zielserver geprüft und für jede SFTP-Operation erneut gebraucht wird).
+// Kein serverseitiges Idle-Timeout mehr - stattdessen ein Sicherheitsnetz von
+// 1 Jahr Inaktivität (siehe getFbSession in lib/filebrowser/session.ts), plus
+// ein periodischer Hygiene-Sweep, der widerrufene/uralte Zeilen hart löscht.
+model FbSession {
+  id                String    @id @default(cuid())
+  serverId          String
+  server            Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  username          String
+  encryptedPassword String
+  userAgent         String    @default("")
+  createdAt         DateTime  @default(now())
+  lastSeenAt        DateTime  @default(now())
+  revokedAt         DateTime?
+
+  @@index([serverId, username])
 }

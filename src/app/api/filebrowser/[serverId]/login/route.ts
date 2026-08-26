@@ -62,8 +62,9 @@ export async function POST(
   }
 
   recordLoginSuccess(ip, serverId, username);
-  const sessionId = await createFbSession(serverId, username, password);
-  await setFbSessionCookie(sessionId);
+  const userAgent = req.headers.get("user-agent") ?? "";
+  const sessionId = await createFbSession(serverId, username, password, userAgent);
+  await setFbSessionCookie(serverId, sessionId);
 
   return NextResponse.json({ ok: true, username });
 }

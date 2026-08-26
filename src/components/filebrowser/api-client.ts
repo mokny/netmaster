@@ -1,4 +1,4 @@
-import { FbApiError, type ConflictMode, type FbEntry, type FbShareInfo, type TrashItem } from "./types";
+import { FbApiError, type ConflictMode, type FbEntry, type FbShareInfo, type FbSessionInfo, type TrashItem } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -98,6 +98,51 @@ export async function fbUpload(
   return data as { ok: true; uploaded: number };
 }
 
+// Lädt genau EINE Datei hoch (die bestehende Route akzeptiert weiterhin
+// einen Batch, wird hierfür einfach mit einem 1-Element-Batch aufgerufen -
+// vermeidet eine serverseitige zweite Route). Über XMLHttpRequest statt
+// fetch(), weil nur xhr.upload.onprogress echten Fortschritt je Datei
+// liefert (fetch hat dafür keine API) - Grundlage für das
+// Upload-Fortschritts-Panel.
+export function fbUploadFile(
+  serverId: string,
+  targetPath: string,
+  file: File,
+  relPath: string,
+  conflict: ConflictMode | undefined,
+  onProgress: (fraction: number) => void
+): Promise<{ ok: true; uploaded: number }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.set("targetPath", targetPath);
+    if (conflict) form.set("conflict", conflict);
+    form.append("files", file);
+    form.append("relPaths", relPath);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${fbBase(serverId)}/upload`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let data: Record<string, unknown> = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        // ignore
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(1);
+        resolve(data as { ok: true; uploaded: number });
+      } else {
+        reject(new FbApiError(xhr.status, (data.error as string) ?? "ERROR", data.detail as string | undefined));
+      }
+    };
+    xhr.onerror = () => reject(new FbApiError(0, "NETWORK_ERROR"));
+    xhr.send(form);
+  });
+}
+
 export function fbDownloadUrl(serverId: string, path: string, inline = false): string {
   const q = new URLSearchParams({ path });
   if (inline) q.set("disposition", "inline");
@@ -135,4 +180,30 @@ export async function fbTrashEmpty(serverId: string, share?: string) {
     method: "POST",
     body: JSON.stringify({ share }),
   });
+}
+
+export async function fbZipCreate(serverId: string, paths: string[], name: string, conflict?: ConflictMode) {
+  return request<{ ok: true; path: string }>(`${fbBase(serverId)}/zip-create`, {
+    method: "POST",
+    body: JSON.stringify({ paths, name, conflict }),
+  });
+}
+
+export async function fbUnzip(serverId: string, path: string) {
+  return request<{ ok: true; extracted: number }>(`${fbBase(serverId)}/unzip`, {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
+export async function fbSessions(serverId: string) {
+  return request<{ sessions: FbSessionInfo[] }>(`${fbBase(serverId)}/sessions`);
+}
+
+export async function fbRevokeSession(serverId: string, sessionId: string) {
+  return request<{ ok: true }>(`${fbBase(serverId)}/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export async function fbRevokeOtherSessions(serverId: string) {
+  return request<{ ok: true; revoked: number }>(`${fbBase(serverId)}/sessions`, { method: "DELETE" });
 }

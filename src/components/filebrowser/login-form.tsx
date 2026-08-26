@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FolderOpen } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Loader2, FolderOpen, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { fbErrorMessage } from "./format";
 
 export function FilebrowserLoginForm({ serverId }: { serverId: string }) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,7 +41,17 @@ export function FilebrowserLoginForm({ serverId }: { serverId: string }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <div className="relative flex min-h-screen items-center justify-center p-6">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 right-4"
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        aria-label="Design wechseln"
+      >
+        <Sun className="size-4 scale-100 dark:scale-0" />
+        <Moon className="absolute size-4 scale-0 dark:scale-100" />
+      </Button>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -27,6 +27,14 @@ export type ConflictMode = "overwrite" | "rename";
 export type SortKey = "name" | "size" | "mtime" | "type";
 export type SortDir = "asc" | "desc";
 
+export interface FbSessionInfo {
+  id: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  isCurrent: boolean;
+}
+
 export class FbApiError extends Error {
   constructor(
     public status: number,

@@ -15,6 +15,10 @@ export interface FbContext {
   username: string;
   password: string;
   shares: PermittedShare[];
+  // Session-ID der aufrufenden Session - Routen, die die eigene
+  // Sessions-Liste anzeigen/verwalten (siehe sessions/route.ts), markieren
+  // damit die aktuell benutzte Session ("Diese Sitzung").
+  sessionId: string;
 }
 
 // Zentrale Vorprüfung für jede Filebrowser-API-Route: Session vorhanden und
@@ -22,14 +26,20 @@ export interface FbContext {
 // aus der DB gelesen, nicht nur beim Login geprüft), erlaubte Freigaben
 // aufgelöst. 401/403/404 je nach Fehlerursache, siehe handleFbError.
 export async function requireFbContext(serverId: string): Promise<FbContext> {
-  const session = await getFbSession();
-  if (!session || session.serverId !== serverId) {
+  const session = await getFbSession(serverId);
+  if (!session) {
     throw new FbAccessError(401, "UNAUTHORIZED");
   }
   const server = await loadFilebrowserServer(serverId);
   await requireWebUiEnabled(serverId, session.username);
   const shares = await resolvePermittedShares(server, session.username);
-  return { server, username: session.username, password: session.password, shares };
+  return {
+    server,
+    username: session.username,
+    password: session.password,
+    shares,
+    sessionId: session.sessionId,
+  };
 }
 
 export function handleFbError(err: unknown): NextResponse {

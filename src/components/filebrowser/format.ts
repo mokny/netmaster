@@ -35,8 +35,29 @@ const ERROR_MESSAGES: Record<string, string> = {
   NOT_AN_IMAGE: "Keine Vorschau verfügbar.",
   THUMBNAILS_DISABLED: "Vorschaubilder sind deaktiviert.",
   INTERNAL_ERROR: "Ein Fehler ist aufgetreten.",
+  NOT_A_ZIP: "Keine ZIP-Datei.",
+  SESSION_NOT_FOUND: "Sitzung nicht gefunden.",
 };
 
 export function fbErrorMessage(code: string, fallback = "Ein Fehler ist aufgetreten."): string {
   return ERROR_MESSAGES[code] ?? fallback;
+}
+
+// Grobe deutsche Relativzeit für die Sessions-Ansicht ("zuletzt aktiv vor
+// X") - bewusst simpel gehalten, kein Intl.RelativeTimeFormat-Feinschliff,
+// entspricht dem Rest dieses UI-Bereichs (hardcodiertes Deutsch, kein next-intl).
+export function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return "gerade eben";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `vor ${min} Minute${min === 1 ? "" : "n"}`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `vor ${hr} Stunde${hr === 1 ? "" : "n"}`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `vor ${day} Tag${day === 1 ? "" : "en"}`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `vor ${month} Monat${month === 1 ? "" : "en"}`;
+  const year = Math.floor(month / 12);
+  return `vor ${year} Jahr${year === 1 ? "" : "en"}`;
 }

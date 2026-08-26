@@ -23,6 +23,7 @@ import { prisma } from "./src/lib/prisma";
 import { publish } from "./src/lib/monitor/events";
 import { getCachedPollingSettings, refreshPollingSettingsCache } from "./src/lib/monitor/polling-settings";
 import { sweepAllServersTrash } from "./src/lib/filebrowser/trash-sweep";
+import { sweepFbSessions } from "./src/lib/filebrowser/session";
 
 const roleRank: Record<SessionPayload["role"], number> = {
   VIEWER: 0,
@@ -271,6 +272,12 @@ app.prepare().then(() => {
   setInterval(() => {
     void sweepAllServersTrash().catch((err) => {
       console.error("Filebrowser-Papierkorb-Sweep fehlgeschlagen:", err);
+    });
+    // Reine DB-Hygiene (widerrufene/uralte FbSession-Zeilen hart löschen) -
+    // huckepack auf demselben stündlichen Timer, keine eigene Korrektheit
+    // (getFbSession behandelt solche Zeilen ohnehin unabhängig als ungültig).
+    void sweepFbSessions().catch((err) => {
+      console.error("Filebrowser-Session-Sweep fehlgeschlagen:", err);
     });
   }, 60 * 60 * 1000);
 

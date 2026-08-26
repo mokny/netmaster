@@ -4,6 +4,7 @@ import { listDir } from "@/lib/sftp-ops";
 import { requireFbContext, handleFbError } from "@/lib/filebrowser/route-helpers";
 import { resolveVirtualPath } from "@/lib/filebrowser/access";
 import { joinVirtual, toFbEntry, type FbEntry } from "@/lib/filebrowser/entries";
+import { TRASH_DIR_NAME } from "@/lib/filebrowser/trash";
 
 export async function GET(
   req: Request,
@@ -36,9 +37,12 @@ export async function GET(
     const { conn, sftp } = await openSftpSessionAs(ctx.server, ctx.username, ctx.password);
     try {
       const nodes = await listDir(sftp, resolved.absPath);
-      const entries = nodes.map((n) =>
-        toFbEntry(n, joinVirtual(virtualPath, n.name), resolved.share.writable)
-      );
+      // .trash ist ein Implementierungsdetail (nur über die eigene
+      // Papierkorb-Ansicht erreichbar), kein normaler Ordner - unabhängig
+      // vom Hidden-Files-Toggle im Client immer aus der Auflistung filtern.
+      const entries = nodes
+        .filter((n) => n.name !== TRASH_DIR_NAME)
+        .map((n) => toFbEntry(n, joinVirtual(virtualPath, n.name), resolved.share.writable));
       return NextResponse.json({ path: virtualPath, entries });
     } finally {
       conn.end();
