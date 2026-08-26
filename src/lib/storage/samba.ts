@@ -107,6 +107,15 @@ ${ensureSamba()}
 id -u ${username} >/dev/null 2>&1 || useradd -M -s /usr/sbin/nologin ${username}
 printf '%s\\n%s\\n' ${JSON.stringify(password)} ${JSON.stringify(password)} | smbpasswd -a -s ${username}
 smbpasswd -e ${username}
+# Home-Verzeichnis muss existieren, auch wenn useradd -M keins anlegt: fehlt
+# es, schreibt sshd beim Session-Aufbau (chdir schlägt fehl) eine
+# Warnmeldung in den Kanal, BEVOR das SFTP-Subsystem startet - das
+# zerstört das SFTP-Binärprotokoll und der Web-Dateimanager kann keine
+# Freigabe öffnen (Verbindung bricht mit generischem Fehler ab), obwohl
+# Login/Auth einwandfrei funktionieren. Betrifft auch schon vorhandene
+# User (id -u ... || ... übersprungen), daher unconditional.
+HOMEDIR=$(getent passwd ${username} | cut -d: -f6)
+[ -n "$HOMEDIR" ] && mkdir -p "$HOMEDIR" && chown ${username}:${username} "$HOMEDIR" && chmod 700 "$HOMEDIR"
 printf '%s:%s\\n' ${JSON.stringify(username)} ${JSON.stringify(password)} | chpasswd
 passwd -u ${username} >/dev/null 2>&1 || true
 `.trim();
