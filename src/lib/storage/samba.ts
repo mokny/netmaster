@@ -86,6 +86,14 @@ pdbedit -L 2>/dev/null | cut -d: -f1 || true
 // Samba-Passwort per smbpasswd. useradd schlägt fehl, wenn der User bereits
 // existiert - das wird ignoriert, damit ein bestehender System-User ebenfalls
 // als Samba-User nutzbar ist.
+//
+// Das Unix-Passwort (/etc/shadow) wird bewusst per chpasswd auf denselben
+// Wert gesetzt: smbpasswd schreibt NUR in Sambas eigene tdbsam-Datenbank,
+// nicht ins Unix-Passwort - ohne diesen Sync bliebe der frisch angelegte
+// User in /etc/shadow passwortlos/gesperrt ('!'), und jeder SSH/PAM-Login
+// (u.a. die Live-Verifikation des Web-Dateimanagers, siehe
+// lib/ssh.ts#verifyPasswordAuth) würde trotz korrektem Samba-Passwort immer
+// fehlschlagen.
 export async function createOrUpdateSambaUser(
   server: ServerModel,
   username: string,
@@ -99,6 +107,8 @@ ${ensureSamba()}
 id -u ${username} >/dev/null 2>&1 || useradd -M -s /usr/sbin/nologin ${username}
 printf '%s\\n%s\\n' ${JSON.stringify(password)} ${JSON.stringify(password)} | smbpasswd -a -s ${username}
 smbpasswd -e ${username}
+printf '%s:%s\\n' ${JSON.stringify(username)} ${JSON.stringify(password)} | chpasswd
+passwd -u ${username} >/dev/null 2>&1 || true
 `.trim();
   await runRootScript(server, script);
 }
