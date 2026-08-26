@@ -165,18 +165,7 @@ export async function revokeOtherFbSessions(
   return result.count;
 }
 
-// DB-Hygiene, keine Korrektheitslogik (siehe getFbSession, das abgelaufene/
-// widerrufene Zeilen unabhängig davon als ungültig behandelt): entfernt
-// widerrufene Zeilen nach einer Karenzzeit sowie uralte, nie widerrufene
-// Zeilen endgültig, damit die Tabelle nicht unbegrenzt wächst.
-const REVOKED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
-export async function sweepFbSessions(): Promise<void> {
-  const now = Date.now();
-  await prisma.fbSession.deleteMany({
-    where: { revokedAt: { not: null, lt: new Date(now - REVOKED_RETENTION_MS) } },
-  });
-  await prisma.fbSession.deleteMany({
-    where: { lastSeenAt: { lt: new Date(now - FB_SESSION_MAX_IDLE_MS) } },
-  });
-}
+// DB-Hygiene-Sweep (sweepFbSessions) lebt in session-sweep.ts, NICHT hier -
+// diese Datei importiert next/headers (cookies()), was aus server.ts heraus
+// (läuft über tsx außerhalb von Next.js' Bundling) zum Absturz führt (siehe
+// Kommentar dort). server.ts importiert daher gezielt aus session-sweep.ts.

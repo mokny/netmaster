@@ -23,7 +23,7 @@ import { prisma } from "./src/lib/prisma";
 import { publish } from "./src/lib/monitor/events";
 import { getCachedPollingSettings, refreshPollingSettingsCache } from "./src/lib/monitor/polling-settings";
 import { sweepAllServersTrash } from "./src/lib/filebrowser/trash-sweep";
-import { sweepFbSessions } from "./src/lib/filebrowser/session";
+import { sweepFbSessions } from "./src/lib/filebrowser/session-sweep";
 
 const roleRank: Record<SessionPayload["role"], number> = {
   VIEWER: 0,
