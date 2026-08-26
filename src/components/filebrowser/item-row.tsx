@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Folder,
   File,
@@ -174,6 +174,30 @@ function useItemGestures({
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const pendingLongPress = useRef(false);
   const dragging = useRef(false);
+
+  // Explizites Außerhalb-Klick-Schließen als Sicherheitsnetz: die Menu-
+  // Bibliothek dismissed zwar grundsätzlich selbst bei Klick außerhalb, aber
+  // bei unserem manuell (ohne echten <ContextMenu.Root>) gesteuerten
+  // Öffnen/Schließen kam das unzuverlässig an - hier deshalb zusätzlich per
+  // Hand: jeder Pointerdown außerhalb des offenen Menü-Inhalts schließt es.
+  // Im nächsten Tick registriert (nicht im selben Render), damit der
+  // Rechtsklick/Long-Press, der das Menü gerade erst geöffnet hat, nicht
+  // sofort wieder als "außerhalb" gewertet wird.
+  useEffect(() => {
+    if (!ctxMenu) return;
+    function onOutsidePointerDown(e: PointerEvent) {
+      const target = e.target as Element | null;
+      if (target?.closest('[data-slot="dropdown-menu-content"]')) return;
+      setCtxMenu(null);
+    }
+    const id = requestAnimationFrame(() => {
+      document.addEventListener("pointerdown", onOutsidePointerDown, true);
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+    };
+  }, [ctxMenu]);
 
   function clearLongPress() {
     if (longPressTimer.current) {
@@ -497,7 +521,7 @@ export function ItemListRow({
 
   return (
     <div
-      className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted data-selected:bg-accent data-dragover:bg-primary/10 data-dragover:ring-1 data-dragover:ring-primary md:grid md:grid-cols-[1fr_7rem_10rem_5rem_2.25rem] md:items-center md:gap-3"
+      className="flex select-none items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted data-selected:bg-accent data-dragover:bg-primary/10 data-dragover:ring-1 data-dragover:ring-primary md:grid md:grid-cols-[1fr_7rem_10rem_5rem_2.25rem] md:items-center md:gap-3"
       data-selected={selected || undefined}
       data-dragover={dragOver || undefined}
       data-fb-drop-target={entry.isDirectory ? entry.path : undefined}
@@ -599,7 +623,7 @@ export function ItemGridTile({
 
   return (
     <div
-      className="group relative flex flex-col items-center gap-1.5 rounded-lg border border-transparent p-2 hover:bg-muted data-selected:border-primary data-selected:bg-accent data-dragover:bg-primary/10 data-dragover:ring-1 data-dragover:ring-primary"
+      className="group relative flex select-none flex-col items-center gap-1.5 rounded-lg border border-transparent p-2 hover:bg-muted data-selected:border-primary data-selected:bg-accent data-dragover:bg-primary/10 data-dragover:ring-1 data-dragover:ring-primary"
       data-selected={selected || undefined}
       data-dragover={dragOver || undefined}
       data-fb-drop-target={entry.isDirectory ? entry.path : undefined}
